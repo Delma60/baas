@@ -40,6 +40,112 @@ async def require_internal(x_internal_secret: str = Header(...)) -> None:
 InternalGuard = Depends(require_internal)
 
 
+# ─── Platform Auth ────────────────────────────────────────────────────────────
+# These endpoints handle platform-level developer accounts (not per-project users).
+# Called by Next.js server actions — never exposed publicly.
+
+class PlatformSignUpRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8)
+    name: str | None = None
+
+
+class PlatformSignInRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+@router.post("/auth/signup", status_code=201, dependencies=[InternalGuard])
+async def platform_signup(
+    body: PlatformSignUpRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """
+    Register a new platform developer account.
+    Creates a row in the public `users` table (not a per-project _auth_users table).
+    """
+    from app.auth.project_auth import hash_password
+
+    existing = await db.execute(
+        text("SELECT id FROM users WHERE email = :email"),
+        {"email": body.email},
+    )
+    if existing.first():
+        raise HTTPException(status_code=409, detail="An account with this email already exists")
+
+    user_id = str(uuid.uuid4())
+    hashed = hash_password(body.password)
+
+    await db.execute(
+        text("""
+            INSERT INTO users (id, email, name, hashed_password, is_email_verified)
+            VALUES (:id, :email, :name, :pwd, false)
+        """),
+        {
+            "id": user_id,
+            "email": body.email,
+            "name": body.name or body.email.split("@")[0],
+            "pwd": hashed,
+        },
+    )
+    await db.commit()
+
+    logger.info("Platform user registered: %s", body.email)
+    return {
+        "data": {
+            "user": {
+                "id": user_id,
+                "email": body.email,
+                "name": body.name or body.email.split("@")[0],
+            }
+        }
+    }
+
+
+@router.post("/auth/signin", dependencies=[InternalGuard])
+async def platform_signin(
+    body: PlatformSignInRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """
+    Authenticate a platform developer account.
+    Returns user data; session management is handled by Auth.js on the Next.js side.
+    """
+    from app.auth.project_auth import verify_password
+
+    result = await db.execute(
+        text("SELECT id, email, name, hashed_password, is_banned FROM users WHERE email = :email"),
+        {"email": body.email},
+    )
+    row = result.mappings().first()
+
+    if not row or not verify_password(body.password, row["hashed_password"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    if row.get("is_banned"):
+        raise HTTPException(status_code=403, detail="This account has been suspended")
+
+    # Update last_login_at if column exists (best-effort)
+    try:
+        await db.execute(
+            text("UPDATE users SET last_login_at = NOW() WHERE id = :id"),
+            {"id": row["id"]},
+        )
+        await db.commit()
+    except Exception:
+        pass  # Column may not exist yet — non-critical
+
+    return {
+        "data": {
+            "user": {
+                "id": row["id"],
+                "email": row["email"],
+                "name": row["name"],
+            }
+        }
+    }
+
+
 # ─── Projects ─────────────────────────────────────────────────────────────────
 
 class CreateProjectRequest(BaseModel):
@@ -52,13 +158,13 @@ class CreateProjectRequest(BaseModel):
 async def create_project(body: CreateProjectRequest) -> dict[str, Any]:
     """Provision all resources for a new project."""
     try:
-        await provision_project_schema(body.db_schema)
-        await provision_project_database(body.mongo_database)
+        await provision_project_schema(body.project_id, body.db_schema)
+        await provision_project_database(body.project_id, body.mongo_database)
         logger.info("Provisioned project: %s", body.project_id)
         return {"data": {"project_id": body.project_id, "provisioned": True}}
     except Exception as e:
-        # If this fails, the frontend should ideally mark the project status as "failed"
         raise HTTPException(status_code=500, detail=f"Infrastructure provisioning failed: {str(e)}")
+
 
 @router.delete("/projects/{project_id}", dependencies=[InternalGuard])
 async def delete_project(
@@ -239,7 +345,6 @@ async def revoke_api_key(
     key_id: str,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    # Invalidate Redis cache entries would happen via separate cache bust
     await db.execute(
         text("UPDATE api_keys SET is_active = false WHERE id = :id"),
         {"id": key_id},
@@ -301,7 +406,6 @@ async def upsert_permissions(
     )
     await db.commit()
 
-    # Bust Redis cache for this permission
     from app.db.redis import get_redis
     redis = await get_redis()
     await redis.delete(f"perms:{project_id}:{body.engine}:{body.resource_name}")

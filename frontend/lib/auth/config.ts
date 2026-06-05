@@ -4,10 +4,11 @@ import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import { z } from "zod";
+import { ApiError } from "@/lib/api/client";
 
 const SignInSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(1),
 });
 
 export const authConfig: NextAuthConfig = {
@@ -31,29 +32,24 @@ export const authConfig: NextAuthConfig = {
         const parsed = SignInSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        const { email, password } = parsed.data;
-        const baseUrl = process.env.FASTAPI_BASE_URL ?? "http://localhost:8000";
-
         try {
-          const res = await fetch(`${baseUrl}/internal/auth/signin`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-internal-secret": process.env.INTERNAL_API_SECRET ?? "",
-            },
-            body: JSON.stringify({ email, password }),
-          });
+          // Import here to avoid module-level side effects at build time
+          const { platformSignIn } = await import("@/lib/api/client");
+          const { user } = await platformSignIn(parsed.data);
 
-          if (!res.ok) return null;
-
-          const { data } = await res.json();
           return {
-            id: data.user.id,
-            email: data.user.email,
-            name: data.user.name ?? email.split("@")[0],
-            image: data.user.avatar_url ?? null,
+            id: user.id,
+            email: user.email,
+            name: user.name ?? parsed.data.email.split("@")[0],
+            image: null,
           };
-        } catch {
+        } catch (err) {
+          // Return null for any auth failure — Auth.js maps this to CredentialsSignin
+          // We intentionally don't surface the specific error here to avoid leaking info
+          if (err instanceof ApiError && err.status === 403) {
+            // Banned account — surface as a distinct error type
+            throw new Error("ACCOUNT_SUSPENDED");
+          }
           return null;
         }
       },
@@ -86,10 +82,12 @@ export const authConfig: NextAuthConfig = {
 
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isDashboard = nextUrl.pathname.startsWith("/dashboard") ||
+      const isDashboard =
+        nextUrl.pathname.startsWith("/dashboard") ||
         nextUrl.pathname.startsWith("/projects");
       const isSuperadmin = nextUrl.pathname.startsWith("/superadmin");
-      const isAuthPage = nextUrl.pathname === "/login" ||
+      const isAuthPage =
+        nextUrl.pathname === "/login" ||
         nextUrl.pathname === "/signup" ||
         nextUrl.pathname === "/verify";
 

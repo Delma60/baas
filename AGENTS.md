@@ -1785,6 +1785,7 @@ CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "800
 
 **Architecture:**
 -  Alway put the file path in comment at the top of the file to know where the folder file belongs
+-  User Shadcn componen and global css, donn'don not dev
 - ❌ Do not put business logic in FastAPI routers — engines only
 - ❌ Do not put business logic in Next.js route handlers — thin proxies only
 - ❌ Do not put any logic in SDK modules — HTTP wrappers only

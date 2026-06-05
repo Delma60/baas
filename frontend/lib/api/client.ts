@@ -1,5 +1,4 @@
 // frontend/lib/api/client.ts
-import { auth } from "@/lib/auth";
 
 const FASTAPI_BASE_URL =
   process.env.FASTAPI_BASE_URL ?? "http://localhost:8000";
@@ -37,42 +36,56 @@ async function internalFetch<T>(
     try {
       const body = await res.json();
       code = body?.error?.code ?? code;
+      // FastAPI HTTPException uses `detail`, our envelope uses `error.message`
       message = body?.error?.message ?? body?.detail ?? message;
-    } catch {}
+    } catch {
+      // ignore parse errors
+    }
     throw new ApiError(res.status, code, message);
   }
 
+  // All internal endpoints return { data: T } — unwrap here
   const json = await res.json();
-  return json.data ?? json;
+  return (json.data ?? json) as T;
 }
 
-// ─── Platform auth helpers (called server-side) ───────────────────────────
+// ─── Platform auth helpers (server-side only) ─────────────────────────────
 
+export type PlatformUser = {
+  id: string;
+  email: string;
+  name: string;
+};
+
+/**
+ * Register a new platform developer account.
+ * Called from the signup server action after Zod validation.
+ * Throws ApiError on 409 (duplicate email) or other failures.
+ */
 export async function platformSignUp(params: {
   email: string;
   password: string;
   name?: string;
-}) {
-  return internalFetch<{ user: { id: string; email: string; name: string } }>(
-    "/auth/signup",
-    {
-      method: "POST",
-      body: JSON.stringify(params),
-    }
-  );
+}): Promise<{ user: PlatformUser }> {
+  return internalFetch<{ user: PlatformUser }>("/auth/signup", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
 }
 
+/**
+ * Authenticate a platform developer account.
+ * Returns the user object — Auth.js creates the session from this.
+ * Throws ApiError on 401 (bad credentials) or 403 (banned).
+ */
 export async function platformSignIn(params: {
   email: string;
   password: string;
-}) {
-  return internalFetch<{ user: { id: string; email: string; name: string } }>(
-    "/auth/signin",
-    {
-      method: "POST",
-      body: JSON.stringify(params),
-    }
-  );
+}): Promise<{ user: PlatformUser }> {
+  return internalFetch<{ user: PlatformUser }>("/auth/signin", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
 }
 
 // ─── Projects ─────────────────────────────────────────────────────────────
@@ -82,7 +95,7 @@ export async function createProject(params: {
   name: string;
   db_schema: string;
   mongo_database: string;
-}) {
+}): Promise<{ project_id: string; provisioned: boolean }> {
   return internalFetch<{ project_id: string; provisioned: boolean }>(
     "/projects",
     {
@@ -94,6 +107,8 @@ export async function createProject(params: {
 
 // ─── Usage ────────────────────────────────────────────────────────────────
 
-export async function getProjectUsage(projectId: string) {
+export async function getProjectUsage(
+  projectId: string
+): Promise<Record<string, number>> {
   return internalFetch<Record<string, number>>(`/usage/${projectId}`);
 }

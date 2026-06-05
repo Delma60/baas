@@ -2,7 +2,7 @@
 "use server";
 
 import { signIn, signOut } from "@/lib/auth";
-import { platformSignUp } from "@/lib/api/client";
+import { platformSignUp, ApiError } from "@/lib/api/client";
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -44,17 +44,19 @@ export async function signUpAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
+  // Register the platform account
   try {
-    // Register on the platform
     await platformSignUp(parsed.data);
-  } catch (err: any) {
-    if (err?.status === 409) {
-      return { errors: { email: ["An account with this email already exists"] } };
+  } catch (err) {
+    if (err instanceof ApiError) {
+      if (err.status === 409) {
+        return { errors: { email: ["An account with this email already exists"] } };
+      }
     }
     return { message: "Something went wrong. Please try again." };
   }
 
-  // Auto sign-in after signup
+  // Auto sign-in after successful signup
   try {
     await signIn("credentials", {
       email: parsed.data.email,
@@ -62,7 +64,7 @@ export async function signUpAction(
       redirect: false,
     });
   } catch {
-    // Sign-in failed after signup — redirect to login
+    // Sign-in failed after signup (unusual) — send to login with a hint
     redirect("/login?registered=1");
   }
 
@@ -95,11 +97,17 @@ export async function signInAction(
       switch (err.type) {
         case "CredentialsSignin":
           return { message: "Invalid email or password" };
+        case "CallbackRouteError":
+          // Surfaced when authorize() throws (e.g. ACCOUNT_SUSPENDED)
+          if (err.cause?.err?.message === "ACCOUNT_SUSPENDED") {
+            return { message: "Your account has been suspended. Please contact support." };
+          }
+          return { message: "Something went wrong. Please try again." };
         default:
           return { message: "Something went wrong. Please try again." };
       }
     }
-    throw err; // re-throw redirect
+    throw err; // re-throw the Next.js redirect
   }
 
   return null;
