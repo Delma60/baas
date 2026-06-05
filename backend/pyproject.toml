@@ -1,7 +1,7 @@
 [project]
 name = "backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "BaaS Platform — FastAPI backend"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -14,6 +14,7 @@ dependencies = [
     "motor>=3.7.1",
     "passlib[bcrypt]>=1.7.4",
     "pydantic-settings>=2.14.1",
+    "python-dateutil>=2.9.0",
     "python-jose[cryptography]>=3.5.0",
     "python-multipart>=0.0.32",
     "redis>=8.0.0",

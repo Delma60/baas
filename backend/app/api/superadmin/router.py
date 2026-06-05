@@ -6,7 +6,7 @@ from app.api.superadmin.organizations import router as orgs_router
 from app.api.superadmin.projects import router as projects_router
 from app.api.superadmin.billing import router as billing_router
 from app.api.superadmin.staff import router as staff_router
-from backend.app.api.superadmin._audit import router as audit_router
+from app.api.superadmin._audit import router as audit_router
 from app.api.superadmin.flags import router as flags_router
 
 router = APIRouter(tags=["Superadmin"])

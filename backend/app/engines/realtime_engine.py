@@ -1,86 +1,80 @@
-# backend/app/api/superadmin/flags.py
+# backend/app/engines/realtime_engine.py
+"""
+Realtime engine — manages PostgreSQL LISTEN/NOTIFY listeners and
+MongoDB Change Stream watchers. Results are broadcast to Socket.io
+clients via Redis pub/sub so any worker node can forward events.
+"""
+import asyncio
+import json
 import logging
-import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.db.postgres import get_db
-from app.middleware.staff_auth import StaffRole, require_staff_role
-from app.models.requests import FeatureFlagUpdateRequest
-from app.models.staff import StaffContext
-from app.api.superadmin._audit import write_audit_log
-
-router = APIRouter(prefix="/flags")
 logger = logging.getLogger(__name__)
 
 
-@router.get("")
-async def list_flags(
-    staff: StaffContext = Depends(require_staff_role(StaffRole.ops)),
-    db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
-    result = await db.execute(
-        text("SELECT id, name, enabled, description, updated_at FROM feature_flags ORDER BY name")
-    )
-    flags = [dict(r) for r in result.mappings()]
-    return {"data": flags, "meta": {"count": len(flags)}}
+async def listen_postgres_channel(
+    channel: str,
+    redis_publish_key: str,
+) -> None:
+    """
+    Open a raw asyncpg connection (not SQLAlchemy) and LISTEN on
+    a PostgreSQL NOTIFY channel. Each notification is published to
+    the given Redis key for Socket.io workers to pick up.
+    """
+    import asyncpg
+    from app.config import settings
+
+    # asyncpg needs a plain DSN (no +asyncpg driver prefix)
+    dsn = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
+
+    async def _handler(conn, pid, channel_name, payload):  # type: ignore[no-untyped-def]
+        try:
+            data = json.loads(payload)
+            from app.db.redis import get_redis
+            redis = await get_redis()
+            await redis.publish(redis_publish_key, json.dumps(data))
+            logger.debug("Published realtime event on %s", channel_name)
+        except Exception as e:
+            logger.error("Realtime handler error on %s: %s", channel_name, e)
+
+    try:
+        conn = await asyncpg.connect(dsn)
+        await conn.add_listener(channel, _handler)
+        logger.info("Listening on PostgreSQL channel: %s", channel)
+        # Keep alive — caller manages lifecycle
+        while True:
+            await asyncio.sleep(30)
+    except asyncio.CancelledError:
+        logger.info("Stopped listening on channel: %s", channel)
+        raise
+    except Exception as e:
+        logger.error("Failed to listen on channel %s: %s", channel, e)
+        raise
 
 
-@router.get("/{flag_name}")
-async def get_flag(
-    flag_name: str,
-    staff: StaffContext = Depends(require_staff_role(StaffRole.ops)),
-    db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
-    result = await db.execute(
-        text("SELECT id, name, enabled, description, updated_at FROM feature_flags WHERE name = :name"),
-        {"name": flag_name},
-    )
-    row = result.mappings().first()
-    if not row:
-        raise HTTPException(status_code=404, detail="Feature flag not found")
-    return {"data": dict(row)}
+async def get_channel_name(schema: str, table_or_collection: str) -> str:
+    """Return the canonical notify channel name for a resource."""
+    return f"{schema}_{table_or_collection}_changes"
 
 
-@router.put("/{flag_name}")
-async def upsert_flag(
-    flag_name: str,
-    body: FeatureFlagUpdateRequest,
-    staff: StaffContext = Depends(require_staff_role(StaffRole.ops)),
-    db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
-    """Create or update a feature flag."""
-    await db.execute(
-        text("""
-            INSERT INTO feature_flags (id, name, enabled, description, updated_at)
-            VALUES (:id, :name, :enabled, :description, NOW())
-            ON CONFLICT (name) DO UPDATE
-              SET enabled = EXCLUDED.enabled,
-                  description = COALESCE(EXCLUDED.description, feature_flags.description),
-                  updated_at = NOW()
-        """),
-        {
-            "id": str(uuid.uuid4()),
-            "name": flag_name,
-            "enabled": body.enabled,
-            "description": body.description,
-        },
-    )
-    await db.commit()
-
-    # Bust cache
+async def broadcast_event(
+    project_id: str,
+    resource: str,
+    event_type: str,
+    payload: dict[str, Any],
+) -> None:
+    """
+    Publish a realtime event to Redis for Socket.io to forward.
+    Used by insert/update/delete engines when pg_notify is not available.
+    """
     from app.db.redis import get_redis
     redis = await get_redis()
-    await redis.delete(f"flag:{flag_name}")
-
-    await write_audit_log(db, staff, "flag.update", flag_name, meta={"enabled": body.enabled})
-
-    result = await db.execute(
-        text("SELECT id, name, enabled, description, updated_at FROM feature_flags WHERE name = :name"),
-        {"name": flag_name},
-    )
-    row = result.mappings().first()
-    return {"data": dict(row) if row else {"name": flag_name, "enabled": body.enabled}}
+    message = json.dumps({
+        "project_id": project_id,
+        "resource": resource,
+        "type": event_type,
+        "payload": payload,
+    })
+    channel = f"realtime:{project_id}:{resource}"
+    await redis.publish(channel, message)
+    logger.debug("Broadcast %s event for %s/%s", event_type, project_id, resource)
