@@ -98,9 +98,18 @@ export async function signInAction(
         case "CredentialsSignin":
           return { message: "Invalid email or password" };
         case "CallbackRouteError":
-          // Surfaced when authorize() throws (e.g. ACCOUNT_SUSPENDED)
+          // Surfaced when authorize() throws (e.g. ACCOUNT_SUSPENDED or auth service misconfiguration)
           if (err.cause?.err?.message === "ACCOUNT_SUSPENDED") {
             return { message: "Your account has been suspended. Please contact support." };
+          }
+          if (
+            err.cause?.err?.message === "AUTH_SERVICE_UNAVAILABLE" ||
+            err.cause?.message === "AUTH_SERVICE_UNAVAILABLE"
+          ) {
+            return {
+              message:
+                "Authentication is temporarily unavailable. Please check backend configuration and try again.",
+            };
           }
           return { message: "Something went wrong. Please try again." };
         default:

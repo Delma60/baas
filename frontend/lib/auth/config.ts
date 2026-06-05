@@ -44,12 +44,18 @@ export const authConfig: NextAuthConfig = {
             image: null,
           };
         } catch (err) {
-          // Return null for any auth failure — Auth.js maps this to CredentialsSignin
-          // We intentionally don't surface the specific error here to avoid leaking info
-          if (err instanceof ApiError && err.status === 403) {
-            // Banned account — surface as a distinct error type
-            throw new Error("ACCOUNT_SUSPENDED");
+          if (err instanceof ApiError) {
+            if (err.status === 403) {
+              // Banned account — surface as a distinct error type
+              throw new Error("ACCOUNT_SUSPENDED");
+            }
+
+            if (err.status === 401 && err.code === "INVALID_INTERNAL_SECRET") {
+              throw new Error("AUTH_SERVICE_UNAVAILABLE");
+            }
           }
+
+          // Return null for invalid email/password or other auth failures
           return null;
         }
       },
