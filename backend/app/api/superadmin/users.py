@@ -12,7 +12,7 @@ from app.models.requests import UserUpdateRequest
 from app.models.staff import StaffContext
 from app.api.superadmin._audit import write_audit_log
 
-router = APIRouter(prefix="/users")
+router = APIRouter(prefix="/users", dependencies=[Depends(require_staff_role(StaffRole.support))])
 logger = logging.getLogger(__name__)
 
 

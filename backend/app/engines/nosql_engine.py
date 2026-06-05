@@ -127,6 +127,7 @@ async def update_document(
     collection: str,
     doc_id: str,
     update: dict[str, Any],
+    extra_condition: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     _validate_collection(collection)
     safe_update = _sanitize_filter(update)
@@ -141,6 +142,10 @@ async def update_document(
     except Exception:
         obj_id = doc_id  # type: ignore[assignment]
 
+    query = {"_id": obj_id}
+    if extra_condition:
+        query.update(extra_condition)
+        
     await coll.update_one({"_id": obj_id}, safe_update)
     doc = await coll.find_one({"_id": obj_id})
     return _serialize_doc(doc) if doc else None

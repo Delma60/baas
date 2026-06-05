@@ -1,4 +1,5 @@
 # backend/app/middleware/staff_auth.py
+import logging
 from enum import Enum
 
 from fastapi import Depends, Header, HTTPException
@@ -7,6 +8,7 @@ from app.auth.staff_auth import verify_staff_token
 from app.config import settings
 from app.models.staff import StaffContext, StaffRole
 
+logger = logging.getLogger(__name__)
 
 ROLE_HIERARCHY: dict[StaffRole, int] = {
     StaffRole.support:     0,
@@ -14,6 +16,7 @@ ROLE_HIERARCHY: dict[StaffRole, int] = {
     StaffRole.ops:         2,
     StaffRole.super_admin: 3,
 }
+
 
 
 async def get_staff_context(

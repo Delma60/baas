@@ -1,36 +1,36 @@
 import logging
 
 from app.db.mongo import get_project_db
+from pymongo import ASCENDING, IndexModel
 
 logger = logging.getLogger(__name__)
 
 KV_COLLECTION = "_kv"
 
 
-async def provision_project_database(mongo_database: str) -> None:
-    """
-    Initialize a MongoDB database for a project.
-    Creates the _kv collection with required indexes.
-    """
+async def provision_project_database(project_id: str, mongo_database: str) -> None:
+    """Sets up the MongoDB database and required indexes for the project."""
+    
+    if not mongo_database.replace("_", "").isalnum() or not mongo_database.startswith("proj_"):
+        raise ValueError(f"Invalid database name: {mongo_database}")
+
     db = get_project_db(mongo_database)
-
-    # Create the _kv collection with a unique index on key
     kv_coll = db[KV_COLLECTION]
-    await kv_coll.create_index("key", unique=True)
-    # TTL index on expires_at (MongoDB removes docs when expires_at passes)
-    await kv_coll.create_index("expires_at", expireAfterSeconds=0, sparse=True)
-
-    # System metadata collection
-    system_coll = db["_system"]
-    await system_coll.update_one(
-        {"_id": "config"},
-        {"$setOnInsert": {"created_at": __import__("datetime").datetime.utcnow()}},
-        upsert=True,
-    )
-
-    logger.info("Provisioned MongoDB database: %s", mongo_database)
-
-
+    
+    try:
+        # 1. Unique index on 'key' to prevent duplicate keys
+        # 2. TTL index on 'expires_at' (MongoDB automatically deletes expired docs)
+        indexes = [
+            IndexModel([("key", ASCENDING)], unique=True),
+            IndexModel([("expires_at", ASCENDING)], expireAfterSeconds=0)
+        ]
+        
+        await kv_coll.create_indexes(indexes)
+        logger.info("✅ Provisioned MongoDB database '%s' for project '%s'", mongo_database, project_id)
+    except Exception as e:
+        logger.error("❌ Failed to provision NoSQL database for %s: %s", project_id, str(e))
+        raise
+    
 async def teardown_project_database(mongo_database: str) -> None:
     """Drop a project's MongoDB database entirely."""
     from app.db.mongo import get_mongo_client

@@ -14,6 +14,14 @@ from app.models.requests import (
     KVSetRequest,
     UpdateDocumentRequest,
 )
+from app.engines.permission_engine import check_permission, inject_auth_uid
+
+async def _get_nosql_condition(project_id: str, collection: str, operation: str, auth: AuthCtx) -> dict[str, Any] | None:
+    """Helper to evaluate permissions and format the NoSQL condition dict."""
+    condition = await check_permission(project_id, collection, operation, "nosql", auth)
+    if condition and auth.uid:
+        condition = inject_auth_uid(condition, auth.uid)
+    return condition if isinstance(condition, dict) else None
 
 router = APIRouter(prefix="/nosql", tags=["NoSQL Database"])
 logger = logging.getLogger(__name__)
@@ -38,8 +46,10 @@ async def find_documents(
     db = get_project_db(ctx["mongo_database"])
     sort = [(sort_field, sort_dir)] if sort_field else None
 
+    filter_doc = await _get_nosql_condition(project_id, collection, "find", auth)
     docs, total = await nosql_engine.find_documents(
-        db, collection, sort=sort, limit=limit, skip=skip
+        db, collection, sort=sort, limit=limit, skip=skip,
+        filter_doc=filter_doc,
     )
     return {"data": docs, "meta": {"count": total, "limit": limit, "skip": skip}}
 
@@ -55,8 +65,10 @@ async def get_document(
     if ctx["project_id"] != project_id:
         raise HTTPException(status_code=403, detail="Project ID mismatch")
 
+    condition = await _get_nosql_condition(project_id, collection, "get", auth)
+
     db = get_project_db(ctx["mongo_database"])
-    doc = await nosql_engine.get_document(db, collection, doc_id)
+    doc = await nosql_engine.get_document(db, collection, doc_id, extra_condition=condition)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     return {"data": doc}
@@ -72,6 +84,7 @@ async def insert_document(
 ) -> dict[str, Any]:
     if ctx["project_id"] != project_id:
         raise HTTPException(status_code=403, detail="Project ID mismatch")
+    await _get_nosql_condition(project_id, collection, "INSERT", auth)
 
     db = get_project_db(ctx["mongo_database"])
 

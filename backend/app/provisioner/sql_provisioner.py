@@ -9,12 +9,36 @@ from app.db.postgres import AsyncSessionLocal
 logger = logging.getLogger(__name__)
 
 
-async def provision_project_schema(schema_name: str) -> None:
-    """Create a new PostgreSQL schema for a project."""
+async def provision_project_schema(project_id: str, db_schema: str) -> None:
+    """Creates the isolated PostgreSQL schema and default platform tables."""
+    
+    # 🛡️ Strict validation to prevent SQL injection in DDL
+    if not db_schema.replace("_", "").isalnum() or not db_schema.startswith("proj_"):
+        raise ValueError(f"Invalid schema name: {db_schema}")
+
     async with AsyncSessionLocal() as session:
-        await session.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
-        await session.commit()
-    logger.info("Provisioned schema: %s", schema_name)
+        try:
+            # 1. Create the isolated schema
+            await session.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{db_schema}"'))
+            
+            # 2. Create the _auth_users table (matches our Auth Router)
+            await session.execute(text(f"""
+                CREATE TABLE IF NOT EXISTS "{db_schema}"."_auth_users" (
+                    id TEXT PRIMARY KEY,
+                    email TEXT UNIQUE NOT NULL,
+                    name TEXT,
+                    hashed_password TEXT NOT NULL,
+                    is_email_verified BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            
+            await session.commit()
+            logger.info("✅ Provisioned SQL schema '%s' for project '%s'", db_schema, project_id)
+        except Exception as e:
+            await session.rollback()
+            logger.error("❌ Failed to provision SQL schema for %s: %s", project_id, str(e))
+            raise
 
 
 async def teardown_project_schema(schema_name: str) -> None:

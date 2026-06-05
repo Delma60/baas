@@ -1,13 +1,53 @@
 import logging
 from datetime import datetime
 from typing import Any
-
+import asyncio
 from botocore.exceptions import ClientError
 
 from app.config import settings
-from app.storage.minio import get_bucket_name, get_s3_client
+from app.storage.minio import ensure_bucket_exists, get_bucket_name, get_s3_client
 
 logger = logging.getLogger(__name__)
+
+PRESIGNED_URL_EXPIRES_IN = 3600
+
+
+async def get_upload_url(project_id: str, bucket: str, filename: str, content_type: str) -> str:
+    """Generate a presigned PUT URL for direct client uploads."""
+    safe_bucket = get_bucket_name(project_id, bucket)
+    s3 = get_s3_client()
+
+    def _generate() -> str:
+        ensure_bucket_exists(safe_bucket)
+        return s3.generate_presigned_url(
+            "put_object",
+            Params={
+                "Bucket": safe_bucket,
+                "Key": filename,
+                "ContentType": content_type,
+            },
+            ExpiresIn=PRESIGNED_URL_EXPIRES_IN,
+        )
+
+    return await asyncio.to_thread(_generate)
+
+
+async def get_download_url(project_id: str, bucket: str, path: str) -> str:
+    """Generate a presigned GET URL for direct client downloads."""
+    safe_bucket = get_bucket_name(project_id, bucket)
+    s3 = get_s3_client()
+
+    def _generate() -> str:
+        return s3.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": safe_bucket,
+                "Key": path,
+            },
+            ExpiresIn=PRESIGNED_URL_EXPIRES_IN,
+        )
+
+    return await asyncio.to_thread(_generate)
 
 
 def _verify_bucket_ownership(project_id: str, bucket: str) -> str:
@@ -65,47 +105,49 @@ async def get_presigned_upload_url(
         "expires_in": str(expires_in),
     }
 
-
-async def list_files(
-    project_id: str,
-    bucket: str,
-    prefix: str | None = None,
-    limit: int = 100,
-) -> list[dict[str, Any]]:
-    full_bucket = _verify_bucket_ownership(project_id, bucket)
+async def list_files(project_id: str, bucket: str, prefix: str = "") -> list[dict[str, Any]]:
+    """List all files in a project's bucket, optionally filtered by prefix."""
+    safe_bucket = get_bucket_name(project_id, bucket)
     s3 = get_s3_client()
 
-    kwargs: dict[str, Any] = {"Bucket": full_bucket, "MaxKeys": min(limit, 1000)}
-    if prefix:
-        kwargs["Prefix"] = prefix
+    def _list() -> list[dict[str, Any]]:
+        try:
+            response = s3.list_objects_v2(Bucket=safe_bucket, Prefix=prefix)
+            if "Contents" not in response:
+                return []
+            
+            return [
+                {
+                    "key": item["Key"],
+                    "size": item["Size"],
+                    "last_modified": item["LastModified"].isoformat(),
+                    "etag": item["ETag"].strip('"'),
+                }
+                for item in response["Contents"]
+            ]
+        except ClientError as e:
+            error_code = int(e.response["Error"]["Code"])
+            if error_code == 404:
+                return []  # Bucket doesn't exist yet
+            raise
 
-    try:
-        response = s3.list_objects_v2(**kwargs)
-    except ClientError as e:
-        if e.response["Error"]["Code"] == "NoSuchBucket":
-            return []
-        raise
-
-    files = []
-    for obj in response.get("Contents", []):
-        files.append({
-            "key": obj["Key"],
-            "size": obj["Size"],
-            "last_modified": obj["LastModified"].isoformat() if isinstance(obj["LastModified"], datetime) else str(obj["LastModified"]),
-            "content_type": obj.get("ContentType"),
-        })
-    return files
+    return await asyncio.to_thread(_list)
 
 
-async def delete_file(project_id: str, bucket: str, file_key: str) -> bool:
-    full_bucket = _verify_bucket_ownership(project_id, bucket)
+async def delete_file(project_id: str, bucket: str, path: str) -> bool:
+    """Delete a file from a project's bucket."""
+    safe_bucket = get_bucket_name(project_id, bucket)
     s3 = get_s3_client()
-    try:
-        s3.delete_object(Bucket=full_bucket, Key=file_key)
-        return True
-    except ClientError:
-        return False
 
+    def _delete() -> bool:
+        try:
+            s3.delete_object(Bucket=safe_bucket, Key=path)
+            return True
+        except ClientError as e:
+            logger.error("Failed to delete object %s: %s", path, e)
+            return False
+
+    return await asyncio.to_thread(_delete)
 
 async def get_presigned_download_url(
     project_id: str,

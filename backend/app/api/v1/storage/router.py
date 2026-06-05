@@ -11,6 +11,8 @@ from app.engines.storage_engine import (
     get_presigned_upload_url,
     list_files,
 )
+from app.engines import storage_engine
+
 from app.models.requests import PresignedUploadRequest
 
 router = APIRouter(prefix="/storage", tags=["Storage"])
@@ -29,14 +31,24 @@ async def get_upload_url(
     if ctx["project_id"] != project_id:
         raise HTTPException(status_code=403, detail="Project ID mismatch")
 
-    result = await get_presigned_upload_url(
-        project_id=project_id,
-        bucket=bucket,
-        filename=body.filename,
-        content_type=body.content_type,
-        expires_in=body.expires_in,
+    # In a fully fleshed out system, we would inject a permission check here
+    # similar to the query/nosql engines (e.g. check_permission(..., "INSERT", "storage", ...))
+    
+    upload_url = await storage_engine.get_upload_url(
+        project_id, bucket, body.filename, body.content_type
     )
-    return {"data": result}
+    
+    # We also return what the final GET URL will be for client convenience
+    file_url = await storage_engine.get_download_url(project_id, bucket, body.filename)
+
+    return {
+        "data": {
+            "upload_url": upload_url,
+            "file_url": file_url,
+            "filename": body.filename,
+            "bucket": bucket,
+        }
+    }
 
 
 @router.get("/{project_id}/{bucket}/files")
@@ -72,22 +84,16 @@ async def delete_bucket_file(
     return {"data": {"deleted": True, "key": file_path}}
 
 
-@router.get("/{project_id}/{bucket}/{file_path:path}/url")
+@router.get("/{project_id}/{bucket}/{patha:path}/url")
 async def get_download_url(
     project_id: str,
     bucket: str,
-    file_path: str,
+    path: str,
     ctx: ProjectCtx,
     auth: AuthCtx,
     expires_in: int = Query(default=3600, ge=60, le=86400),
 ) -> dict[str, Any]:
     if ctx["project_id"] != project_id:
         raise HTTPException(status_code=403, detail="Project ID mismatch")
-
-    url = await get_presigned_download_url(
-        project_id=project_id,
-        bucket=bucket,
-        file_key=file_path,
-        expires_in=expires_in,
-    )
-    return {"data": {"url": url, "key": file_path, "expires_in": expires_in}}
+    url = await storage_engine.get_download_url(project_id, bucket, path)
+    return {"data": {"url": url, "path": path}}

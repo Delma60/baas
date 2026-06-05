@@ -51,11 +51,14 @@ class CreateProjectRequest(BaseModel):
 @router.post("/projects", status_code=201, dependencies=[InternalGuard])
 async def create_project(body: CreateProjectRequest) -> dict[str, Any]:
     """Provision all resources for a new project."""
-    await provision_project_schema(body.db_schema)
-    await provision_project_database(body.mongo_database)
-    logger.info("Provisioned project: %s", body.project_id)
-    return {"data": {"project_id": body.project_id, "provisioned": True}}
-
+    try:
+        await provision_project_schema(body.db_schema)
+        await provision_project_database(body.mongo_database)
+        logger.info("Provisioned project: %s", body.project_id)
+        return {"data": {"project_id": body.project_id, "provisioned": True}}
+    except Exception as e:
+        # If this fails, the frontend should ideally mark the project status as "failed"
+        raise HTTPException(status_code=500, detail=f"Infrastructure provisioning failed: {str(e)}")
 
 @router.delete("/projects/{project_id}", dependencies=[InternalGuard])
 async def delete_project(

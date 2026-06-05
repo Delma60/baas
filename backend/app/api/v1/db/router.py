@@ -9,11 +9,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.postgres import get_db
 from app.dependencies import AuthCtx, ParsedFilters, ProjectCtx
 from app.engines import query_engine
+from app.engines.permission_engine import check_permission, inject_auth_uid
 from app.models.requests import InsertRowRequest, RpcCallRequest, UpdateRowRequest
 
 router = APIRouter(prefix="/db", tags=["SQL Database"])
 logger = logging.getLogger(__name__)
 
+async def _get_sql_condition(project_id: str, table: str, operation: str, auth: AuthCtx) -> str | None:
+    """Helper to evaluate permissions and format the SQL condition string."""
+    condition = await check_permission(project_id, table, operation, "sql", auth)
+    if condition and auth.uid:
+        condition = inject_auth_uid(condition, auth.uid)
+    return condition
 
 @router.get("/{project_id}/{table}")
 async def list_rows(
@@ -32,6 +39,7 @@ async def list_rows(
     if ctx["project_id"] != project_id:
         raise HTTPException(status_code=403, detail="Project ID mismatch")
 
+    condition = await _get_sql_condition(project_id, table, "list", auth)
     rows, total = await query_engine.list_rows(
         db,
         ctx["db_schema"],
@@ -43,6 +51,7 @@ async def list_rows(
         limit=limit,
         offset=offset,
         auth_ctx=auth,
+        extra_condition=condition,
     )
     return {"data": rows, "meta": {"count": total, "limit": limit, "offset": offset}}
 
@@ -60,7 +69,8 @@ async def get_row(
     if ctx["project_id"] != project_id:
         raise HTTPException(status_code=403, detail="Project ID mismatch")
 
-    row = await query_engine.get_row(db, ctx["db_schema"], table, row_id, select_cols=select)
+    condition = await _get_sql_condition(project_id, table, "get", auth)
+    row = await query_engine.get_row(db, ctx["db_schema"], table, row_id, select_cols=select, extra_condition=condition)
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
     return {"data": row}
@@ -77,6 +87,8 @@ async def insert_row(
 ) -> dict[str, Any]:
     if ctx["project_id"] != project_id:
         raise HTTPException(status_code=403, detail="Project ID mismatch")
+    
+    await _get_sql_condition(project_id, table, "insert", auth)
 
     if isinstance(body.data, list):
         results = []
@@ -101,8 +113,9 @@ async def update_row(
 ) -> dict[str, Any]:
     if ctx["project_id"] != project_id:
         raise HTTPException(status_code=403, detail="Project ID mismatch")
-
-    row = await query_engine.update_row(db, ctx["db_schema"], table, row_id, body.data)
+    
+    condition = await _get_sql_condition(project_id, table, "update", auth)
+    row = await query_engine.update_row(db, ctx["db_schema"], table, row_id, body.data, extra_condition=condition)
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
     return {"data": row}
@@ -120,7 +133,8 @@ async def delete_row(
     if ctx["project_id"] != project_id:
         raise HTTPException(status_code=403, detail="Project ID mismatch")
 
-    deleted = await query_engine.delete_row(db, ctx["db_schema"], table, row_id)
+    condition = await _get_sql_condition(project_id, table, "delete", auth)
+    deleted = await query_engine.delete_row(db, ctx["db_schema"], table, row_id, extra_condition=condition)
     if not deleted:
         raise HTTPException(status_code=404, detail="Row not found")
     return {"data": {"deleted": True, "id": row_id}}
