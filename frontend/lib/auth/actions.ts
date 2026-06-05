@@ -44,7 +44,7 @@ export async function signUpAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  // 1. Register the platform account
+  // 1. Register the platform account via FastAPI /internal/auth/signup
   try {
     await platformSignUp(parsed.data);
   } catch (err) {
@@ -52,13 +52,20 @@ export async function signUpAction(
       if (err.status === 409) {
         return { errors: { email: ["An account with this email already exists"] } };
       }
+      if (err.status === 503) {
+        return { message: "Cannot reach the backend server. Please try again shortly." };
+      }
+      if (err.status === 500 && err.code === "MISCONFIGURATION") {
+        return { message: "Server configuration error. Please contact support." };
+      }
+      // Surface other API errors with their message
+      return { message: err.message || "Something went wrong. Please try again." };
     }
+    console.error("[signUpAction] Unexpected error:", err);
     return { message: "Something went wrong. Please try again." };
   }
 
   // 2. Auto sign-in after successful signup.
-  //    signIn() with redirectTo throws a NEXT_REDIRECT internally — that's expected and must be re-thrown.
-  //    AuthErrors are returned as state. Unexpected errors bubble up.
   try {
     await signIn("credentials", {
       email: parsed.data.email,
@@ -70,15 +77,11 @@ export async function signUpAction(
     if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
 
     if (err instanceof AuthError) {
-      // Signup succeeded but auto-login failed — send to login with a hint
       redirect("/login?registered=1");
     }
-    // Unexpected error during auto sign-in
     redirect("/login?registered=1");
   }
 
-  // signIn with redirectTo never returns — it throws NEXT_REDIRECT
-  // This line is unreachable but satisfies TypeScript
   return null;
 }
 
@@ -104,7 +107,6 @@ export async function signInAction(
       redirectTo: "/dashboard",
     });
   } catch (err) {
-    // NEXT_REDIRECT must always be re-thrown — it's how Next.js performs server-side redirects
     if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
 
     if (err instanceof AuthError) {
@@ -113,13 +115,10 @@ export async function signInAction(
           return { message: "Invalid email or password." };
 
         case "CallbackRouteError": {
-          // authorize() threw a custom Error — check the cause chain
-          // Auth.js v5 wraps it: CallbackRouteError → cause.err
           const cause = (err as any).cause?.err;
           if (cause instanceof Error && cause.message === "ACCOUNT_SUSPENDED") {
             return {
-              message:
-                "Your account has been suspended. Please contact support.",
+              message: "Your account has been suspended. Please contact support.",
             };
           }
           return { message: "Something went wrong. Please try again." };
@@ -130,11 +129,9 @@ export async function signInAction(
       }
     }
 
-    // Any other error is unexpected — bubble up
     throw err;
   }
 
-  // Unreachable — signIn with redirectTo always throws NEXT_REDIRECT
   return null;
 }
 

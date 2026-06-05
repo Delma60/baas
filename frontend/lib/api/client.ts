@@ -20,30 +20,48 @@ async function internalFetch<T>(
   init: RequestInit = {}
 ): Promise<T> {
   if (!INTERNAL_SECRET) {
-    throw new Error(
-      "INTERNAL_API_SECRET is not configured for the frontend. " +
-        "Create frontend/.env with INTERNAL_API_SECRET or set the variable in your Next.js environment."
+    console.error(
+      "[api/client] INTERNAL_API_SECRET is not set. " +
+        "Add it to frontend/.env — it must match the backend INTERNAL_API_SECRET."
+    );
+    throw new ApiError(
+      500,
+      "MISCONFIGURATION",
+      "Server is misconfigured: missing INTERNAL_API_SECRET."
     );
   }
-
+  
   const url = `${FASTAPI_BASE_URL}/internal${path}`;
+  console.log(url)
 
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      "x-internal-secret": INTERNAL_SECRET,
-      ...(init.headers ?? {}),
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        "x-internal-secret": INTERNAL_SECRET,
+        ...(init.headers ?? {}),
+      },
+    });
+  } catch (networkErr) {
+    console.error("[api/client] Network error reaching FastAPI:", networkErr);
+    throw new ApiError(
+      503,
+      "NETWORK_ERROR",
+      `Cannot reach backend at ${FASTAPI_BASE_URL}. Is it running?`
+    );
+  }
 
   if (!res.ok) {
     let code = "UNKNOWN_ERROR";
     let message = `HTTP ${res.status}`;
     try {
       const body = await res.json();
-      code = body?.error?.code ?? body?.detail?.toString().toUpperCase().replace(/[^A-Z0-9_]+/g, "_") ?? code;
-      // FastAPI HTTPException uses `detail`, our envelope uses `error.message`
+      code =
+        body?.error?.code ??
+        body?.detail?.toString().toUpperCase().replace(/[^A-Z0-9_]+/g, "_") ??
+        code;
       message = body?.error?.message ?? body?.detail ?? message;
     } catch {
       // ignore parse errors
@@ -51,7 +69,6 @@ async function internalFetch<T>(
     throw new ApiError(res.status, code, message);
   }
 
-  // All internal endpoints return { data: T } — unwrap here
   const json = await res.json();
   return (json.data ?? json) as T;
 }
@@ -64,11 +81,6 @@ export type PlatformUser = {
   name: string;
 };
 
-/**
- * Register a new platform developer account.
- * Called from the signup server action after Zod validation.
- * Throws ApiError on 409 (duplicate email) or other failures.
- */
 export async function platformSignUp(params: {
   email: string;
   password: string;
@@ -80,11 +92,6 @@ export async function platformSignUp(params: {
   });
 }
 
-/**
- * Authenticate a platform developer account.
- * Returns the user object — Auth.js creates the session from this.
- * Throws ApiError on 401 (bad credentials) or 403 (banned).
- */
 export async function platformSignIn(params: {
   email: string;
   password: string;
