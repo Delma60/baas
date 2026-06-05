@@ -33,7 +33,7 @@ export const authConfig: NextAuthConfig = {
         if (!parsed.success) return null;
 
         try {
-          // Import here to avoid module-level side effects at build time
+          // Dynamic import to avoid module-level side effects at build time
           const { platformSignIn } = await import("@/lib/api/client");
           const { user } = await platformSignIn(parsed.data);
 
@@ -46,17 +46,15 @@ export const authConfig: NextAuthConfig = {
         } catch (err) {
           if (err instanceof ApiError) {
             if (err.status === 403) {
-              // Banned account — surface as a distinct error type
+              // Banned account — surface as a distinct error type that
+              // signInAction can catch via CallbackRouteError → cause
               throw new Error("ACCOUNT_SUSPENDED");
             }
-
-            if (err.status === 401 && err.code === "INVALID_INTERNAL_SECRET") {
-              throw new Error("AUTH_SERVICE_UNAVAILABLE");
-            }
+            // Any other API error (401, 500, etc.) → invalid credentials
+            return null;
           }
-
-          // Return null for invalid email/password or other auth failures
-          return null;
+          // Re-throw unexpected errors (network failures, etc.)
+          throw err;
         }
       },
     }),
@@ -71,6 +69,7 @@ export const authConfig: NextAuthConfig = {
 
   callbacks: {
     async jwt({ token, user, account }) {
+      // `user` is only defined on initial sign-in
       if (user) {
         token.id = user.id;
         token.provider = account?.provider ?? "credentials";
@@ -88,19 +87,24 @@ export const authConfig: NextAuthConfig = {
 
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isDashboard =
-        nextUrl.pathname.startsWith("/dashboard") ||
-        nextUrl.pathname.startsWith("/projects");
-      const isSuperadmin = nextUrl.pathname.startsWith("/superadmin");
-      const isAuthPage =
-        nextUrl.pathname === "/login" ||
-        nextUrl.pathname === "/signup" ||
-        nextUrl.pathname === "/verify";
+      const { pathname } = nextUrl;
 
-      if (isDashboard || isSuperadmin) {
-        if (!isLoggedIn) return false;
+      const isDashboard =
+        pathname.startsWith("/dashboard") || pathname.startsWith("/projects");
+      const isSuperadmin = pathname.startsWith("/superadmin");
+      const isAuthPage =
+        pathname === "/login" ||
+        pathname === "/signup" ||
+        pathname === "/verify";
+
+      // Protect dashboard & superadmin — redirect unauthenticated users to login
+      if ((isDashboard || isSuperadmin) && !isLoggedIn) {
+        const loginUrl = new URL("/login", nextUrl);
+        loginUrl.searchParams.set("callbackUrl", nextUrl.href);
+        return Response.redirect(loginUrl);
       }
 
+      // Redirect already-authenticated users away from auth pages
       if (isAuthPage && isLoggedIn) {
         return Response.redirect(new URL("/dashboard", nextUrl));
       }

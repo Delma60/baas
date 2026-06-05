@@ -41,8 +41,6 @@ InternalGuard = Depends(require_internal)
 
 
 # ─── Platform Auth ────────────────────────────────────────────────────────────
-# These endpoints handle platform-level developer accounts (not per-project users).
-# Called by Next.js server actions — never exposed publicly.
 
 class PlatformSignUpRequest(BaseModel):
     email: EmailStr
@@ -62,7 +60,7 @@ async def platform_signup(
 ) -> dict[str, Any]:
     """
     Register a new platform developer account.
-    Creates a row in the public `users` table (not a per-project _auth_users table).
+    Creates a row in the public `users` table.
     """
     from app.auth.project_auth import hash_password
 
@@ -114,26 +112,38 @@ async def platform_signin(
     from app.auth.project_auth import verify_password
 
     result = await db.execute(
-        text("SELECT id, email, name, hashed_password, is_banned FROM users WHERE email = :email"),
+        text("""
+            SELECT id, email, name, hashed_password, is_banned
+            FROM users
+            WHERE email = :email
+        """),
         {"email": body.email},
     )
     row = result.mappings().first()
 
-    if not row or not verify_password(body.password, row["hashed_password"]):
+    # Deliberate constant-time path: check password even if user not found
+    # (avoids timing-based user enumeration)
+    if not row:
+        # Still call verify to prevent timing attacks
+        verify_password("dummy", "$2b$12$invalidhashplaceholderxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    if row.get("is_banned"):
+    if not verify_password(body.password, row["hashed_password"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    if row["is_banned"]:
         raise HTTPException(status_code=403, detail="This account has been suspended")
 
-    # Update last_login_at if column exists (best-effort)
+    # Best-effort last_login_at update — don't let this fail the request
     try:
         await db.execute(
             text("UPDATE users SET last_login_at = NOW() WHERE id = :id"),
             {"id": row["id"]},
         )
         await db.commit()
-    except Exception:
-        pass  # Column may not exist yet — non-critical
+    except Exception as e:
+        logger.warning("Failed to update last_login_at for user %s: %s", row["id"], e)
+        await db.rollback()
 
     return {
         "data": {
