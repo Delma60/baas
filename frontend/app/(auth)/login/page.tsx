@@ -1,7 +1,7 @@
 "use client";
 // frontend/app/(auth)/login/page.tsx
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import {
@@ -39,6 +39,14 @@ function SubmitButton() {
 
 export default function LoginPage() {
   const [state, formAction] = useActionState(signInAction, null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    if (state?.message || state?.errors) {
+      setPassword("");
+    }
+  }, [state]);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[--border] bg-[--surface] shadow-xl shadow-black/5">
@@ -106,6 +114,8 @@ export default function LoginPage() {
               required
               autoComplete="email"
               placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
               className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-[--brand] focus-visible:ring-[--brand]/20"
             />
             {state?.errors?.email && (
@@ -135,6 +145,8 @@ export default function LoginPage() {
               required
               autoComplete="current-password"
               placeholder="••••••••"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
               className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-[--brand] focus-visible:ring-[--brand]/20"
             />
             {state?.errors?.password && (

@@ -11,7 +11,11 @@ const SignInSchema = z.object({
   password: z.string().min(1),
 });
 
+const AUTH_SECRET =
+  process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? "dev-nextauth-secret";
+
 export const authConfig: NextAuthConfig = {
+  secret: AUTH_SECRET,
   providers: [
     GitHub({
       clientId: process.env.AUTH_GITHUB_ID!,
