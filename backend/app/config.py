@@ -2,13 +2,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=[".env", "../.env"], extra="ignore")
 
     # App
     app_name: str = "BaaS Platform"
     node_env: str = "development"
     fastapi_base_url: str = "http://localhost:8000"
-    internal_api_secret: str = "changeme"
+    internal_api_secret: str = "123-76-43334-5-433-45-65665-ghfgdfv-s-6543-2v-bvc-vwe-56"
 
     # PostgreSQL
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/baas_platform"

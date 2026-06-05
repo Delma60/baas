@@ -2,7 +2,7 @@
 
 const FASTAPI_BASE_URL =
   process.env.FASTAPI_BASE_URL ?? "http://localhost:8000";
-const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET ?? "";
+const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET;
 
 export class ApiError extends Error {
   constructor(
@@ -19,6 +19,13 @@ async function internalFetch<T>(
   path: string,
   init: RequestInit = {}
 ): Promise<T> {
+  if (!INTERNAL_SECRET) {
+    throw new Error(
+      "INTERNAL_API_SECRET is not configured for the frontend. " +
+        "Create frontend/.env with INTERNAL_API_SECRET or set the variable in your Next.js environment."
+    );
+  }
+
   const url = `${FASTAPI_BASE_URL}/internal${path}`;
 
   const res = await fetch(url, {
@@ -35,7 +42,7 @@ async function internalFetch<T>(
     let message = `HTTP ${res.status}`;
     try {
       const body = await res.json();
-      code = body?.error?.code ?? code;
+      code = body?.error?.code ?? body?.detail?.toString().toUpperCase().replace(/[^A-Z0-9_]+/g, "_") ?? code;
       // FastAPI HTTPException uses `detail`, our envelope uses `error.message`
       message = body?.error?.message ?? body?.detail ?? message;
     } catch {
