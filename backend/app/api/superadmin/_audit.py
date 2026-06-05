@@ -1,4 +1,5 @@
 # backend/app/api/superadmin/_audit.py
+import json
 import logging
 import uuid
 from typing import Any
@@ -19,7 +20,6 @@ async def write_audit_log(
     meta: dict[str, Any] | None = None,
 ) -> None:
     """Append an audit log entry. Audit logs are never deleted."""
-    import json
     try:
         await db.execute(
             text("""

@@ -1,5 +1,6 @@
 # backend/app/main.py
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,9 +9,22 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await _bootstrap_superadmin()
+    yield
+    # Shutdown: close persistent connections
+    from app.db.mongo import close_mongo_client
+    from app.db.redis import close_redis
+    await close_mongo_client()
+    await close_redis()
+
+
 app = FastAPI(
     title=settings.app_name,
     version="1.0.0",
+    lifespan=lifespan,
     docs_url="/docs" if settings.node_env == "development" else None,
     redoc_url=None,
 )
@@ -46,13 +60,12 @@ app.include_router(internal_router, prefix="/internal")
 app.include_router(superadmin_router, prefix="/superadmin")
 
 
-# ─── Startup ──────────────────────────────────────────────────────────────────
-@app.on_event("startup")
-async def bootstrap_superadmin() -> None:
+async def _bootstrap_superadmin() -> None:
     """Create the initial super_admin if none exists."""
     from sqlalchemy import text
     from app.db.postgres import AsyncSessionLocal
     from app.auth.staff_auth import hash_staff_password
+    import uuid
 
     if not settings.bootstrap_admin_email or not settings.bootstrap_admin_password:
         return
@@ -64,7 +77,6 @@ async def bootstrap_superadmin() -> None:
         if result.first():
             return  # Already bootstrapped
 
-        import uuid
         await session.execute(
             text("""
                 INSERT INTO staff (id, email, name, hashed_password, role, is_active)

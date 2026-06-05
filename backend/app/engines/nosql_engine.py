@@ -1,4 +1,6 @@
+# backend/app/engines/nosql_engine.py
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from bson import ObjectId
@@ -8,6 +10,10 @@ logger = logging.getLogger(__name__)
 
 RESERVED_COLLECTIONS = {"_kv", "_system"}
 FORBIDDEN_OPERATORS = {"$where", "$function", "$accumulator"}
+
+
+def _now_utc() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 def _validate_collection(name: str) -> None:
@@ -162,7 +168,6 @@ async def aggregate_documents(
     pipeline: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     _validate_collection(collection)
-    # Validate each pipeline stage
     safe_pipeline = [_sanitize_filter(stage) for stage in pipeline]
 
     coll = db[collection]
@@ -179,23 +184,28 @@ KV_COLLECTION = "_kv"
 
 async def kv_get(db: AsyncIOMotorDatabase, key: str) -> Any:
     coll = db[KV_COLLECTION]
-    import datetime
     doc = await coll.find_one({"key": key})
     if not doc:
         return None
-    # Check TTL (if set and expired)
-    if doc.get("expires_at") and doc["expires_at"] < datetime.datetime.utcnow():
-        await coll.delete_one({"key": key})
-        return None
+    # Manual TTL check as a safety net — MongoDB TTL index is the primary expiry mechanism
+    # but may lag by up to 60 s. Use timezone-aware comparison.
+    expires_at = doc.get("expires_at")
+    if expires_at is not None:
+        # Motor returns naive datetimes from MongoDB; treat as UTC
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < _now_utc():
+            await coll.delete_one({"key": key})
+            return None
     return doc.get("value")
 
 
 async def kv_set(db: AsyncIOMotorDatabase, key: str, value: Any, ttl: int | None = None) -> None:
-    import datetime
+    from datetime import timedelta
     coll = db[KV_COLLECTION]
     doc: dict[str, Any] = {"key": key, "value": value}
     if ttl:
-        doc["expires_at"] = datetime.datetime.utcnow() + datetime.timedelta(seconds=ttl)
+        doc["expires_at"] = _now_utc() + timedelta(seconds=ttl)
     else:
         doc["expires_at"] = None
     await coll.update_one({"key": key}, {"$set": doc}, upsert=True)
@@ -207,20 +217,33 @@ async def kv_delete(db: AsyncIOMotorDatabase, key: str) -> bool:
     return result.deleted_count > 0
 
 
-async def kv_list(db: AsyncIOMotorDatabase, prefix: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
-    import datetime
+async def kv_list(
+    db: AsyncIOMotorDatabase,
+    prefix: str | None = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
     coll = db[KV_COLLECTION]
     filter_doc: dict[str, Any] = {
-        "$or": [{"expires_at": None}, {"expires_at": {"$gt": datetime.datetime.utcnow()}}]
+        "$or": [
+            {"expires_at": None},
+            {"expires_at": {"$gt": _now_utc()}},
+        ]
     }
     if prefix:
-        filter_doc["key"] = {"$regex": f"^{prefix}"}
+        # Escape regex metacharacters in the prefix
+        import re
+        safe_prefix = re.escape(prefix)
+        filter_doc["key"] = {"$regex": f"^{safe_prefix}"}
 
     results = []
-    async for doc in coll.find(filter_doc, {"_id": 0, "key": 1, "value": 1, "expires_at": 1}).limit(limit):
+    async for doc in coll.find(
+        filter_doc,
+        {"_id": 0, "key": 1, "value": 1, "expires_at": 1},
+    ).limit(min(limit, 1000)):
+        expires_at = doc.get("expires_at")
         results.append({
             "key": doc["key"],
             "value": doc["value"],
-            "expires_at": doc.get("expires_at").isoformat() if doc.get("expires_at") else None,
+            "expires_at": expires_at.isoformat() if expires_at else None,
         })
     return results
