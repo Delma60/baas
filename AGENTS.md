@@ -109,7 +109,7 @@ surprises and Supabase's steep learning curve.
 | Realtime | Postgres LISTEN/NOTIFY + Socket.io | |
 | Jobs (Next.js) | BullMQ + Redis (ioredis) | Background processing |
 | Jobs (Python) | Celery + Redis | Background jobs on Python side |
-| Email | Resend | Transactional only |
+| Email | Nodemailer | Transactional only |
 | Payments | Paystack (primary) + Stripe (secondary) | Dual-currency |
 | SDK (JS/TS) | TypeScript, built with tsup | Published to npm |
 | SDK (Python) | Python 3.9+, built with hatch | Published to PyPI |
@@ -762,7 +762,11 @@ BOOTSTRAP_ADMIN_EMAIL=
 BOOTSTRAP_ADMIN_PASSWORD=
 
 # ─── Email ────────────────────────────────────────────────────────────────────
-RESEND_API_KEY=
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+SMTP_SECURE=false
 
 # ─── Payments ─────────────────────────────────────────────────────────────────
 PAYSTACK_SECRET_KEY=
