@@ -1,0 +1,139 @@
+import logging
+from typing import Any
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.postgres import AsyncSessionLocal
+
+logger = logging.getLogger(__name__)
+
+
+async def provision_project_schema(schema_name: str) -> None:
+    """Create a new PostgreSQL schema for a project."""
+    async with AsyncSessionLocal() as session:
+        await session.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
+        await session.commit()
+    logger.info("Provisioned schema: %s", schema_name)
+
+
+async def teardown_project_schema(schema_name: str) -> None:
+    """Drop a project's PostgreSQL schema and all its tables."""
+    async with AsyncSessionLocal() as session:
+        await session.execute(text(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE'))
+        await session.commit()
+    logger.info("Torn down schema: %s", schema_name)
+
+
+async def create_table(
+    session: AsyncSession,
+    schema: str,
+    table: str,
+    columns: list[dict[str, Any]],
+    *,
+    enable_rls: bool = False,
+    enable_realtime: bool = False,
+) -> None:
+    """
+    Create a table in a project schema.
+    columns: [{"name": "title", "type": "text", "nullable": True, "default": None}]
+    """
+    col_defs = ['id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text']
+    for col in columns:
+        col_name = col["name"]
+        col_type = _map_type(col.get("type", "text"))
+        nullable = "NULL" if col.get("nullable", True) else "NOT NULL"
+        default = f"DEFAULT {col['default']}" if col.get("default") is not None else ""
+        col_defs.append(f'"{col_name}" {col_type} {nullable} {default}'.strip())
+
+    col_defs.append("created_at TIMESTAMPTZ DEFAULT NOW()")
+    col_defs.append("updated_at TIMESTAMPTZ DEFAULT NOW()")
+
+    ddl = f'CREATE TABLE IF NOT EXISTS "{schema}"."{table}" ({", ".join(col_defs)})'
+    await session.execute(text(ddl))
+
+    # Updated_at trigger
+    await session.execute(text(f"""
+        CREATE OR REPLACE TRIGGER set_updated_at
+        BEFORE UPDATE ON "{schema}"."{table}"
+        FOR EACH ROW EXECUTE FUNCTION moddatetime(updated_at)
+    """))
+
+    if enable_realtime:
+        await _create_realtime_trigger(session, schema, table)
+
+    logger.info("Created table: %s.%s", schema, table)
+
+
+async def drop_table(session: AsyncSession, schema: str, table: str) -> None:
+    await session.execute(text(f'DROP TABLE IF EXISTS "{schema}"."{table}" CASCADE'))
+    logger.info("Dropped table: %s.%s", schema, table)
+
+
+async def add_column(
+    session: AsyncSession,
+    schema: str,
+    table: str,
+    column: dict[str, Any],
+) -> None:
+    col_name = column["name"]
+    col_type = _map_type(column.get("type", "text"))
+    nullable = "NULL" if column.get("nullable", True) else "NOT NULL"
+    default = f"DEFAULT {column['default']}" if column.get("default") is not None else ""
+    await session.execute(
+        text(f'ALTER TABLE "{schema}"."{table}" ADD COLUMN "{col_name}" {col_type} {nullable} {default}')
+    )
+
+
+async def drop_column(session: AsyncSession, schema: str, table: str, column: str) -> None:
+    await session.execute(
+        text(f'ALTER TABLE "{schema}"."{table}" DROP COLUMN IF EXISTS "{column}"')
+    )
+
+
+async def _create_realtime_trigger(session: AsyncSession, schema: str, table: str) -> None:
+    channel = f"{schema}_{table}_changes"
+    fn_name = f"{schema}_{table}_notify"
+
+    await session.execute(text(f"""
+        CREATE OR REPLACE FUNCTION "{fn_name}"() RETURNS trigger AS $$
+        BEGIN
+          IF TG_OP = 'DELETE' THEN
+            PERFORM pg_notify('{channel}', json_build_object(
+              'type', TG_OP, 'old', row_to_json(OLD)
+            )::text);
+          ELSE
+            PERFORM pg_notify('{channel}', json_build_object(
+              'type', TG_OP, 'new', row_to_json(NEW)
+            )::text);
+          END IF;
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+    """))
+
+    await session.execute(text(f"""
+        CREATE OR REPLACE TRIGGER "{fn_name}_trigger"
+        AFTER INSERT OR UPDATE OR DELETE ON "{schema}"."{table}"
+        FOR EACH ROW EXECUTE FUNCTION "{fn_name}"()
+    """))
+
+
+def _map_type(t: str) -> str:
+    type_map = {
+        "text": "TEXT",
+        "string": "TEXT",
+        "int": "INTEGER",
+        "integer": "INTEGER",
+        "float": "DOUBLE PRECISION",
+        "double": "DOUBLE PRECISION",
+        "bool": "BOOLEAN",
+        "boolean": "BOOLEAN",
+        "json": "JSONB",
+        "jsonb": "JSONB",
+        "timestamp": "TIMESTAMPTZ",
+        "date": "DATE",
+        "uuid": "UUID",
+        "vector": "vector",  # pgvector
+    }
+    return type_map.get(t.lower(), "TEXT")
