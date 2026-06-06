@@ -67,6 +67,7 @@ export async function createProjectAction(
   const projectId = `proj_${parsed.data.slug}_${uniqueId.slice(0, 6)}`;
   const dbSchema = `proj_${uniqueId}`;
   const mongoDatabase = `proj_${generateId()}`;
+  const slug = parsed.data.slug;
 
   try {
     await createProject({
@@ -75,6 +76,7 @@ export async function createProjectAction(
       region: parsed.data.region,
       db_schema: dbSchema,
       mongo_database: mongoDatabase,
+      slug: slug,
       owner_user_id: userId,
       description: parsed.data.description,
     });

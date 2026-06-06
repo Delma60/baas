@@ -417,6 +417,8 @@ export default function NewProjectPage({
                         <code className="text-xs font-mono text-foreground">
                           {slug}
                         </code>
+                        {/* hidden slug input */}
+                        <input type="hidden" name="slug" value={slug} />
                       </div>
                     )}
                   </div>

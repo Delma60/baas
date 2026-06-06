@@ -180,6 +180,7 @@ export async function createProject(params: {
   mongo_database: string;
   owner_user_id: string;
   description?: string;
+  slug: string;
 }): Promise<{ project_id: string; provisioned: boolean }> {
   return internalFetch<{ project_id: string; provisioned: boolean }>(
     "/projects",
