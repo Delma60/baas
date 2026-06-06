@@ -1,3 +1,5 @@
+import type { Project } from "@/types/baas";
+
 // frontend/lib/api/client.ts
 
 const FASTAPI_BASE_URL =
@@ -13,6 +15,47 @@ export class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
+}
+
+type BackendProject = {
+  id: string;
+  name: string;
+  status: "active" | "paused" | "deleted";
+  region: string;
+  created_at: string;
+  organization_name?: string;
+  slug?: string;
+  db_schema?: string;
+  mongo_database?: string;
+};
+
+function projectIconFromName(name: string): Project["icon"] {
+  if (name.includes("store") || name.includes("shop")) return "cart";
+  if (name.includes("mobile")) return "mobile";
+  if (name.includes("cms") || name.includes("content")) return "article";
+  if (name.includes("analytics") || name.includes("stats")) return "chart";
+  return "default";
+}
+
+function projectColorFromStatus(status: Project["status"]): Project["color"] {
+  if (status === "paused") return "purple";
+  return "orange";
+}
+
+function mapBackendProject(project: BackendProject): Project {
+  return {
+    id: project.id,
+    name: project.name,
+    organizationName: project.organization_name ?? "Your organization",
+    status: project.status,
+    region: project.region ?? "Lagos",
+    icon: projectIconFromName(project.name),
+    color: projectColorFromStatus(project.status),
+    modules: ["sql", "auth", "storage"] as const,
+    sqlRows: 0,
+    apiCalls: 0,
+    updatedAt: new Date(project.created_at),
+  };
 }
 
 async function internalFetch<T>(
@@ -107,8 +150,10 @@ export async function platformSignIn(params: {
 export async function createProject(params: {
   project_id: string;
   name: string;
+  region: string;
   db_schema: string;
   mongo_database: string;
+  description?: string;
 }): Promise<{ project_id: string; provisioned: boolean }> {
   return internalFetch<{ project_id: string; provisioned: boolean }>(
     "/projects",
@@ -117,6 +162,16 @@ export async function createProject(params: {
       body: JSON.stringify(params),
     }
   );
+}
+
+export async function getProjects(): Promise<Project[]> {
+  const projects = await internalFetch<BackendProject[]>("/projects");
+  return projects.map(mapBackendProject);
+}
+
+export async function getProjectById(projectId: string): Promise<Project> {
+  const project = await internalFetch<BackendProject>(`/projects/${projectId}`);
+  return mapBackendProject(project);
 }
 
 // ─── Usage ────────────────────────────────────────────────────────────────

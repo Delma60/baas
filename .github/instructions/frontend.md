@@ -1,0 +1,4 @@
+- Always use shadcn for design
+- Always check for ts errors
+- keep to the design preference of firebase like feel
+- proxy.ts is prefered over middleware.ts

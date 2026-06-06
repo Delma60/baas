@@ -1,5 +1,7 @@
 # backend/app/api/internal/router.py
 import logging
+import re
+import secrets
 import uuid
 from typing import Any
 
@@ -38,6 +40,55 @@ async def require_internal(x_internal_secret: str = Header(...)) -> None:
 
 
 InternalGuard = Depends(require_internal)
+
+
+def slugify(value: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9-]+", "-", value.lower())
+    return cleaned.strip("-")[:50]
+
+
+def generate_auth_jwt_secret() -> str:
+    return secrets.token_urlsafe(32)
+
+
+# ─── Project read helpers ─────────────────────────────────────────────────────
+
+@router.get("/projects", dependencies=[InternalGuard])
+async def list_projects(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    result = await db.execute(
+        text("""
+            SELECT p.id, p.name, p.status, p.region, p.db_schema,
+                   p.mongo_database, p.created_at,
+                   o.name AS organization_name
+            FROM projects p
+            LEFT JOIN organizations o ON o.id = p.organization_id
+            ORDER BY p.created_at DESC
+        """),
+    )
+    projects = [dict(r) for r in result.mappings()]
+    return {"data": projects}
+
+
+@router.get("/projects/{project_id}", dependencies=[InternalGuard])
+async def get_project(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    result = await db.execute(
+        text("""
+            SELECT p.id, p.name, p.slug, p.status, p.region,
+                   p.db_schema, p.mongo_database, p.created_at,
+                   o.id AS organization_id, o.name AS organization_name
+            FROM projects p
+            LEFT JOIN organizations o ON o.id = p.organization_id
+            WHERE p.id = :project_id
+        """),
+        {"project_id": project_id},
+    )
+    row = result.mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"data": dict(row)}
 
 
 # ─── Platform Auth ────────────────────────────────────────────────────────────
@@ -160,18 +211,68 @@ async def platform_signin(
 
 class CreateProjectRequest(BaseModel):
     project_id: str
+    name: str
     db_schema: str
     mongo_database: str
+    region: str = Field(default="lagos")
+    description: str | None = None
 
 
 @router.post("/projects", status_code=201, dependencies=[InternalGuard])
-async def create_project(body: CreateProjectRequest) -> dict[str, Any]:
-    """Provision all resources for a new project."""
+async def create_project(
+    body: CreateProjectRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Provision all resources for a new project and persist its public record."""
+    slug = slugify(body.name)
+    jwt_secret = generate_auth_jwt_secret()
+
+    existing = await db.execute(
+        text(
+            "SELECT id FROM projects WHERE id = :project_id OR slug = :slug OR db_schema = :db_schema OR mongo_database = :mongo_database"
+        ),
+        {
+            "project_id": body.project_id,
+            "slug": slug,
+            "db_schema": body.db_schema,
+            "mongo_database": body.mongo_database,
+        },
+    )
+    if existing.first():
+        raise HTTPException(status_code=409, detail="A project with this identifier already exists")
+
     try:
         await provision_project_schema(body.project_id, body.db_schema)
         await provision_project_database(body.project_id, body.mongo_database)
-        logger.info("Provisioned project: %s", body.project_id)
+
+        await db.execute(
+            text(
+                """
+                INSERT INTO projects (
+                    id, organization_id, name, slug, region, status,
+                    db_schema, mongo_database, auth_jwt_secret
+                ) VALUES (
+                    :id, NULL, :name, :slug, :region, 'active',
+                    :db_schema, :mongo_database, :auth_jwt_secret
+                )
+                """
+            ),
+            {
+                "id": body.project_id,
+                "name": body.name,
+                "slug": slug,
+                "region": body.region,
+                "db_schema": body.db_schema,
+                "mongo_database": body.mongo_database,
+                "auth_jwt_secret": jwt_secret,
+            },
+        )
+        await db.commit()
+
+        logger.info("Provisioned and saved project: %s", body.project_id)
         return {"data": {"project_id": body.project_id, "provisioned": True}}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Infrastructure provisioning failed: {str(e)}")
 

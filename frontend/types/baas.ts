@@ -23,6 +23,7 @@ export interface Project {
   icon: ProjectIcon;
   color: ProjectColor;
   modules: readonly ProjectModule[];
+  description?: string;
   sqlRows: number;
   apiCalls: number;
   updatedAt: Date;

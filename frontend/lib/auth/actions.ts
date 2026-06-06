@@ -70,7 +70,7 @@ export async function signUpAction(
     await signIn("credentials", {
       email: parsed.data.email,
       password: parsed.data.password,
-      redirectTo: "/dashboard",
+      redirectTo: "/u",
     });
   } catch (err) {
     // NEXT_REDIRECT is thrown by Next.js internally — always re-throw it
@@ -104,7 +104,7 @@ export async function signInAction(
   try {
     await signIn("credentials", {
       ...parsed.data,
-      redirectTo: "/dashboard",
+      redirectTo: "/u",
     });
   } catch (err) {
     if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
@@ -138,11 +138,11 @@ export async function signInAction(
 // ─── OAuth ────────────────────────────────────────────────────────────────
 
 export async function signInWithGitHub() {
-  await signIn("github", { redirectTo: "/dashboard" });
+  await signIn("github", { redirectTo: "/u" });
 }
 
 export async function signInWithGoogle() {
-  await signIn("google", { redirectTo: "/dashboard" });
+  await signIn("google", { redirectTo: "/u" });
 }
 
 // ─── Sign Out ─────────────────────────────────────────────────────────────
