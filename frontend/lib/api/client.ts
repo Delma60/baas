@@ -51,6 +51,7 @@ function mapBackendProject(project: BackendProject): Project {
     region: project.region ?? "Lagos",
     icon: projectIconFromName(project.name),
     color: projectColorFromStatus(project.status),
+    db_schema: project.db_schema ?? "",
     modules: ["sql", "nosql", "auth", "storage", "realtime", "ai", "functions"] as const,
     sqlRows: 0,
     apiCalls: 0,

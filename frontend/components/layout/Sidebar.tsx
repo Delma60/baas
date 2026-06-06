@@ -706,7 +706,7 @@ function UserRow({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger >
-        <button className="flex h-12 w-full items-center gap-2.5 px-3 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+        <div className="flex h-12 w-full items-center gap-2.5 px-3 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
           {avatarEl}
           <div className="flex-1 min-w-0 text-left">
             <p className="truncate text-[12.5px] font-medium text-foreground leading-tight">
@@ -717,7 +717,7 @@ function UserRow({
             </p>
           </div>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        </button>
+        </div>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent

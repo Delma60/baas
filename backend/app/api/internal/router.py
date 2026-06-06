@@ -366,6 +366,87 @@ async def create_project(
         raise HTTPException(status_code=500, detail=f"Infrastructure provisioning failed: {str(e)}")
 
 
+@router.get("/projects/{project_id}/db-status", dependencies=[InternalGuard])
+async def get_db_status(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """
+    Check whether the project's PostgreSQL schema and MongoDB database
+    have been provisioned. Uses schema existence as the source of truth.
+    """
+    result = await db.execute(
+        text("""
+            SELECT p.db_schema, p.mongo_database
+            FROM projects p
+            WHERE p.id = :project_id
+        """),
+        {"project_id": project_id},
+    )
+    row = result.mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Check if the postgres schema exists
+    schema_result = await db.execute(
+        text("""
+            SELECT schema_name
+            FROM information_schema.schemata
+            WHERE schema_name = :schema_name
+        """),
+        {"schema_name": row["db_schema"]},
+    )
+    schema_exists = schema_result.first() is not None
+
+    return {
+        "data": {
+            "db_provisioned": schema_exists,
+            "db_schema": row["db_schema"],
+            "mongo_database": row["mongo_database"],
+        }
+    }
+
+
+@router.post("/projects/{project_id}/provision", status_code=201, dependencies=[InternalGuard])
+async def provision_project_databases(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """
+    Manually provision the PostgreSQL schema and MongoDB database
+    for a project. Idempotent — safe to call multiple times.
+    """
+    result = await db.execute(
+        text("""
+            SELECT p.db_schema, p.mongo_database, p.status
+            FROM projects p
+            WHERE p.id = :project_id
+        """),
+        {"project_id": project_id},
+    )
+    row = result.mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if row["status"] != "active":
+        raise HTTPException(status_code=403, detail="Project is not active")
+
+    try:
+        await provision_project_schema(project_id, row["db_schema"])
+        await provision_project_database(project_id, row["mongo_database"])
+        logger.info("Manually provisioned databases for project: %s", project_id)
+        return {
+            "data": {
+                "project_id": project_id,
+                "db_schema": row["db_schema"],
+                "mongo_database": row["mongo_database"],
+                "provisioned": True,
+            }
+        }
+    except Exception as e:
+        logger.error("Provision failed for project %s: %s", project_id, e)
+        raise HTTPException(status_code=500, detail=f"Provisioning failed: {str(e)}")
+    
 @router.delete("/projects/{project_id}", dependencies=[InternalGuard])
 async def delete_project(
     project_id: str,

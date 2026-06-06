@@ -27,6 +27,7 @@ export interface Project {
   sqlRows: number;
   apiCalls: number;
   updatedAt: Date;
+  db_schema: string;
 }
 
 // ─── Activity ─────────────────────────────────────────────────────────────────
