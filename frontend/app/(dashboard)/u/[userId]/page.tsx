@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import type { Project } from "@/types/baas";
 import { ProjectList } from "@/components/dashboard/ProjectList";
-import { getProjects } from "@/lib/api/client";
+import { getProjects, getProjectsByUser } from "@/lib/api/client";
+import { auth } from "@/lib/auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,10 +70,11 @@ const SAMPLE_FEATURES = [
 // ─── Page (server component) ──────────────────────────────────────────────────
 
 export default async function ProjectsDashboard({ params }: PageProps) {
-  const { userId } = await params;
+const session = await auth()
 
   // TODO: pull from session / DB
-  const userName = "Olaniyi";
+  const userName = session?.user?.name;
+  const userId = session?.user?.id as string;
 
   // Fetch real projects from backend
   let projects: Project[] = [];
@@ -81,6 +83,8 @@ export default async function ProjectsDashboard({ params }: PageProps) {
   } catch (error) {
     console.error("Failed to fetch projects:", error);
   }
+
+  console.log(projects)
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] flex">

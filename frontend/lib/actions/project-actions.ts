@@ -13,12 +13,18 @@ const CreateProjectSchema = z.object({
     .min(2, "Name must be at least 2 characters")
     .max(40, "Name must be under 40 characters")
     .regex(
-      /^[a-z0-9][a-z0-9-]*[a-z0-9]$/,
-      "Use lowercase letters, numbers, and hyphens only (no leading/trailing hyphens)"
+      /^[a-zA-Z0-9\s-]+[a-zA-Z0-9]$/,
+      "Use letters, numbers, spaces, and hyphens"
     ),
-  region: z.enum(["lagos", "london", "singapore"], {
-    errorMap: () => ({ message: "Select a valid region" }),
-  }),
+  slug: z
+    .string()
+    .min(2, "Slug must be at least 2 characters")
+    .max(40, "Slug must be under 40 characters")
+    .regex(
+      /^[a-z0-9][a-z0-9-]*[a-z0-9]$/,
+      "Slug must use lowercase letters, numbers, and hyphens only"
+    ),
+  region: z.enum(["lagos", "london", "singapore"]),
   description: z.string().max(200).optional(),
 });
 
@@ -44,7 +50,8 @@ export async function createProjectAction(
   if (!session?.user?.id) redirect("/login");
 
   const raw = {
-    name: (formData.get("name") as string)?.toLowerCase().trim(),
+    name: (formData.get("name") as string)?.trim(),
+    slug: (formData.get("slug") as string)?.trim().toLowerCase(),
     region: formData.get("region") as string,
     description: formData.get("description") as string | undefined,
   };
@@ -54,7 +61,7 @@ export async function createProjectAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const projectId = `proj_${generateId()}`;
+  const projectId = `proj_${parsed.data.slug}`;
   const dbSchema = `proj_${generateId()}`;
   const mongoDatabase = `proj_${generateId()}`;
 
@@ -62,12 +69,13 @@ export async function createProjectAction(
     await createProject({
       project_id: projectId,
       name: parsed.data.name,
+      region: parsed.data.region,
       db_schema: dbSchema,
       mongo_database: mongoDatabase,
     });
   } catch (err: any) {
     if (err?.status === 409) {
-      return { errors: { name: ["A project with this name already exists"] } };
+      return { errors: { slug: ["A project with this slug already exists"] } };
     }
     if (err?.status === 503) {
       return { message: "Cannot reach the backend. Please try again." };

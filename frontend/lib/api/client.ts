@@ -169,6 +169,11 @@ export async function getProjects(): Promise<Project[]> {
   return projects.map(mapBackendProject);
 }
 
+export async function getProjectsByUser(userId: string): Promise<Project[]> {
+  const projects = await internalFetch<BackendProject[]>(`/users/${userId}/projects`);
+  return projects.map(mapBackendProject);
+}
+
 export async function getProjectById(projectId: string): Promise<Project> {
   const project = await internalFetch<BackendProject>(`/projects/${projectId}`);
   return mapBackendProject(project);

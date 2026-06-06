@@ -94,24 +94,26 @@ export const authConfig: NextAuthConfig = {
       const { pathname } = nextUrl;
 
       const isDashboard =
-        pathname.startsWith("/dashboard") || pathname.startsWith("/projects");
-      const isSuperadmin = pathname.startsWith("/superadmin");
-      const isAuthPage =
-        pathname === "/login" ||
-        pathname === "/signup" ||
-        pathname === "/verify";
+  pathname.startsWith("/dashboard") || pathname.startsWith("/projects");
+const isUserDashboard = pathname.startsWith("/u/");
+const isSuperadmin = pathname.startsWith("/superadmin");
+const isAuthPage =
+  pathname === "/login" ||
+  pathname === "/signup" ||
+  pathname === "/verify";
 
-      // Protect dashboard & superadmin — redirect unauthenticated users to login
-      if ((isDashboard || isSuperadmin) && !isLoggedIn) {
-        const loginUrl = new URL("/login", nextUrl);
-        loginUrl.searchParams.set("callbackUrl", nextUrl.href);
-        return Response.redirect(loginUrl);
-      }
+if ((isDashboard || isUserDashboard || isSuperadmin) && !isLoggedIn) {
+  const loginUrl = new URL("/login", nextUrl);
+  loginUrl.searchParams.set("callbackUrl", nextUrl.href);
+  return Response.redirect(loginUrl);
+}
 
-      // Redirect already-authenticated users away from auth pages
-      if (isAuthPage && isLoggedIn) {
-        return Response.redirect(new URL("/dashboard", nextUrl));
-      }
+if (isAuthPage && isLoggedIn) {
+  const userId = auth?.user?.id;
+  const dest = userId ? `/u/${userId}` : "/u";
+  return Response.redirect(new URL(dest, nextUrl));
+}
+
 
       return true;
     },
