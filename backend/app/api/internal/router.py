@@ -194,6 +194,7 @@ async def platform_signup(
         raise HTTPException(status_code=409, detail="An account with this email already exists")
 
     user_id = str(uuid.uuid4())
+    new_org_id = str(uuid.uuid4())
     user_name = body.name or body.email.split("@")[0]
     hashed = hash_password(body.password)
 
@@ -210,6 +211,23 @@ async def platform_signup(
         },
     )
 
+    # Inside your signup route...
+
+    # Fallback to a default name if the user left the organization field blank
+    org_name_to_save = body.organization_name if body.organization_name else f"{body.name}'s Organization"
+
+    # Update your SQL insert to use the dynamic name
+    await db.execute(
+        text("""
+            INSERT INTO organizations (id, name, owner_id) 
+            VALUES (:id, :name, :owner_id)
+        """),
+        {
+            "id": new_org_id,
+            "name": org_name_to_save, # Make sure this isn't hardcoded!
+            "owner_id": user_id
+        }
+    )
     # Auto-create a personal organization for the new user
     await _get_or_create_personal_org(db, user_id, user_name, body.organization_name)
     await db.commit()

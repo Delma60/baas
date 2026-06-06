@@ -15,7 +15,7 @@ const SignUpSchema = z.object({
     .regex(/[A-Z]/, "Password must contain an uppercase letter")
     .regex(/[0-9]/, "Password must contain a number"),
   name: z.string().min(1, "Name is required").max(100),
-  organizationName: z.string().min(1, "Organization name is required").max(100),
+  organization_name: z.string().min(1, "Organization name is required").max(100),
 });
 
 const SignInSchema = z.object({
@@ -38,7 +38,7 @@ export async function signUpAction(
     email: formData.get("email") as string,
     password: formData.get("password") as string,
     name: formData.get("name") as string,
-    organizationName: formData.get("organizationName") as string,
+    organization_name: formData.get("organizationName") as string,
   };
 
   const parsed = SignUpSchema.safeParse(raw);

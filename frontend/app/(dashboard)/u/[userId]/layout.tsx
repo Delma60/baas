@@ -15,3 +15,6 @@ export default async function UserRedirectPage({
   }
   return <>{children} </>;
 }
+
+
+// first off i add organisation name to the sign up so i can easily fetch data, but it seems not working

@@ -128,7 +128,7 @@ export async function platformSignUp(params: {
   email: string;
   password: string;
   name?: string;
-  organizationName?: string;
+  organization_name?: string;
 }): Promise<{ user: PlatformUser }> {
   return internalFetch<{ user: PlatformUser }>("/auth/signup", {
     method: "POST",
