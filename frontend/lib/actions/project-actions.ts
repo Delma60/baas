@@ -25,7 +25,7 @@ const CreateProjectSchema = z.object({
       "Slug must use lowercase letters, numbers, and hyphens only"
     ),
   region: z.enum(["lagos", "london", "singapore"]),
-  description: z.string().max(200).optional(),
+  description: z.string().max(200).nullish(),
 });
 
 export type CreateProjectState = {

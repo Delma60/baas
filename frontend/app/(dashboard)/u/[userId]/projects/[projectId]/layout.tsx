@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { TopNav } from "@/components/layout/TopNav";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { getProjectById } from "@/lib/api/client";
+import { getProjectById, getProjectsByUser } from "@/lib/api/client";
 
 export const metadata: Metadata = {
   title: {
@@ -29,6 +29,7 @@ export default async function ProjectLayout({
   // TODO: fetch real project name from DB/API
   try {
     const project = await getProjectById(projectId);
+    const projects = await getProjectsByUser(session?.user?.id || '');
     
     projectName = project?.name || projectId; // fallback until real fetch
   } catch (error) {

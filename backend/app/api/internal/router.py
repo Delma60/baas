@@ -160,6 +160,7 @@ async def list_user_projects(
         {"user_id": user_id},
     )
     projects = [dict(r) for r in result.mappings()]
+    print(projects)
     return {"data": projects}
 
 

@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "nodemailer": "^8.0.10",
-    "pg": "^8.21.0"
+    "pg": "^8.21.0",
+    "recharts": "^3.8.1"
   }
 }

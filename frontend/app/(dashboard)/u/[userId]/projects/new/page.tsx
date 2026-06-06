@@ -436,7 +436,14 @@ export default function NewProjectPage({
                       name="description"
                       placeholder="What does this project do?"
                       className="h-11"
+                      defaultValue=""
                     />
+                    {state?.errors?.description && (
+                      <p className="text-sm text-destructive">
+                        {state.errors.description[0]}
+                      </p>
+                    )}
+
                   </div>
 
                   <div className="flex items-center gap-3 pt-2">

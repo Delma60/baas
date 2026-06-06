@@ -1,5 +1,5 @@
 // frontend/lib/api/client.ts
-import type { Project } from "@/types/baas";
+import type { Project, ProjectUsage } from "@/types/baas";
 
 const FASTAPI_BASE_URL =
   process.env.FASTAPI_BASE_URL ?? "http://localhost:8000";
@@ -75,7 +75,7 @@ async function internalFetch<T>(
   }
 
   const url = `${FASTAPI_BASE_URL}/internal${path}`;
-
+  console.log(url)
   let res: Response;
   try {
     res = await fetch(url, {
@@ -195,6 +195,6 @@ export async function createProject(params: {
 
 export async function getProjectUsage(
   projectId: string
-): Promise<Record<string, number>> {
-  return internalFetch<Record<string, number>>(`/usage/${projectId}`);
+): Promise<ProjectUsage> {
+  return internalFetch<ProjectUsage>(`/usage/${projectId}`);
 }

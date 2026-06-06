@@ -67,23 +67,24 @@ interface NavGroup {
 }
 
 // ─── Nav definitions ──────────────────────────────────────────────────────────
+// http://localhost:3000/u/bc04ca07-ad9a-44b2-9003-31ee2a5d305f/projects/proj_my-app_29nvg2/overview
 
-function getDashboardGroups(projectId?: string): NavGroup[] {
+function getDashboardGroups(user:string, projectId?: string): NavGroup[] {
   if (!projectId) {
     return [
       {
         items: [
-          { label: "Overview",   href: "/dashboard",          icon: LayoutDashboard, matchExact: true },
-          { label: "Projects",   href: "/dashboard/projects", icon: FolderOpen },
-          { label: "Members",    href: "/dashboard/members",  icon: Users },
-          { label: "Billing",    href: "/dashboard/billing",  icon: CreditCard },
-          { label: "Settings",   href: "/dashboard/settings", icon: Settings },
+          { label: "Overview",   href: "/overview",          icon: LayoutDashboard, matchExact: true },
+          { label: "Projects",   href: "/overview/projects", icon: FolderOpen },
+          { label: "Members",    href: "/overview/members",  icon: Users },
+          { label: "Billing",    href: "/overview/billing",  icon: CreditCard },
+          { label: "Settings",   href: "/overview/settings", icon: Settings },
         ],
       },
     ];
   }
 
-  const base = `/dashboard/projects/${projectId}`;
+  const base = `/u/${user}/projects/${projectId}`;
 
   return [
     {
@@ -168,7 +169,7 @@ export function Sidebar({
 
   const groups = isAdmin
     ? SUPERADMIN_GROUPS
-    : getDashboardGroups(projectId);
+    : getDashboardGroups(user?.id || '', projectId);
 
   const initials = getInitials(user.name ?? user.email ?? "U");
   const plan = PLAN_LABELS[orgPlan] ?? PLAN_LABELS.free;
