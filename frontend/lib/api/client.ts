@@ -1,6 +1,5 @@
-import type { Project } from "@/types/baas";
-
 // frontend/lib/api/client.ts
+import type { Project } from "@/types/baas";
 
 const FASTAPI_BASE_URL =
   process.env.FASTAPI_BASE_URL ?? "http://localhost:8000";
@@ -30,10 +29,11 @@ type BackendProject = {
 };
 
 function projectIconFromName(name: string): Project["icon"] {
-  if (name.includes("store") || name.includes("shop")) return "cart";
-  if (name.includes("mobile")) return "mobile";
-  if (name.includes("cms") || name.includes("content")) return "article";
-  if (name.includes("analytics") || name.includes("stats")) return "chart";
+  const lower = name.toLowerCase();
+  if (lower.includes("store") || lower.includes("shop")) return "cart";
+  if (lower.includes("mobile") || lower.includes("app")) return "mobile";
+  if (lower.includes("cms") || lower.includes("content") || lower.includes("blog")) return "article";
+  if (lower.includes("analytics") || lower.includes("stats") || lower.includes("dash")) return "chart";
   return "default";
 }
 
@@ -46,12 +46,12 @@ function mapBackendProject(project: BackendProject): Project {
   return {
     id: project.id,
     name: project.name,
-    organizationName: project.organization_name ?? "Your organization",
+    organizationName: project.organization_name ?? "Personal",
     status: project.status,
     region: project.region ?? "Lagos",
     icon: projectIconFromName(project.name),
     color: projectColorFromStatus(project.status),
-    modules: ["sql", "auth", "storage"] as const,
+    modules: ["sql", "nosql", "auth", "storage", "realtime", "ai", "functions"] as const,
     sqlRows: 0,
     apiCalls: 0,
     updatedAt: new Date(project.created_at),
@@ -73,14 +73,14 @@ async function internalFetch<T>(
       "Server is misconfigured: missing INTERNAL_API_SECRET."
     );
   }
-  
+
   const url = `${FASTAPI_BASE_URL}/internal${path}`;
-  console.log(url)
 
   let res: Response;
   try {
     res = await fetch(url, {
       ...init,
+      cache: "no-store",
       headers: {
         "Content-Type": "application/json",
         "x-internal-secret": INTERNAL_SECRET,
@@ -147,12 +147,37 @@ export async function platformSignIn(params: {
 
 // ─── Projects ─────────────────────────────────────────────────────────────
 
+/**
+ * Get projects for a specific user. Always pass userId to filter by owner.
+ */
+export async function getProjectsByUser(userId: string): Promise<Project[]> {
+  const projects = await internalFetch<BackendProject[]>(
+    `/users/${userId}/projects`
+  );
+  return projects.map(mapBackendProject);
+}
+
+/**
+ * @deprecated Use getProjectsByUser(userId) instead.
+ * Returns all projects (no user filter) — only useful for superadmin.
+ */
+export async function getProjects(): Promise<Project[]> {
+  const projects = await internalFetch<BackendProject[]>("/projects");
+  return projects.map(mapBackendProject);
+}
+
+export async function getProjectById(projectId: string): Promise<Project> {
+  const project = await internalFetch<BackendProject>(`/projects/${projectId}`);
+  return mapBackendProject(project);
+}
+
 export async function createProject(params: {
   project_id: string;
   name: string;
   region: string;
   db_schema: string;
   mongo_database: string;
+  owner_user_id: string;
   description?: string;
 }): Promise<{ project_id: string; provisioned: boolean }> {
   return internalFetch<{ project_id: string; provisioned: boolean }>(
@@ -162,21 +187,6 @@ export async function createProject(params: {
       body: JSON.stringify(params),
     }
   );
-}
-
-export async function getProjects(): Promise<Project[]> {
-  const projects = await internalFetch<BackendProject[]>("/projects");
-  return projects.map(mapBackendProject);
-}
-
-export async function getProjectsByUser(userId: string): Promise<Project[]> {
-  const projects = await internalFetch<BackendProject[]>(`/users/${userId}/projects`);
-  return projects.map(mapBackendProject);
-}
-
-export async function getProjectById(projectId: string): Promise<Project> {
-  const project = await internalFetch<BackendProject>(`/projects/${projectId}`);
-  return mapBackendProject(project);
 }
 
 // ─── Usage ────────────────────────────────────────────────────────────────

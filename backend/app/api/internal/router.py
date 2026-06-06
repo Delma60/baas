@@ -51,20 +51,70 @@ def generate_auth_jwt_secret() -> str:
     return secrets.token_urlsafe(32)
 
 
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+
+async def _get_or_create_personal_org(db: AsyncSession, user_id: str, user_name: str) -> str:
+    """
+    Find or create a personal organization for a platform user.
+    Returns the org_id.
+    """
+    result = await db.execute(
+        text("SELECT id FROM organizations WHERE owner_id = :user_id LIMIT 1"),
+        {"user_id": user_id},
+    )
+    row = result.first()
+    if row:
+        return str(row[0])
+
+    org_id = str(uuid.uuid4())
+    org_name = f"{user_name}'s Organization"
+    await db.execute(
+        text("""
+            INSERT INTO organizations (id, name, plan, owner_id)
+            VALUES (:id, :name, 'free', :owner_id)
+            ON CONFLICT DO NOTHING
+        """),
+        {"id": org_id, "name": org_name, "owner_id": user_id},
+    )
+    logger.info("Created personal org %s for user %s", org_id, user_id)
+    return org_id
+
+
 # ─── Project read helpers ─────────────────────────────────────────────────────
 
 @router.get("/projects", dependencies=[InternalGuard])
-async def list_projects(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
-    result = await db.execute(
-        text("""
-            SELECT p.id, p.name, p.status, p.region, p.db_schema,
-                   p.mongo_database, p.created_at,
-                   o.name AS organization_name
-            FROM projects p
-            LEFT JOIN organizations o ON o.id = p.organization_id
-            ORDER BY p.created_at DESC
-        """),
-    )
+async def list_projects(
+    user_id: str | None = Query(default=None, description="Filter by owner user_id"),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """
+    List projects. If user_id is provided, returns only that user's projects.
+    Otherwise returns all (superadmin use case — internal only).
+    """
+    if user_id:
+        result = await db.execute(
+            text("""
+                SELECT p.id, p.name, p.status, p.region, p.db_schema,
+                       p.mongo_database, p.created_at,
+                       o.name AS organization_name
+                FROM projects p
+                JOIN organizations o ON o.id = p.organization_id
+                WHERE o.owner_id = :user_id
+                ORDER BY p.created_at DESC
+            """),
+            {"user_id": user_id},
+        )
+    else:
+        result = await db.execute(
+            text("""
+                SELECT p.id, p.name, p.status, p.region, p.db_schema,
+                       p.mongo_database, p.created_at,
+                       o.name AS organization_name
+                FROM projects p
+                LEFT JOIN organizations o ON o.id = p.organization_id
+                ORDER BY p.created_at DESC
+            """),
+        )
     projects = [dict(r) for r in result.mappings()]
     return {"data": projects}
 
@@ -91,6 +141,28 @@ async def get_project(
     return {"data": dict(row)}
 
 
+@router.get("/users/{user_id}/projects", dependencies=[InternalGuard])
+async def list_user_projects(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """List projects owned by a specific user (via their organizations)."""
+    result = await db.execute(
+        text("""
+            SELECT p.id, p.name, p.status, p.region, p.db_schema,
+                   p.mongo_database, p.created_at,
+                   o.name AS organization_name
+            FROM projects p
+            JOIN organizations o ON o.id = p.organization_id
+            WHERE o.owner_id = :user_id
+            ORDER BY p.created_at DESC
+        """),
+        {"user_id": user_id},
+    )
+    projects = [dict(r) for r in result.mappings()]
+    return {"data": projects}
+
+
 # ─── Platform Auth ────────────────────────────────────────────────────────────
 
 class PlatformSignUpRequest(BaseModel):
@@ -109,10 +181,6 @@ async def platform_signup(
     body: PlatformSignUpRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """
-    Register a new platform developer account.
-    Creates a row in the public `users` table.
-    """
     from app.auth.project_auth import hash_password
 
     existing = await db.execute(
@@ -123,6 +191,7 @@ async def platform_signup(
         raise HTTPException(status_code=409, detail="An account with this email already exists")
 
     user_id = str(uuid.uuid4())
+    user_name = body.name or body.email.split("@")[0]
     hashed = hash_password(body.password)
 
     await db.execute(
@@ -133,10 +202,13 @@ async def platform_signup(
         {
             "id": user_id,
             "email": body.email,
-            "name": body.name or body.email.split("@")[0],
+            "name": user_name,
             "pwd": hashed,
         },
     )
+
+    # Auto-create a personal organization for the new user
+    await _get_or_create_personal_org(db, user_id, user_name)
     await db.commit()
 
     logger.info("Platform user registered: %s", body.email)
@@ -145,7 +217,7 @@ async def platform_signup(
             "user": {
                 "id": user_id,
                 "email": body.email,
-                "name": body.name or body.email.split("@")[0],
+                "name": user_name,
             }
         }
     }
@@ -156,10 +228,6 @@ async def platform_signin(
     body: PlatformSignInRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """
-    Authenticate a platform developer account.
-    Returns user data; session management is handled by Auth.js on the Next.js side.
-    """
     from app.auth.project_auth import verify_password
 
     result = await db.execute(
@@ -172,10 +240,7 @@ async def platform_signin(
     )
     row = result.mappings().first()
 
-    # Deliberate constant-time path: check password even if user not found
-    # (avoids timing-based user enumeration)
     if not row:
-        # Still call verify to prevent timing attacks
         verify_password("dummy", "$2b$12$invalidhashplaceholderxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
@@ -185,15 +250,16 @@ async def platform_signin(
     if row["is_banned"]:
         raise HTTPException(status_code=403, detail="This account has been suspended")
 
-    # Best-effort last_login_at update — don't let this fail the request
+    # Ensure personal org exists (for users who signed up before this was added)
     try:
+        await _get_or_create_personal_org(db, row["id"], row["name"])
         await db.execute(
             text("UPDATE users SET last_login_at = NOW() WHERE id = :id"),
             {"id": row["id"]},
         )
         await db.commit()
     except Exception as e:
-        logger.warning("Failed to update last_login_at for user %s: %s", row["id"], e)
+        logger.warning("Failed to update user on signin %s: %s", row["id"], e)
         await db.rollback()
 
     return {
@@ -216,6 +282,8 @@ class CreateProjectRequest(BaseModel):
     mongo_database: str
     region: str = Field(default="lagos")
     description: str | None = None
+    # The owner's platform user_id — used to find/create their personal org
+    owner_user_id: str
 
 
 @router.post("/projects", status_code=201, dependencies=[InternalGuard])
@@ -241,24 +309,34 @@ async def create_project(
     if existing.first():
         raise HTTPException(status_code=409, detail="A project with this identifier already exists")
 
+    # Get or create the personal org for this user
+    user_result = await db.execute(
+        text("SELECT name FROM users WHERE id = :user_id"),
+        {"user_id": body.owner_user_id},
+    )
+    user_row = user_result.mappings().first()
+    if not user_row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    org_id = await _get_or_create_personal_org(db, body.owner_user_id, user_row["name"])
+
     try:
         await provision_project_schema(body.project_id, body.db_schema)
         await provision_project_database(body.project_id, body.mongo_database)
 
         await db.execute(
-            text(
-                """
+            text("""
                 INSERT INTO projects (
                     id, organization_id, name, slug, region, status,
                     db_schema, mongo_database, auth_jwt_secret
                 ) VALUES (
-                    :id, NULL, :name, :slug, :region, 'active',
+                    :id, :org_id, :name, :slug, :region, 'active',
                     :db_schema, :mongo_database, :auth_jwt_secret
                 )
-                """
-            ),
+            """),
             {
                 "id": body.project_id,
+                "org_id": org_id,
                 "name": body.name,
                 "slug": slug,
                 "region": body.region,
@@ -269,11 +347,12 @@ async def create_project(
         )
         await db.commit()
 
-        logger.info("Provisioned and saved project: %s", body.project_id)
+        logger.info("Provisioned and saved project: %s (org: %s)", body.project_id, org_id)
         return {"data": {"project_id": body.project_id, "provisioned": True}}
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("Project provisioning failed: %s", e)
         raise HTTPException(status_code=500, detail=f"Infrastructure provisioning failed: {str(e)}")
 
 
@@ -420,7 +499,6 @@ async def create_api_key(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     import hashlib
-    import secrets
 
     raw_key = f"sk_{body.key_type}_{secrets.token_urlsafe(32)}"
     key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
@@ -444,7 +522,7 @@ async def create_api_key(
     return {
         "data": {
             "id": key_id,
-            "key": raw_key,  # Only returned once — client must store it
+            "key": raw_key,
             "key_type": body.key_type,
             "project_id": body.project_id,
         }
@@ -490,7 +568,7 @@ async def get_project_usage(
 class UpsertPermissionRequest(BaseModel):
     resource_name: str
     engine: str = Field(pattern="^(sql|nosql|kv)$")
-    rules_json: str  # JSON string of rules array
+    rules_json: str
 
 
 @router.put("/projects/{project_id}/permissions", dependencies=[InternalGuard])
@@ -499,7 +577,6 @@ async def upsert_permissions(
     body: UpsertPermissionRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Create or replace permission rules for a resource."""
     await db.execute(
         text("""
             INSERT INTO resource_permissions (id, project_id, resource_name, engine, rules_json)

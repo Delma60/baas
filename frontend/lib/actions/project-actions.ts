@@ -49,6 +49,8 @@ export async function createProjectAction(
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
+  const userId = session.user.id;
+
   const raw = {
     name: (formData.get("name") as string)?.trim(),
     slug: (formData.get("slug") as string)?.trim().toLowerCase(),
@@ -61,8 +63,9 @@ export async function createProjectAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const projectId = `proj_${parsed.data.slug}`;
-  const dbSchema = `proj_${generateId()}`;
+  const uniqueId = generateId();
+  const projectId = `proj_${parsed.data.slug}_${uniqueId.slice(0, 6)}`;
+  const dbSchema = `proj_${uniqueId}`;
   const mongoDatabase = `proj_${generateId()}`;
 
   try {
@@ -72,17 +75,20 @@ export async function createProjectAction(
       region: parsed.data.region,
       db_schema: dbSchema,
       mongo_database: mongoDatabase,
+      owner_user_id: userId,
+      description: parsed.data.description,
     });
-  } catch (err: any) {
-    if (err?.status === 409) {
-      return { errors: { slug: ["A project with this slug already exists"] } };
+  } catch (err: unknown) {
+    const apiErr = err as { status?: number; message?: string };
+    if (apiErr?.status === 409) {
+      return { errors: { slug: ["A project with this slug already exists. Try a different name."] } };
     }
-    if (err?.status === 503) {
+    if (apiErr?.status === 503) {
       return { message: "Cannot reach the backend. Please try again." };
     }
-    return { message: err?.message ?? "Something went wrong. Please try again." };
+    return { message: apiErr?.message ?? "Something went wrong. Please try again." };
   }
 
-  revalidatePath("/dashboard");
-  redirect(`/dashboard/projects/${projectId}`);
+  revalidatePath(`/u/${userId}`);
+  redirect(`/u/${userId}/projects/${projectId}`);
 }
