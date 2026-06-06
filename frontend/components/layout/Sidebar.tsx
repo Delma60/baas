@@ -31,20 +31,38 @@ import {
   ExternalLink,
   ChevronDown,
   FolderOpen,
+  LogOut,
+  ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOutAction } from "@/lib/auth/actions";
 import type { User } from "next-auth";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface SidebarProps {
   variant: "dashboard" | "superadmin";
   user: User;
-  /** Active project context — if set, shows project-scoped module nav */
   projectId?: string;
   projectName?: string;
   orgPlan?: "free" | "starter" | "pro";
@@ -67,24 +85,23 @@ interface NavGroup {
 }
 
 // ─── Nav definitions ──────────────────────────────────────────────────────────
-// http://localhost:3000/u/bc04ca07-ad9a-44b2-9003-31ee2a5d305f/projects/proj_my-app_29nvg2/overview
 
-function getDashboardGroups(user:string, projectId?: string): NavGroup[] {
+function getDashboardGroups(userId: string, projectId?: string): NavGroup[] {
   if (!projectId) {
     return [
       {
         items: [
-          { label: "Overview",   href: "/overview",          icon: LayoutDashboard, matchExact: true },
-          { label: "Projects",   href: "/overview/projects", icon: FolderOpen },
-          { label: "Members",    href: "/overview/members",  icon: Users },
-          { label: "Billing",    href: "/overview/billing",  icon: CreditCard },
-          { label: "Settings",   href: "/overview/settings", icon: Settings },
+          { label: "Overview",  href: "/overview",          icon: LayoutDashboard, matchExact: true },
+          { label: "Projects",  href: "/overview/projects", icon: FolderOpen },
+          { label: "Members",   href: "/overview/members",  icon: Users },
+          { label: "Billing",   href: "/overview/billing",  icon: CreditCard },
+          { label: "Settings",  href: "/overview/settings", icon: Settings },
         ],
       },
     ];
   }
 
-  const base = `/u/${user}/projects/${projectId}`;
+  const base = `/u/${userId}/projects/${projectId}`;
 
   return [
     {
@@ -119,38 +136,38 @@ function getDashboardGroups(user:string, projectId?: string): NavGroup[] {
 const SUPERADMIN_GROUPS: NavGroup[] = [
   {
     items: [
-      { label: "Metrics",       href: "/superadmin",              icon: BarChart3,    matchExact: true },
+      { label: "Metrics", href: "/superadmin", icon: BarChart3, matchExact: true },
     ],
   },
   {
     label: "Platform",
     items: [
-      { label: "Users",         href: "/superadmin/users",        icon: UserCog },
+      { label: "Users",         href: "/superadmin/users",         icon: UserCog },
       { label: "Organizations", href: "/superadmin/organizations", icon: Building2 },
-      { label: "Projects",      href: "/superadmin/projects",     icon: Package },
+      { label: "Projects",      href: "/superadmin/projects",      icon: Package },
     ],
   },
   {
     label: "Finance",
     items: [
-      { label: "Billing",       href: "/superadmin/billing",      icon: CreditCard },
+      { label: "Billing", href: "/superadmin/billing", icon: CreditCard },
     ],
   },
   {
     label: "Operations",
     items: [
-      { label: "Staff",         href: "/superadmin/staff",        icon: ShieldAlert },
-      { label: "Audit Log",     href: "/superadmin/audit",        icon: ClipboardList },
-      { label: "Feature Flags", href: "/superadmin/flags",        icon: Flag },
+      { label: "Staff",         href: "/superadmin/staff",  icon: ShieldAlert },
+      { label: "Audit Log",     href: "/superadmin/audit",  icon: ClipboardList },
+      { label: "Feature Flags", href: "/superadmin/flags",  icon: Flag },
     ],
   },
 ];
 
-const PLAN_LABELS: Record<string, { label: string; color: string }> = {
-  free:    { label: "Free",    color: "text-muted-foreground" },
-  starter: { label: "Starter", color: "text-sky-500" },
-  pro:     { label: "Pro",     color: "text-[--brand]" },
-};
+const PLAN_CONFIG = {
+  free:    { label: "Free",    price: "$0/mo",        className: "text-muted-foreground", accent: "bg-muted text-muted-foreground" },
+  starter: { label: "Starter", price: "₦15,000/mo",  className: "text-sky-600 dark:text-sky-400", accent: "bg-sky-50 text-sky-600 dark:bg-sky-950/50 dark:text-sky-400" },
+  pro:     { label: "Pro",     price: "₦45,000/mo",  className: "text-violet-600 dark:text-violet-400", accent: "bg-violet-50 text-violet-600 dark:bg-violet-950/50 dark:text-violet-400" },
+} as const;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -164,177 +181,236 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = React.useState(false);
-  const [searchOpen, setSearchOpen] = React.useState(false);
   const isAdmin = variant === "superadmin";
 
   const groups = isAdmin
     ? SUPERADMIN_GROUPS
-    : getDashboardGroups(user?.id || '', projectId);
+    : getDashboardGroups(user?.id ?? "", projectId);
 
   const initials = getInitials(user.name ?? user.email ?? "U");
-  const plan = PLAN_LABELS[orgPlan] ?? PLAN_LABELS.free;
+  const plan = PLAN_CONFIG[orgPlan];
 
   return (
-    <aside
-      className={cn(
-        "relative flex h-full flex-col bg-[#f8f9fa] dark:bg-[#17181a] border-r border-[--border] transition-all duration-200 select-none",
-        collapsed ? "w-[60px]" : "w-[260px]",
-        className,
-      )}
-    >
-      {/* ── Logo + project switcher ── */}
-      <div
+    <TooltipProvider delayDuration={300}>
+      <aside
         className={cn(
-          "flex h-14 shrink-0 items-center gap-2.5 border-b border-[--border] px-3",
-          collapsed && "justify-center px-0",
+          "relative flex h-full flex-col bg-sidebar border-r border-border transition-[width] duration-200 ease-in-out select-none overflow-hidden",
+          collapsed ? "w-[60px]" : "w-[240px]",
+          className,
         )}
       >
-        <Link
-          href={isAdmin ? "/superadmin" : "/dashboard"}
-          className="flex items-center gap-2.5 min-w-0"
+        {/* ── Logo / Header ── */}
+        <div
+          className={cn(
+            "flex h-14 shrink-0 items-center border-b border-border px-3 gap-2.5",
+            collapsed && "justify-center px-0",
+          )}
         >
-          <div
-            className={cn(
-              "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[6px]",
-              isAdmin ? "bg-[--admin-brand]" : "bg-[--brand]",
-            )}
+          <Link
+            href={isAdmin ? "/superadmin" : "/overview"}
+            className="flex items-center gap-2.5 min-w-0"
           >
-            <Database className="h-[14px] w-[14px] text-white" />
-          </div>
-          {!collapsed && (
-            <span className="text-[14px] font-semibold text-[--text-primary] truncate">
-              {isAdmin ? "Superadmin" : "YourBaaS"}
+            <div
+              className={cn(
+                "flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px]",
+                isAdmin
+                  ? "bg-rose-600 dark:bg-rose-500"
+                  : "bg-violet-600 dark:bg-violet-500",
+              )}
+            >
+              <Database className="h-3.5 w-3.5 text-white" />
+            </div>
+
+            {!collapsed && (
+              <span className="truncate text-[13.5px] font-semibold tracking-tight text-foreground">
+                {isAdmin ? "Superadmin" : "YourBaaS"}
+              </span>
+            )}
+          </Link>
+
+          {!collapsed && isAdmin && (
+            <span className="ml-auto rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-600 dark:bg-rose-950/60 dark:text-rose-400">
+              Admin
             </span>
           )}
-        </Link>
-      </div>
-
-      {/* ── Search ── */}
-      {!collapsed && (
-        <div className="px-3 py-2.5">
-          <button
-            onClick={() => setSearchOpen(true)}
-            className="flex w-full items-center gap-2 rounded-[6px] border border-[--border] bg-white dark:bg-[#2d2f31] px-2.5 py-1.5 text-[13px] text-[--text-muted] transition-colors hover:border-[--border2] hover:text-[--text-secondary]"
-          >
-            <Search className="h-3.5 w-3.5 shrink-0" />
-            <span>Search</span>
-            <kbd className="ml-auto rounded border border-[--border] bg-[--bg3] px-1 text-[10px] text-[--text-muted]">
-              ⌘K
-            </kbd>
-          </button>
         </div>
-      )}
 
-      {collapsed && (
-        <div className="flex justify-center py-2.5">
-          <button className="flex h-8 w-8 items-center justify-center rounded-[6px] text-[--text-muted] hover:bg-[--surface-hover] hover:text-[--text-primary]">
-            <Search className="h-4 w-4" />
-          </button>
+        {/* ── Search ── */}
+        <div className={cn("px-2 py-2 shrink-0", collapsed && "flex justify-center")}>
+          {collapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                  aria-label="Search"
+                >
+                  <Search className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Search</TooltipContent>
+            </Tooltip>
+          ) : (
+            <button
+              className="flex w-full items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:border-border/80 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => {
+                // Fire ⌘K command palette
+                document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }));
+              }}
+            >
+              <Search className="h-3.5 w-3.5 shrink-0" />
+              <span>Search…</span>
+              <kbd className="ml-auto rounded border border-border bg-muted px-1 py-0.5 text-[10px] leading-none text-muted-foreground">
+                ⌘K
+              </kbd>
+            </button>
+          )}
         </div>
-      )}
 
-      {/* ── Project context header (when inside a project) ── */}
-      {!collapsed && !isAdmin && projectId && (
-        <div className="mx-3 mb-1">
-          <button className="flex w-full items-center gap-2 rounded-[6px] bg-white dark:bg-[#2d2f31] border border-[--border] px-2.5 py-2 text-left hover:border-[--border2] transition-colors">
-            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[4px] bg-[--brand] text-[10px] font-bold text-white">
-              {(projectName ?? "P")[0].toUpperCase()}
-            </div>
-            <span className="flex-1 truncate text-[13px] font-medium text-[--text-primary]">
-              {projectName ?? projectId}
-            </span>
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[--text-muted]" />
-          </button>
-        </div>
-      )}
-
-      {/* ── Nav groups ── */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-1 px-2">
-        {groups.map((group, gi) => (
-          <div key={gi} className="mb-1">
-            {/* Group label */}
-            {!collapsed && group.label && (
-              <p className="mb-0.5 mt-3 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[--text-muted]">
-                {group.label}
-              </p>
-            )}
-            {collapsed && group.label && gi > 0 && (
-              <div className="my-1.5 flex justify-center">
-                <div className="h-px w-6 bg-[--border]" />
+        {/* ── Project switcher ── */}
+        {!collapsed && !isAdmin && projectId && (
+          <div className="mx-2 mb-1 shrink-0">
+            <button className="flex w-full items-center gap-2 rounded-md border border-border bg-background px-2.5 py-2 text-left transition-colors hover:bg-accent group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[4px] bg-violet-600 dark:bg-violet-500 text-[10px] font-bold text-white">
+                {(projectName ?? "P")[0].toUpperCase()}
               </div>
-            )}
+              <span className="flex-1 truncate text-[12.5px] font-medium text-foreground">
+                {projectName ?? projectId}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-hover:text-foreground" />
+            </button>
+          </div>
+        )}
 
-            {/* Items */}
-            {group.items.map((item) => (
-              <NavItem
-                key={item.href}
-                item={item}
+        {/* ── Nav ── */}
+        <ScrollArea className="flex-1 px-2 py-1">
+          <nav className="flex flex-col gap-0.5">
+            {groups.map((group, gi) => (
+              <NavGroupSection
+                key={gi}
+                group={group}
                 pathname={pathname}
                 collapsed={collapsed}
                 isAdmin={isAdmin}
+                isFirst={gi === 0}
               />
             ))}
-          </div>
-        ))}
-      </nav>
+          </nav>
+        </ScrollArea>
 
-      {/* ── Plan footer ── */}
-      {!collapsed && !isAdmin && (
-        <>
-          <Separator />
-          <div className="px-3 py-3">
-            <div className="flex items-center justify-between rounded-[8px] border border-[--border] bg-white dark:bg-[#2d2f31] px-3 py-2.5">
-              <div>
-                <p className={cn("text-[13px] font-semibold", plan.color)}>
-                  {plan.label}
-                </p>
-                <p className="text-[11px] text-[--text-muted]">
-                  {orgPlan === "free" ? "No cost · $0/month" : orgPlan === "starter" ? "₦15,000/month" : "₦45,000/month"}
-                </p>
+        {/* ── Plan badge ── */}
+        {!collapsed && !isAdmin && (
+          <>
+            <Separator />
+            <div className="px-3 py-3 shrink-0">
+              <div className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2.5 gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className={cn("text-[12.5px] font-semibold", plan.className)}>
+                      {plan.label}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">{plan.price}</span>
+                  </div>
+                  {orgPlan === "free" && (
+                    <p className="text-[10.5px] text-muted-foreground mt-0.5">
+                      Limited to 3 projects
+                    </p>
+                  )}
+                </div>
+                {orgPlan !== "pro" && (
+                  <Link
+                    href="/overview/billing"
+                    className="flex shrink-0 items-center gap-0.5 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 transition-colors hover:bg-violet-100 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-400 dark:hover:bg-violet-950"
+                  >
+                    Upgrade
+                    <ArrowUpRight className="h-3 w-3" />
+                  </Link>
+                )}
               </div>
-              {orgPlan !== "pro" && (
-                <Link
-                  href="/dashboard/billing"
-                  className="flex items-center gap-1 rounded-full border border-[--brand]/30 bg-[--brand]/10 px-2.5 py-1 text-[11px] font-semibold text-[--brand] transition-colors hover:bg-[--brand]/20"
-                >
-                  Upgrade
-                </Link>
-              )}
             </div>
-          </div>
-        </>
-      )}
-
-      {/* ── User row ── */}
-      <Separator />
-      <UserRow
-        user={user}
-        initials={initials}
-        collapsed={collapsed}
-        isAdmin={isAdmin}
-      />
-
-      {/* ── Collapse toggle ── */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className={cn(
-          "absolute -right-[13px] top-[54px] z-10 flex h-[26px] w-[26px] items-center justify-center rounded-full border border-[--border] bg-white dark:bg-[#2d2f31] text-[--text-muted] shadow-sm transition-all hover:border-[--border2] hover:text-[--text-primary]",
+          </>
         )}
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      >
-        {collapsed ? (
-          <ChevronRight className="h-3 w-3" />
-        ) : (
-          <ChevronLeft className="h-3 w-3" />
-        )}
-      </button>
-    </aside>
+
+        {/* ── User row ── */}
+        <Separator />
+        <UserRow
+          user={user}
+          initials={initials}
+          collapsed={collapsed}
+          isAdmin={isAdmin}
+        />
+
+        {/* ── Collapse toggle ── */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => setCollapsed((c) => !c)}
+              className="absolute -right-[13px] top-[54px] z-20 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-all hover:border-border/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {collapsed ? (
+                <ChevronRight className="h-3 w-3" />
+              ) : (
+                <ChevronLeft className="h-3 w-3" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {collapsed ? "Expand" : "Collapse"}
+          </TooltipContent>
+        </Tooltip>
+      </aside>
+    </TooltipProvider>
   );
 }
 
-// ─── NavItem ──────────────────────────────────────────────────────────────────
+// ─── NavGroupSection ──────────────────────────────────────────────────────────
 
-function NavItem({
+function NavGroupSection({
+  group,
+  pathname,
+  collapsed,
+  isAdmin,
+  isFirst,
+}: {
+  group: NavGroup;
+  pathname: string;
+  collapsed: boolean;
+  isAdmin: boolean;
+  isFirst: boolean;
+}) {
+  const hasLabel = !!group.label;
+
+  return (
+    <div className={cn("flex flex-col gap-0.5", !isFirst && hasLabel && "mt-2")}>
+      {/* Group label */}
+      {hasLabel && !collapsed && (
+        <p className="px-2 pb-0.5 pt-1 text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+          {group.label}
+        </p>
+      )}
+      {hasLabel && collapsed && !isFirst && (
+        <div className="flex justify-center py-1">
+          <div className="h-px w-5 bg-border" />
+        </div>
+      )}
+
+      {/* Items */}
+      {group.items.map((item) => (
+        <SidebarNavItem
+          key={item.href}
+          item={item}
+          pathname={pathname}
+          collapsed={collapsed}
+          isAdmin={isAdmin}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── SidebarNavItem ───────────────────────────────────────────────────────────
+
+function SidebarNavItem({
   item,
   pathname,
   collapsed,
@@ -347,66 +423,89 @@ function NavItem({
 }) {
   const isActive = item.matchExact
     ? pathname === item.href
-    : pathname.startsWith(item.href) && item.href !== "/dashboard" && item.href !== "/superadmin";
+    : pathname.startsWith(item.href) &&
+      item.href !== "/overview" &&
+      item.href !== "/superadmin";
 
   const Icon = item.icon;
 
-  const content = (
+  const linkClass = cn(
+    "group relative flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    isActive
+      ? isAdmin
+        ? "bg-rose-50 text-rose-700 font-medium dark:bg-rose-950/40 dark:text-rose-400"
+        : "bg-violet-50 text-violet-700 font-medium dark:bg-violet-950/40 dark:text-violet-400"
+      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+    collapsed && "justify-center px-0 w-8 mx-auto",
+  );
+
+  const iconClass = cn(
+    "h-4 w-4 shrink-0 transition-colors",
+    isActive
+      ? isAdmin
+        ? "text-rose-600 dark:text-rose-400"
+        : "text-violet-600 dark:text-violet-400"
+      : "text-muted-foreground group-hover:text-foreground",
+  );
+
+  const inner = (
     <>
-      <Icon
-        className={cn(
-          "h-[18px] w-[18px] shrink-0 transition-colors",
-          isActive
-            ? isAdmin ? "text-[--admin-brand]" : "text-[--brand]"
-            : "text-[--sidebar-icon]",
-        )}
-      />
+      <Icon className={iconClass} aria-hidden="true" />
       {!collapsed && (
         <>
-          <span className="flex-1 truncate text-[13px]">{item.label}</span>
+          <span className="flex-1 truncate">{item.label}</span>
           {item.badge && (
             <span
               className={cn(
-                "rounded-full px-1.5 py-0 text-[10px] font-bold uppercase tracking-wide",
+                "rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wider leading-none",
                 item.badgeVariant === "new"
-                  ? "bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-400"
-                  : "bg-[--warn-bg] text-[--warn-text]",
+                  ? "bg-sky-100 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400"
+                  : "bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400",
               )}
             >
               {item.badge}
             </span>
           )}
           {item.external && (
-            <ExternalLink className="h-3 w-3 text-[--text-muted]" />
+            <ExternalLink className="h-3 w-3 text-muted-foreground/50" aria-hidden="true" />
           )}
         </>
       )}
     </>
   );
 
-  const className = cn(
-    "flex h-[34px] w-full items-center gap-2.5 rounded-[6px] px-2 transition-colors",
-    isActive
-      ? isAdmin
-        ? "bg-[--admin-sidebar-active] text-[--admin-sidebar-active-text] font-medium"
-        : "bg-[--sidebar-active] text-[--sidebar-active-text] font-medium"
-      : "text-[--sidebar-text] hover:bg-white dark:hover:bg-[#2d2f31]",
-    collapsed && "justify-center px-0 w-9 mx-auto",
+  const linkEl = item.external ? (
+    <a
+      href={item.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={linkClass}
+    >
+      {inner}
+    </a>
+  ) : (
+    <Link href={item.href} className={linkClass}>
+      {inner}
+    </Link>
   );
 
-  if (item.external) {
+  if (collapsed) {
     return (
-      <a href={item.href} target="_blank" rel="noopener noreferrer" className={className}>
-        {content}
-      </a>
+      <Tooltip>
+        <TooltipTrigger asChild>{linkEl}</TooltipTrigger>
+        <TooltipContent side="right" className="flex items-center gap-1.5">
+          {item.label}
+          {item.badge && (
+            <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-sky-600 dark:bg-sky-950 dark:text-sky-400">
+              {item.badge}
+            </span>
+          )}
+        </TooltipContent>
+      </Tooltip>
     );
   }
 
-  return (
-    <Link href={item.href} className={className} title={collapsed ? item.label : undefined}>
-      {content}
-    </Link>
-  );
+  return linkEl;
 }
 
 // ─── UserRow ──────────────────────────────────────────────────────────────────
@@ -422,55 +521,94 @@ function UserRow({
   collapsed: boolean;
   isAdmin: boolean;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const avatarEl = (
+    <div
+      className={cn(
+        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
+        isAdmin
+          ? "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400"
+          : "bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-400",
+      )}
+    >
+      {initials}
+    </div>
+  );
+
+  if (collapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            className="flex h-12 w-full items-center justify-center transition-colors hover:bg-accent"
+            aria-label="User menu"
+          >
+            {avatarEl}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          <p className="font-medium">{user.name ?? "User"}</p>
+          <p className="text-[11px] text-muted-foreground">{user.email}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
 
   return (
-    <div className="relative">
-      {open && !collapsed && (
-        <div className="absolute bottom-full left-2 right-2 mb-1 rounded-[8px] border border-[--border] bg-white dark:bg-[#2d2f31] py-1 shadow-lg z-20">
-          <Link
-            href="/dashboard/settings/profile"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 px-3 py-2 text-[13px] text-[--text-secondary] hover:bg-[--surface-hover] hover:text-[--text-primary]"
-          >
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="flex h-12 w-full items-center gap-2.5 px-3 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+          {avatarEl}
+          <div className="flex-1 min-w-0 text-left">
+            <p className="truncate text-[12.5px] font-medium text-foreground leading-tight">
+              {user.name ?? "User"}
+            </p>
+            <p className="truncate text-[11px] text-muted-foreground leading-tight">
+              {user.email}
+            </p>
+          </div>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent
+        align="end"
+        side="top"
+        sideOffset={6}
+        className="w-52"
+      >
+        <div className="px-2 py-1.5">
+          <p className="text-[12.5px] font-medium text-foreground">{user.name ?? "User"}</p>
+          <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
+        </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/overview/settings/profile" className="text-[13px] gap-2">
             <Settings className="h-3.5 w-3.5" />
             Account settings
           </Link>
-          <Separator className="my-1" />
-          <form action={signOutAction}>
+        </DropdownMenuItem>
+        {!isAdmin && (
+          <DropdownMenuItem asChild>
+            <Link href="/overview/billing" className="text-[13px] gap-2">
+              <CreditCard className="h-3.5 w-3.5" />
+              Billing
+            </Link>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <form action={signOutAction} className="w-full">
             <button
               type="submit"
-              className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[--text-secondary] hover:bg-[--surface-hover] hover:text-[--text-primary]"
+              className="flex w-full items-center gap-2 text-[13px] text-destructive"
             >
-              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
+              <LogOut className="h-3.5 w-3.5" />
               Sign out
             </button>
           </form>
-        </div>
-      )}
-
-      <button
-        onClick={() => setOpen(!open)}
-        className={cn(
-          "flex h-12 w-full items-center gap-2.5 px-3 transition-colors hover:bg-[--surface-hover]",
-          collapsed && "justify-center px-0",
-        )}
-      >
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[--info-bg] text-[11px] font-semibold text-[--info-text]">
-          {initials}
-        </div>
-        {!collapsed && (
-          <div className="flex-1 min-w-0 text-left">
-            <p className="truncate text-[13px] font-medium text-[--text-primary]">
-              {user.name ?? "User"}
-            </p>
-            <p className="truncate text-[11px] text-[--text-muted]">{user.email}</p>
-          </div>
-        )}
-      </button>
-    </div>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
