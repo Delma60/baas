@@ -79,6 +79,7 @@ export default function SignUpPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
 
   useEffect(() => {
     if (state?.message || state?.errors) {
@@ -158,6 +159,30 @@ export default function SignUpPage() {
             />
             {state?.errors?.name && (
               <p className="text-xs text-red-500">{state.errors.name[0]}</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="organizationName"
+              className="text-xs font-medium text-[--text-secondary]"
+            >
+              Organization name
+            </Label>
+            <Input
+              id="organizationName"
+              name="organizationName"
+              type="text"
+              required
+              placeholder="Acme Inc"
+              value={organizationName}
+              onChange={(event) => setOrganizationName(event.target.value)}
+              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-[--brand] focus-visible:ring-[--brand]/20"
+            />
+            {state?.errors?.organizationName && (
+              <p className="text-xs text-red-500">
+                {state.errors.organizationName[0]}
+              </p>
             )}
           </div>
 

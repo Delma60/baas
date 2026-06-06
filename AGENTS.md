@@ -115,7 +115,7 @@ surprises and Supabase's steep learning curve.
 | SDK (Python) | Python 3.9+, built with hatch | Published to PyPI |
 | Testing (TS) | Vitest + Playwright | Unit + E2E |
 | Testing (Python) | pytest + httpx | Unit + integration |
-| Deployment | Docker Compose + Coolify or Vercel+Fly.io | |
+| Deployment | Coolify or Vercel+Fly.io | Direct binary deployment |
 
 ---
 
@@ -423,7 +423,6 @@ animation: {
 /                                    ← Monorepo root
 ├── AGENTS.md
 ├── README.md
-├── docker-compose.yml
 ├── .env.example
 │
 ├── frontend/                        ← Service 1: Next.js 15
@@ -577,7 +576,6 @@ animation: {
 ├── backend/                         ← Service 2: FastAPI (Python 3.12)
 │   ├── pyproject.toml
 │   ├── alembic.ini
-│   ├── Dockerfile
 │   │
 │   ├── app/
 │   │   ├── main.py
@@ -716,7 +714,7 @@ animation: {
 
 ## 4. Environment Variables
 
-Single `.env` file shared across all services via Docker Compose.
+Single `.env` file shared across all services. Update `FASTAPI_BASE_URL` and database URLs to point to your local services.
 
 ```env
 # ─── App ──────────────────────────────────────────────────────────────────────
@@ -725,22 +723,22 @@ NEXT_PUBLIC_APP_NAME=YourBaaS
 NODE_ENV=development
 
 # FastAPI base URL (Next.js → FastAPI internal calls only)
-FASTAPI_BASE_URL=http://backend:8000
+FASTAPI_BASE_URL=http://localhost:8000
 INTERNAL_API_SECRET=          # Random string, never exposed to clients
 
 # ─── PostgreSQL ───────────────────────────────────────────────────────────────
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/baas_platform
-DATABASE_SYNC_URL=postgresql://postgres:postgres@postgres:5432/baas_platform
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/baas_platform
+DATABASE_SYNC_URL=postgresql://postgres:postgres@localhost:5432/baas_platform
 
 # ─── MongoDB ──────────────────────────────────────────────────────────────────
-MONGODB_URL=mongodb://mongo:27017
+MONGODB_URL=mongodb://localhost:27017
 MONGODB_DB_NAME=baas_platform
 
 # ─── Redis ────────────────────────────────────────────────────────────────────
-REDIS_URL=redis://redis:6379
+REDIS_URL=redis://localhost:6379
 
 # ─── MinIO ────────────────────────────────────────────────────────────────────
-MINIO_ENDPOINT=minio:9000
+MINIO_ENDPOINT=localhost:9000
 MINIO_PUBLIC_ENDPOINT=http://localhost:9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
@@ -1504,22 +1502,39 @@ export const PLANS = {
 
 ### Setup
 
+**Prerequisites:** Ensure PostgreSQL 16, MongoDB 7, Redis 7, and MinIO are running locally or accessible.
+
 ```bash
 # 1. Clone
 git clone https://github.com/your-org/baas-platform && cd baas-platform
 
 # 2. Environment
-cp .env.example .env   # fill in secrets
+cp .env.example .env   # fill in secrets and database/service URLs
 
-# 3. Start all services
-docker compose up -d
+# 3. Install dependencies
+cd frontend && npm install && cd ..
+cd backend && uv sync && cd ..
+cd sdk/js && npm install && cd ../..
+cd sdk/python && uv sync && cd ../..
 
-# 4. Run migrations
-docker compose exec backend alembic upgrade head
+# 4. Backend: Run migrations
+cd backend && uv run alembic upgrade head
 
-# 5. Seed dev data (creates 1 org, 2 projects, 1 staff super_admin)
-docker compose exec backend python -m app.tasks.seed
+# 5. Backend: Seed dev data (creates 1 org, 2 projects, 1 staff super_admin)
+uv run python -m app.tasks.seed
 
+# 6. Start each service in separate terminals:
+
+# Terminal 1 — Frontend
+cd frontend && npm run dev  # http://localhost:3000
+
+# Terminal 2 — Backend
+cd backend && uv run uvicorn app.main:app --reload  # http://localhost:8000/docs
+
+# Terminal 3 — Celery worker (optional, for background jobs)
+cd backend && uv run celery -A app.tasks.celery_app worker -l info
+
+# Verify all services:
 # Frontend:       http://localhost:3000
 # FastAPI docs:   http://localhost:8000/docs
 # MinIO console:  http://localhost:9001  (minioadmin / minioadmin)
@@ -1629,7 +1644,7 @@ cd sdk/js && npm test
 ### SDK integration tests
 
 ```bash
-# Run against local backend (docker compose up first)
+# Run against local backend (ensure backend service is running on localhost:8000)
 cd sdk/js && npm run test:integration
 cd sdk/python && uv run pytest tests/integration/
 ```
@@ -1650,81 +1665,50 @@ cd frontend && npm run test:e2e
 
 ## 16. Deployment
 
-### docker-compose.yml
+**Direct binary deployment** — no Docker required.
 
-```yaml
-services:
-  frontend:
-    build: ./frontend
-    ports: ["3000:3000"]
-    env_file: .env
-    depends_on: [backend]
+### Prerequisites
 
-  backend:
-    build: ./backend
-    ports: ["8000:8000"]
-    env_file: .env
-    depends_on: [postgres, mongo, redis, minio]
+- PostgreSQL 16+ with pgvector extension
+- MongoDB 7+
+- Redis 7+
+- MinIO (self-hosted object storage)
+- Node.js 18+ (frontend)
+- Python 3.12+ (backend)
 
-  celery:
-    build: ./backend
-    command: celery -A app.tasks.celery_app worker -l info
-    env_file: .env
-    depends_on: [redis, postgres, mongo]
+### Deployment Steps
 
-  postgres:
-    image: pgvector/pgvector:pg16
-    environment:
-      POSTGRES_DB:       baas_platform
-      POSTGRES_USER:     postgres
-      POSTGRES_PASSWORD: postgres
-    volumes: [postgres_data:/var/lib/postgresql/data]
-    ports: ["5432:5432"]
+1. **Frontend** (Next.js)
+   ```bash
+   cd frontend
+   npm install
+   npm run build
+   npm run start  # Production server listens on port 3000
+   ```
 
-  mongo:
-    image: mongo:7
-    volumes: [mongo_data:/data/db]
-    ports: ["27017:27017"]
+2. **Backend** (FastAPI)
+   ```bash
+   cd backend
+   uv sync --no-dev
+   uv run alembic upgrade head  # Run migrations
+   uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+   ```
 
-  redis:
-    image: redis:7-alpine
-    ports: ["6379:6379"]
-
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER:     minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    volumes: [minio_data:/data]
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-
-volumes:
-  postgres_data:
-  mongo_data:
-  minio_data:
-```
-
-### FastAPI Dockerfile
-
-```dockerfile
-FROM python:3.12-slim
-WORKDIR /app
-COPY pyproject.toml .
-RUN pip install uv && uv sync --no-dev
-COPY . .
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
+3. **Celery Worker** (Background jobs)
+   ```bash
+   cd backend
+   uv run celery -A app.tasks.celery_app worker -l info
+   ```
 
 ### Production notes
 
 - MinIO: put behind Caddy/Nginx with TLS. Set `MINIO_PUBLIC_ENDPOINT` to the HTTPS URL.
-- FastAPI: not exposed publicly — Caddy routes `/v1/*` and `/superadmin/*` to `backend:8000`.
+- FastAPI: not exposed publicly — Caddy routes `/v1/*` and `/superadmin/*` to `localhost:8000`.
 - Superadmin routes should be IP-allowlisted at the reverse proxy level in production.
 - Set `MINIO_USE_SSL=true` with a valid cert in production.
 - SDK: publish `@yourbaas/sdk` and `yourbaas` to npm/PyPI from CI on version tags only.
+- Use a process manager like `systemd`, `supervisor`, or `pm2` to keep services running.
+- Reverse proxy (Caddy/Nginx) should handle TLS termination and route requests appropriately.
 
 ---
 

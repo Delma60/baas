@@ -13,6 +13,8 @@ import type { Project } from "@/types/baas";
 import { ProjectList } from "@/components/dashboard/ProjectList";
 import { getProjects, getProjectsByUser } from "@/lib/api/client";
 import { auth } from "@/lib/auth";
+import {AvatarComp} from "@/components/shared/AvatarComp";
+import { User } from "next-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -70,7 +72,7 @@ const SAMPLE_FEATURES = [
 // ─── Page (server component) ──────────────────────────────────────────────────
 
 export default async function ProjectsDashboard({ params }: PageProps) {
-const session = await auth()
+  const session = await auth();
 
   // TODO: pull from session / DB
   const userName = session?.user?.name;
@@ -79,23 +81,26 @@ const session = await auth()
   // Fetch real projects from backend
   let projects: Project[] = [];
   try {
-    projects = await getProjects();
+    projects = await getProjectsByUser(userId);
+    // projects = await getProjects);
   } catch (error) {
     console.error("Failed to fetch projects:", error);
   }
 
-  console.log(projects)
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] flex">
       {/* ── Main content ── */}
       <div className="flex-1 overflow-y-auto">
         {/* Top bar */}
-        <header className="h-14 flex items-center px-4 md:px-6 gap-2">
-          <Flame className="w-6 h-6 text-[--brand]" />
-          <span className="text-[15px] font-medium text-[#202124]">
-            YourBaaS
-          </span>
+        <header className="flex justify-between items-center">
+          <div className="h-14 flex items-center px-4 md:px-6 gap-2">
+            <Flame className="w-6 h-6 text-[--brand]" />
+            <span className="text-[15px] font-medium text-[#202124]">
+              YourBaaS
+            </span>
+          </div>
+          <AvatarComp user={session?.user as User} />
         </header>
 
         <main className="px-6 md:px-10 pb-20 max-w-[1100px] mx-auto w-full">

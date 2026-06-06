@@ -53,7 +53,7 @@ def generate_auth_jwt_secret() -> str:
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
-async def _get_or_create_personal_org(db: AsyncSession, user_id: str, user_name: str) -> str:
+async def _get_or_create_personal_org(db: AsyncSession, user_id: str, user_name: str, org_name: str | None = None) -> str:
     """
     Find or create a personal organization for a platform user.
     Returns the org_id.
@@ -67,14 +67,14 @@ async def _get_or_create_personal_org(db: AsyncSession, user_id: str, user_name:
         return str(row[0])
 
     org_id = str(uuid.uuid4())
-    org_name = f"{user_name}'s Organization"
+    final_org_name = org_name or f"{user_name}'s Organization"
     await db.execute(
         text("""
             INSERT INTO organizations (id, name, plan, owner_id)
             VALUES (:id, :name, 'free', :owner_id)
             ON CONFLICT DO NOTHING
         """),
-        {"id": org_id, "name": org_name, "owner_id": user_id},
+        {"id": org_id, "name": final_org_name, "owner_id": user_id},
     )
     logger.info("Created personal org %s for user %s", org_id, user_id)
     return org_id
@@ -169,6 +169,9 @@ class PlatformSignUpRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
     name: str | None = None
+    organization_name: str | None = Field(None, alias="organizationName")
+
+    model_config = {"populate_by_name": True}
 
 
 class PlatformSignInRequest(BaseModel):
@@ -208,7 +211,7 @@ async def platform_signup(
     )
 
     # Auto-create a personal organization for the new user
-    await _get_or_create_personal_org(db, user_id, user_name)
+    await _get_or_create_personal_org(db, user_id, user_name, body.organization_name)
     await db.commit()
 
     logger.info("Platform user registered: %s", body.email)
