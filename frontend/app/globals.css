@@ -81,6 +81,53 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* ─── Brand ──────────────────────────────────────────────────────────────────
+     These map to the design tokens in AGENTS.md §2.2
+  */
+  --brand:              #ff9130;
+  --brand-hover:        #f97316;
+  --brand-foreground:   #ffffff;
+
+  /* Superadmin — only active in /superadmin shell */
+  --admin-brand:        #dc2626;
+  --admin-brand-hover:  #b91c1c;
+  --admin-sidebar-active:      #fee2e2;
+  --admin-sidebar-active-text: #b91c1c;
+
+  /* Surfaces */
+  --bg3:             #f1f3f4;
+  --surface-hover:   #f1f3f4;
+
+  /* Sidebar */
+  --sidebar-bg:           #f8f9fa;
+  --sidebar-active:       #ffecd3;
+  --sidebar-active-text:  #ea6c00;
+  --sidebar-text:         #3c4043;
+  --sidebar-icon:         #5f6368;
+
+  /* Semantic shortcuts used in components */
+  --text-primary:    #202124;
+  --text-secondary:  #5f6368;
+  --text-muted:      #80868b;
+
+  --info-bg:    #e8f0fe;
+  --info-text:  #185fa5;
+  --success-bg: #e6f4ea;
+  --success-text: #1e7e34;
+  --warn-bg:    #fef9e7;
+  --warn-text:  #f09300;
+  --danger-bg:  #fce8e6;
+  --danger-text: #c5221f;
+
+  --success:  #34a853;
+  --warning:  #fbbc04;
+  --danger:   #ea4335;
+
+  --border2:  #dadce0;
+
+  --code-bg:   #f8f9fa;
+  --code-text: #202124;
 }
 
 .dark {
@@ -115,6 +162,45 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  --brand:              #ff9130;
+  --brand-hover:        #f97316;
+
+  --admin-brand:        #ef4444;
+  --admin-brand-hover:  #dc2626;
+  --admin-sidebar-active:      #3b1c1c;
+  --admin-sidebar-active-text: #f87171;
+
+  --bg3:             #17181a;
+  --surface-hover:   #3c4043;
+
+  --sidebar-bg:           #17181a;
+  --sidebar-active:       #3a2a1a;
+  --sidebar-active-text:  #ffb563;
+  --sidebar-text:         #e8eaed;
+  --sidebar-icon:         #9aa0a6;
+
+  --text-primary:    #e8eaed;
+  --text-secondary:  #9aa0a6;
+  --text-muted:      #5f6368;
+
+  --info-bg:    #1a2e5c;
+  --info-text:  #93b8f4;
+  --success-bg: #1a3323;
+  --success-text: #6fcf97;
+  --warn-bg:    #3b2e00;
+  --warn-text:  #ffd54f;
+  --danger-bg:  #3b1a1a;
+  --danger-text: #f48080;
+
+  --success:  #34a853;
+  --warning:  #fbbc04;
+  --danger:   #ea4335;
+
+  --border2:  #3c4043;
+
+  --code-bg:   #17181a;
+  --code-text: #e8eaed;
 }
 
 @layer base {
