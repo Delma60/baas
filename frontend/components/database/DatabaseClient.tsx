@@ -78,7 +78,7 @@ export function DatabaseClient({
   const [query, setQuery] = useState(
     initialTable
       ? `SELECT *\nFROM "${initialTable}"\nLIMIT 50;`
-      : "SELECT * FROM your_table LIMIT 50;"
+      : "SELECT * FROM your_table LIMIT 50;",
   );
   const [filter, setFilter] = useState("");
   const [isRunning, setIsRunning] = useState(false);
@@ -88,7 +88,7 @@ export function DatabaseClient({
   const [isLoadingTable, setIsLoadingTable] = useState(false);
 
   const filteredTables = tables.filter((t) =>
-    t.name.toLowerCase().includes(filter.toLowerCase())
+    t.name.toLowerCase().includes(filter.toLowerCase()),
   );
 
   const handleSelectTable = useCallback(
@@ -101,18 +101,15 @@ export function DatabaseClient({
       setIsLoadingTable(true);
 
       try {
-        const res = await fetch(
-          `/api/internal/sql/query`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              projectId,
-              dbSchema,
-              query: `SELECT * FROM "${tableName}" ORDER BY created_at DESC NULLS LAST LIMIT 50`,
-            }),
-          }
-        );
+        const res = await fetch(`/api/internal/sql/query`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectId,
+            dbSchema,
+            query: `SELECT * FROM "${tableName}" ORDER BY created_at DESC NULLS LAST LIMIT 50`,
+          }),
+        });
         const data = await res.json();
         if (!res.ok) {
           setQueryError(data?.error ?? "Failed to load table");
@@ -125,7 +122,7 @@ export function DatabaseClient({
         setIsLoadingTable(false);
       }
     },
-    [projectId, dbSchema]
+    [projectId, dbSchema],
   );
 
   const handleRunQuery = useCallback(async () => {
@@ -172,7 +169,7 @@ export function DatabaseClient({
   const toggleAll = () => {
     const rows = result?.rows ?? [];
     setSelectedRows((prev) =>
-      prev.size === rows.length ? new Set() : new Set(rows.map((_, i) => i))
+      prev.size === rows.length ? new Set() : new Set(rows.map((_, i) => i)),
     );
   };
 
@@ -183,7 +180,9 @@ export function DatabaseClient({
     if (rows.length === 0) return;
     const header = columns.join(",");
     const body = rows
-      .map((row) => columns.map((col) => JSON.stringify(row[col] ?? "")).join(","))
+      .map((row) =>
+        columns.map((col) => JSON.stringify(row[col] ?? "")).join(","),
+      )
       .join("\n");
     const blob = new Blob([`${header}\n${body}`], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -201,7 +200,7 @@ export function DatabaseClient({
         <header className="flex items-center justify-between px-4 sm:px-6 h-14 border-b shrink-0 gap-3">
           <div className="flex items-center gap-3">
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -241,7 +240,7 @@ export function DatabaseClient({
 
           <div className="flex items-center gap-2">
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -256,7 +255,7 @@ export function DatabaseClient({
             </Tooltip>
 
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -283,7 +282,7 @@ export function DatabaseClient({
           <aside
             className={cn(
               "flex flex-col border-r bg-muted/20 transition-all duration-200 overflow-hidden shrink-0",
-              sidebarOpen ? "w-56" : "w-0"
+              sidebarOpen ? "w-56" : "w-0",
             )}
           >
             <div className="p-3 flex flex-col gap-3 min-w-[224px]">
@@ -302,7 +301,10 @@ export function DatabaseClient({
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Tables
                 </span>
-                <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0">
+                <Badge
+                  variant="secondary"
+                  className="ml-auto text-[10px] px-1.5 py-0"
+                >
                   {filteredTables.length}
                 </Badge>
               </div>
@@ -322,7 +324,7 @@ export function DatabaseClient({
                         "w-full flex items-center justify-between px-2.5 py-1.5 text-sm rounded-md transition-colors group",
                         activeTable === table.name
                           ? "bg-primary/10 text-primary font-medium"
-                          : "hover:bg-accent hover:text-accent-foreground text-foreground/80"
+                          : "hover:bg-accent hover:text-accent-foreground text-foreground/80",
                       )}
                     >
                       <span className="flex items-center gap-2 truncate">
@@ -331,7 +333,7 @@ export function DatabaseClient({
                             "h-3.5 w-3.5 shrink-0",
                             activeTable === table.name
                               ? "text-primary"
-                              : "text-muted-foreground"
+                              : "text-muted-foreground",
                           )}
                         />
                         <span className="truncate font-mono text-xs">
@@ -364,7 +366,7 @@ export function DatabaseClient({
                       </span>
                     </div>
                     <Tooltip>
-                      <TooltipTrigger asChild>
+                      <TooltipTrigger>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -391,7 +393,10 @@ export function DatabaseClient({
 
                   <div className="flex items-center justify-between px-4 py-2 border-t bg-muted/30 gap-3 shrink-0">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-mono px-1.5 py-0"
+                      >
                         SQL
                       </Badge>
                       <span className="text-xs text-muted-foreground hidden sm:inline">
@@ -431,7 +436,10 @@ export function DatabaseClient({
                       </span>
                       {result && (
                         <>
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] px-1.5 py-0 shrink-0"
+                          >
                             {result.total.toLocaleString()} rows
                           </Badge>
                           {columns.length > 0 && (
@@ -510,7 +518,7 @@ export function DatabaseClient({
                                 key={i}
                                 className={cn(
                                   "group cursor-pointer",
-                                  selectedRows.has(i) && "bg-primary/5"
+                                  selectedRows.has(i) && "bg-primary/5",
                                 )}
                                 onClick={() => toggleRow(i)}
                               >
@@ -539,7 +547,7 @@ export function DatabaseClient({
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
+                                    <DropdownMenuTrigger>
                                       <Button
                                         variant="ghost"
                                         size="icon"
@@ -548,7 +556,10 @@ export function DatabaseClient({
                                         <MoreHorizontal className="h-3.5 w-3.5" />
                                       </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-36">
+                                    <DropdownMenuContent
+                                      align="end"
+                                      className="w-36"
+                                    >
                                       <DropdownMenuItem className="text-xs gap-2">
                                         <Pencil className="h-3.5 w-3.5" />
                                         Edit row
@@ -557,7 +568,7 @@ export function DatabaseClient({
                                         className="text-xs gap-2"
                                         onClick={() =>
                                           navigator.clipboard.writeText(
-                                            JSON.stringify(row, null, 2)
+                                            JSON.stringify(row, null, 2),
                                           )
                                         }
                                       >
@@ -602,11 +613,18 @@ export function DatabaseClient({
 
 function CellValue({ value }: { value: unknown }) {
   if (value === null || value === undefined) {
-    return <span className="text-muted-foreground/50 italic text-xs">null</span>;
+    return (
+      <span className="text-muted-foreground/50 italic text-xs">null</span>
+    );
   }
   if (typeof value === "boolean") {
     return (
-      <span className={cn("text-xs font-medium", value ? "text-emerald-600" : "text-rose-500")}>
+      <span
+        className={cn(
+          "text-xs font-medium",
+          value ? "text-emerald-600" : "text-rose-500",
+        )}
+      >
         {String(value)}
       </span>
     );

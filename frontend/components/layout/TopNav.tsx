@@ -3,17 +3,26 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Bell, HelpCircle, Plus, Search } from "lucide-react";
+import { Bell, HelpCircle, Menu, Plus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { User } from "next-auth";
+import { Button } from "../ui/button";
 
 interface TopNavProps {
   user: User;
   title?: string;
   className?: string;
+  mobileOpen?: boolean;
+  onMobileOpenChange?: (open: boolean) => void;
 }
 
-export function TopNav({ user: _user, title, className }: TopNavProps) {
+export function TopNav({
+  user: _user,
+  title,
+  className,
+  mobileOpen,
+  onMobileOpenChange,
+}: TopNavProps) {
   const router = useRouter();
   const [notifCount] = React.useState(2);
 
@@ -24,9 +33,20 @@ export function TopNav({ user: _user, title, className }: TopNavProps) {
         className,
       )}
     >
+      {/* menu icon for sidebar toggle */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => onMobileOpenChange?.(!mobileOpen)}
+        className="lg:hidden"
+      >
+        <Menu className="h-6 w-6" />
+      </Button>
       {/* Page title slot — filled by individual pages via useContext or just left empty */}
       {title && (
-        <h1 className="text-[15px] font-medium text-[--text-primary]">{title}</h1>
+        <h1 className="text-[15px] font-medium text-[--text-primary]">
+          {title}
+        </h1>
       )}
 
       <div className="flex-1" />

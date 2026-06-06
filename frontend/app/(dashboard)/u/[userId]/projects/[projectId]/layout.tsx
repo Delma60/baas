@@ -2,9 +2,8 @@
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { TopNav } from "@/components/layout/TopNav";
-import { Sidebar } from "@/components/layout/Sidebar";
 import { getProjectById, getProjectsByUser } from "@/lib/api/client";
+import { LayoutShell } from "@/components/layout/LayoutShell";
 
 export const metadata: Metadata = {
   title: {
@@ -24,31 +23,25 @@ export default async function ProjectLayout({
   if (!session?.user) redirect("/login");
 
   const { projectId } = await params;
-  let projectName = projectId;
+  let project;
+  let projects;
 
   // TODO: fetch real project name from DB/API
   try {
-    const project = await getProjectById(projectId);
-    const projects = await getProjectsByUser(session?.user?.id || '');
-    
-    projectName = project?.name || projectId; // fallback until real fetch
+    project = await getProjectById(projectId);
+    projects = await getProjectsByUser(session?.user?.id || "");
   } catch (error) {
     console.log(error);
     redirect(`/u/${session.user.id}/projects`); // Redirect to projects list if project not found
   }
-    
+
   return (
-    <div className="flex h-screen overflow-hidden bg-[--bg3]">
-      <Sidebar
-        variant="dashboard"
-        user={session.user}
-        projectId={projectId}
-        projectName={projectName}
-      />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopNav user={session.user} />
-        <main className="flex-1 overflow-y-auto">{children}</main>
-      </div>
-    </div>
+    <LayoutShell
+      user={session.user}
+      currentProject={project}
+      projects={projects}
+    >
+      {children}
+    </LayoutShell>
   );
 }
