@@ -9,9 +9,11 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from nosql_browse import router as nosql_browser
+from .nosql_browse import router as nosql_browser
+from .sql_browse import router as sql_browser
 from app.config import settings
 from app.db.postgres import get_db
+
 from app.provisioner.sql_provisioner import (
     add_column,
     create_table,
@@ -32,6 +34,7 @@ router = APIRouter(tags=["Internal"])
 logger = logging.getLogger(__name__)
 
 router.include_router(nosql_browser)
+router.include_router(sql_browser)
 # ─── Auth guard ───────────────────────────────────────────────────────────────
 
 async def require_internal(x_internal_secret: str = Header(...)) -> None:
