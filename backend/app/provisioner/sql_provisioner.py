@@ -1,188 +1,192 @@
-# backend/app/api/internal/sql_browse.py
-"""
-Internal-only endpoints for the dashboard to browse SQL (PostgreSQL) data.
-NOT exposed via /v1/ — only callable from Next.js with X-Internal-Secret.
-"""
+# backend/app/provisioner/sql_provisioner.py
 import logging
-import re
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
-from app.db.postgres import get_db, engine
+from app.db.postgres import AsyncSessionLocal
 
-router = APIRouter(tags=["Internal SQL Browse"])
 logger = logging.getLogger(__name__)
 
 
-async def require_internal(x_internal_secret: str = Header(...)) -> None:
-    if x_internal_secret != settings.internal_api_secret:
-        raise HTTPException(status_code=401, detail="Invalid internal secret")
+async def provision_project_schema(project_id: str, db_schema: str) -> None:
+    """Creates the isolated PostgreSQL schema and default platform tables."""
+    
+    # 🛡️ Strict validation to prevent SQL injection in DDL
+    if not db_schema.replace("_", "").isalnum() or not db_schema.startswith("proj_"):
+        raise ValueError(f"Invalid schema name: {db_schema}")
+
+    async with AsyncSessionLocal() as session:
+        try:
+            # 1. Create the isolated schema
+            await session.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{db_schema}"'))
+            
+            # 2. Create the _auth_users table (matches our Auth Router)
+            await session.execute(text(f"""
+                CREATE TABLE IF NOT EXISTS "{db_schema}"."_auth_users" (
+                    id TEXT PRIMARY KEY,
+                    email TEXT UNIQUE NOT NULL,
+                    name TEXT,
+                    hashed_password TEXT NOT NULL,
+                    is_email_verified BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            
+            # 3. Create a shared updated_at trigger function for the schema
+            await session.execute(text(f"""
+                CREATE OR REPLACE FUNCTION "{db_schema}".set_updated_at()
+                RETURNS TRIGGER AS $$
+                BEGIN
+                    NEW.updated_at = NOW();
+                    RETURN NEW;
+                END;
+                $$ LANGUAGE plpgsql;
+            """))
+            
+            await session.commit()
+            logger.info("✅ Provisioned SQL schema '%s' for project '%s'", db_schema, project_id)
+        except Exception as e:
+            await session.rollback()
+            logger.error("❌ Failed to provision SQL schema for %s: %s", project_id, str(e))
+            raise
 
 
-InternalGuard = Depends(require_internal)
-
-_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_\-]*$")
-
-
-def _validate_identifier(name: str, label: str = "identifier") -> None:
-    if not _IDENTIFIER_RE.match(name):
-        raise HTTPException(status_code=400, detail=f"Invalid {label}: {name!r}")
+async def teardown_project_schema(schema_name: str) -> None:
+    """Drop a project's PostgreSQL schema and all its tables."""
+    async with AsyncSessionLocal() as session:
+        await session.execute(text(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE'))
+        await session.commit()
+    logger.info("Torn down schema: %s", schema_name)
 
 
-def _serialize_rows(rows: list[dict]) -> list[dict]:
-    """Convert non-JSON-serializable types to safe values."""
-    serialized = []
-    for row in rows:
-        clean = {}
-        for k, v in row.items():
-            if hasattr(v, "isoformat"):
-                clean[k] = v.isoformat()
-            elif isinstance(v, bytes):
-                clean[k] = v.hex()
-            else:
-                clean[k] = v
-        serialized.append(clean)
-    return serialized
-
-
-@router.get("/projects/{project_id}/sql/tables", dependencies=[InternalGuard])
-async def list_tables(
-    project_id: str,
-    db_schema: str = Query(...),
-    db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
-    _validate_identifier(db_schema, "schema")
-    result = await db.execute(
-        text("""
-            SELECT
-                t.table_name,
-                COALESCE(s.n_live_tup, 0)::bigint AS row_count
-            FROM information_schema.tables t
-            LEFT JOIN pg_stat_user_tables s
-                ON s.schemaname = t.table_schema
-                AND s.relname = t.table_name
-            WHERE t.table_schema = :schema
-              AND t.table_type = 'BASE TABLE'
-              AND t.table_name NOT LIKE '\_%'
-            ORDER BY t.table_name
-        """),
-        {"schema": db_schema},
-    )
-    tables = [{"name": row["table_name"], "rows": row["row_count"]} for row in result.mappings()]
-    return {"data": {"tables": tables}}
-
-
-@router.get("/projects/{project_id}/sql/tables/{table}/columns", dependencies=[InternalGuard])
-async def list_columns(
-    project_id: str,
+async def create_table(
+    session: AsyncSession,
+    schema: str,
     table: str,
-    db_schema: str = Query(...),
-    db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
-    _validate_identifier(db_schema, "schema")
-    _validate_identifier(table, "table")
+    columns: list[dict[str, Any]],
+    *,
+    enable_rls: bool = False,
+    enable_realtime: bool = False,
+) -> None:
+    """
+    Create a table in a project schema.
+    columns: [{"name": "title", "type": "text", "nullable": True, "default": None}]
+    """
+    col_defs = ['id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text']
+    for col in columns:
+        col_name = col["name"]
+        col_type = _map_type(col.get("type", "text"))
+        nullable = "NULL" if col.get("nullable", True) else "NOT NULL"
+        default = f"DEFAULT {col['default']}" if col.get("default") is not None else ""
+        col_defs.append(f'"{col_name}" {col_type} {nullable} {default}'.strip())
 
-    result = await db.execute(
-        text("""
-            SELECT column_name, data_type, is_nullable, column_default
-            FROM information_schema.columns
-            WHERE table_schema = :schema AND table_name = :table
-            ORDER BY ordinal_position
-        """),
-        {"schema": db_schema, "table": table},
-    )
-    columns = [dict(row) for row in result.mappings()]
-    return {"data": {"columns": columns}}
+    col_defs.append("created_at TIMESTAMPTZ DEFAULT NOW()")
+    col_defs.append("updated_at TIMESTAMPTZ DEFAULT NOW()")
+
+    ddl = f'CREATE TABLE IF NOT EXISTS "{schema}"."{table}" ({", ".join(col_defs)})'
+    await session.execute(text(ddl))
+
+    # Ensure the trigger function exists in the schema (idempotent)
+    await session.execute(text(f"""
+        CREATE OR REPLACE FUNCTION "{schema}".set_updated_at()
+        RETURNS TRIGGER AS $$
+        BEGIN
+            NEW.updated_at = NOW();
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+    """))
+
+    # Drop and recreate trigger (CREATE OR REPLACE TRIGGER requires PG 14+)
+    await session.execute(text(f"""
+        DROP TRIGGER IF EXISTS set_updated_at ON "{schema}"."{table}";
+    """))
+    await session.execute(text(f"""
+        CREATE TRIGGER set_updated_at
+        BEFORE UPDATE ON "{schema}"."{table}"
+        FOR EACH ROW EXECUTE FUNCTION "{schema}".set_updated_at();
+    """))
+
+    if enable_realtime:
+        await _create_realtime_trigger(session, schema, table)
+
+    logger.info("Created table: %s.%s", schema, table)
 
 
-@router.get("/projects/{project_id}/sql/tables/{table}/rows", dependencies=[InternalGuard])
-async def list_rows(
-    project_id: str,
+async def drop_table(session: AsyncSession, schema: str, table: str) -> None:
+    await session.execute(text(f'DROP TABLE IF EXISTS "{schema}"."{table}" CASCADE'))
+    logger.info("Dropped table: %s.%s", schema, table)
+
+
+async def add_column(
+    session: AsyncSession,
+    schema: str,
     table: str,
-    db_schema: str = Query(...),
-    limit: int = Query(default=50, ge=1, le=500),
-    offset: int = Query(default=0, ge=0),
-    order_col: str | None = Query(default=None),
-    order_dir: str = Query(default="desc", pattern="^(asc|desc)$"),
-    db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
-    _validate_identifier(db_schema, "schema")
-    _validate_identifier(table, "table")
-    if order_col:
-        _validate_identifier(order_col, "order column")
-
-    order_clause = (
-        f'ORDER BY "{order_col}" {order_dir.upper()}'
-        if order_col
-        else "ORDER BY created_at DESC NULLS LAST"
+    column: dict[str, Any],
+) -> None:
+    col_name = column["name"]
+    col_type = _map_type(column.get("type", "text"))
+    nullable = "NULL" if column.get("nullable", True) else "NOT NULL"
+    default = f"DEFAULT {column['default']}" if column.get("default") is not None else ""
+    await session.execute(
+        text(f'ALTER TABLE "{schema}"."{table}" ADD COLUMN "{col_name}" {col_type} {nullable} {default}')
     )
 
-    rows_result = await db.execute(
-        text(f'SELECT * FROM "{db_schema}"."{table}" {order_clause} LIMIT :limit OFFSET :offset'),
-        {"limit": limit, "offset": offset},
-    )
-    count_result = await db.execute(
-        text(f'SELECT COUNT(*) FROM "{db_schema}"."{table}"'),
+
+async def drop_column(session: AsyncSession, schema: str, table: str, column: str) -> None:
+    await session.execute(
+        text(f'ALTER TABLE "{schema}"."{table}" DROP COLUMN IF EXISTS "{column}"')
     )
 
-    rows = [dict(r._mapping) for r in rows_result]
-    total = count_result.scalar() or 0
-    return {"data": {"rows": _serialize_rows(rows), "total": total, "limit": limit, "offset": offset}}
+
+async def _create_realtime_trigger(session: AsyncSession, schema: str, table: str) -> None:
+    channel = f"{schema}_{table}_changes"
+    fn_name = f"{schema}_{table}_notify"
+
+    await session.execute(text(f"""
+        CREATE OR REPLACE FUNCTION "{fn_name}"() RETURNS trigger AS $$
+        BEGIN
+          IF TG_OP = 'DELETE' THEN
+            PERFORM pg_notify('{channel}', json_build_object(
+              'type', TG_OP, 'old', row_to_json(OLD)
+            )::text);
+          ELSE
+            PERFORM pg_notify('{channel}', json_build_object(
+              'type', TG_OP, 'new', row_to_json(NEW)
+            )::text);
+          END IF;
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+    """))
+
+    await session.execute(text(f"""
+        DROP TRIGGER IF EXISTS "{fn_name}_trigger" ON "{schema}"."{table}";
+    """))
+    await session.execute(text(f"""
+        CREATE TRIGGER "{fn_name}_trigger"
+        AFTER INSERT OR UPDATE OR DELETE ON "{schema}"."{table}"
+        FOR EACH ROW EXECUTE FUNCTION "{fn_name}"()
+    """))
 
 
-class RunQueryRequest(BaseModel):
-    query: str
-    db_schema: str
-
-
-@router.post("/projects/{project_id}/sql/query", dependencies=[InternalGuard])
-async def run_query(
-    project_id: str,
-    body: RunQueryRequest,
-    db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
-    """
-    Execute a read-only SELECT query scoped to the project's schema.
-    Uses a raw asyncpg connection so SET LOCAL search_path persists
-    for the duration of the transaction.
-    """
-    query = body.query.strip()
-
-    # Strip leading SQL comments before the keyword check
-    query_no_comments = re.sub(r"(--[^\n]*\n?|/\*.*?\*/)", "", query, flags=re.DOTALL).strip()
-
-    if not query_no_comments.upper().startswith("SELECT"):
-        raise HTTPException(
-            status_code=400,
-            detail="Only SELECT queries are permitted from the dashboard.",
-        )
-
-    db_schema = body.db_schema
-    _validate_identifier(db_schema, "schema")
-
-    try:
-        # Acquire a raw connection from the pool so we can run SET LOCAL and the
-        # user query in the same transaction without the session layer interfering.
-        async with engine.connect() as conn:
-            await conn.execute(text("BEGIN"))
-            # SET LOCAL scopes the search_path to this transaction
-            await conn.execute(
-                text("SET LOCAL search_path TO :schema, public"),
-                {"schema": db_schema},
-            )
-            result = await conn.execute(text(query_no_comments))
-            rows = [dict(r._mapping) for r in result]
-            await conn.execute(text("ROLLBACK"))  # read-only; always roll back
-
-        return {"data": {"rows": _serialize_rows(rows), "total": len(rows)}}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.warning("Query error for project %s: %s", project_id, e)
-        raise HTTPException(status_code=400, detail=str(e))
+def _map_type(t: str) -> str:
+    type_map = {
+        "text": "TEXT",
+        "string": "TEXT",
+        "int": "INTEGER",
+        "integer": "INTEGER",
+        "float": "DOUBLE PRECISION",
+        "double": "DOUBLE PRECISION",
+        "bool": "BOOLEAN",
+        "boolean": "BOOLEAN",
+        "json": "JSONB",
+        "jsonb": "JSONB",
+        "timestamp": "TIMESTAMPTZ",
+        "date": "DATE",
+        "uuid": "UUID",
+        "vector": "vector",  # pgvector
+    }
+    return type_map.get(t.lower(), "TEXT")

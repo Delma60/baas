@@ -104,11 +104,11 @@ export function DatabaseClient({
           projectId,
           dbSchema,
           query: `
-            SELECT table_name, 0 as row_count
+            SELECT table_name
             FROM information_schema.tables
             WHERE table_schema = '${dbSchema}'
               AND table_type = 'BASE TABLE'
-              AND table_name NOT LIKE '\\_%'
+              AND table_name NOT LIKE '\_%'
             ORDER BY table_name
           `,
         }),
@@ -116,7 +116,7 @@ export function DatabaseClient({
       const data = await res.json();
       if (res.ok && data.data?.rows) {
         setTables(
-          data.data.rows.map((r: any) => ({ name: r.table_name, rows: 0 }))
+          data.data.rows.map((r: any) => ({ name: r.table_name, rows: 0 })),
         );
       }
     } catch {
@@ -229,20 +229,21 @@ export function DatabaseClient({
   };
 
   const handleTableCreated = async (tableName: string) => {
-    // Optimistically add to sidebar
     setTables((prev) => [...prev, { name: tableName, rows: 0 }]);
-    // Then load the new table
     await handleSelectTable(tableName);
   };
 
   const handleDeleteTable = async (tableName: string) => {
     if (!confirm(`Drop table "${tableName}"? This cannot be undone.`)) return;
     try {
-      const res = await fetch(`/api/internal/sql/tables/${encodeURIComponent(tableName)}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, dbSchema }),
-      });
+      const res = await fetch(
+        `/api/internal/sql/tables/${encodeURIComponent(tableName)}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId, dbSchema }),
+        },
+      );
       if (res.ok) {
         setTables((prev) => prev.filter((t) => t.name !== tableName));
         if (activeTable === tableName) {
@@ -258,12 +259,13 @@ export function DatabaseClient({
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
+      {/* Full viewport height, no overflow — children manage their own scroll */}
+      <div className="flex flex-col h-screen bg-background text-foreground">
         {/* ── Top Bar ── */}
         <header className="flex items-center justify-between px-4 sm:px-6 h-14 border-b shrink-0 gap-3">
           <div className="flex items-center gap-3">
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -286,7 +288,9 @@ export function DatabaseClient({
 
             <div className="flex items-center gap-2">
               <DatabaseZap className="h-4 w-4 text-primary shrink-0" />
-              <span className="font-semibold text-sm hidden sm:inline">SQL Database</span>
+              <span className="font-semibold text-sm hidden sm:inline">
+                SQL Database
+              </span>
             </div>
 
             {activeTable && (
@@ -301,7 +305,7 @@ export function DatabaseClient({
 
           <div className="flex items-center gap-2">
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -316,7 +320,7 @@ export function DatabaseClient({
             </Tooltip>
 
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -332,7 +336,7 @@ export function DatabaseClient({
 
             <Button
               size="sm"
-              className="h-8 gap-1.5 bg-[--brand] hover:bg-[--brand-hover] text-white border-0"
+              className="h-8 gap-1.5 bg-brand hover:bg-[--brand-hover] text-white border-0"
               onClick={() => setAddTableOpen(true)}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -341,8 +345,8 @@ export function DatabaseClient({
           </div>
         </header>
 
-        {/* ── Body ── */}
-        <div className="flex flex-1 overflow-hidden">
+        {/* ── Body: sidebar + main, fills remaining height ── */}
+        <div className="flex flex-1 min-h-0">
           {/* Sidebar */}
           <aside
             className={cn(
@@ -350,7 +354,7 @@ export function DatabaseClient({
               sidebarOpen ? "w-56" : "w-0",
             )}
           >
-            <div className="p-3 flex flex-col gap-3 min-w-[224px]">
+            <div className="p-3 flex flex-col gap-3 min-w-[224px] h-full">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 <Input
@@ -373,7 +377,7 @@ export function DatabaseClient({
                   {filteredTables.length}
                 </Badge>
                 <Tooltip>
-                  <TooltipTrigger asChild>
+                  <TooltipTrigger>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -381,19 +385,26 @@ export function DatabaseClient({
                       onClick={refreshTableList}
                       disabled={isRefreshingTables}
                     >
-                      <RefreshCw className={cn("h-3 w-3", isRefreshingTables && "animate-spin")} />
+                      <RefreshCw
+                        className={cn(
+                          "h-3 w-3",
+                          isRefreshingTables && "animate-spin",
+                        )}
+                      />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Refresh tables</TooltipContent>
                 </Tooltip>
               </div>
 
-              <ScrollArea className="h-[calc(100vh-11rem)]">
+              <ScrollArea className="flex-1">
                 <nav className="space-y-0.5 pr-1">
                   {filteredTables.length === 0 && !filter && (
                     <div className="flex flex-col items-center gap-2 py-6 text-center">
                       <TableIcon className="h-6 w-6 text-muted-foreground/30" />
-                      <p className="text-xs text-muted-foreground">No tables yet.</p>
+                      <p className="text-xs text-muted-foreground">
+                        No tables yet.
+                      </p>
                       <Button
                         variant="outline"
                         size="sm"
@@ -432,7 +443,7 @@ export function DatabaseClient({
                         </span>
                       </button>
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
+                        <DropdownMenuTrigger>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -466,11 +477,14 @@ export function DatabaseClient({
             </div>
           </aside>
 
-          {/* Main workspace */}
-          <main className="flex-1 flex flex-col overflow-hidden min-w-0">
-            <ResizablePanelGroup direction="vertical" className="flex-1">
-              {/* Query Editor */}
-              <ResizablePanel defaultSize={30} minSize={10} maxSize={60}>
+          {/* ── Main workspace: ResizablePanelGroup fills remaining space ── */}
+          <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+            <ResizablePanelGroup
+              orientation="vertical"
+              className="flex-1 min-h-0"
+            >
+              {/* Query Editor panel */}
+              <ResizablePanel defaultSize="30%" minSize="15%" maxSize="85%">
                 <div className="flex flex-col h-full">
                   <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 shrink-0">
                     <div className="flex items-center gap-2">
@@ -480,7 +494,7 @@ export function DatabaseClient({
                       </span>
                     </div>
                     <Tooltip>
-                      <TooltipTrigger asChild>
+                      <TooltipTrigger>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -494,20 +508,22 @@ export function DatabaseClient({
                     </Tooltip>
                   </div>
 
-                  <div className="relative flex-1">
-                    <textarea
-                      className="w-full h-full resize-none p-4 font-mono text-sm bg-background outline-none placeholder:text-muted-foreground/50 leading-relaxed"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder="SELECT * FROM your_table LIMIT 50;"
-                      spellCheck={false}
-                    />
-                  </div>
+                  {/* textarea fills the panel — overflow hidden on panel keeps it bounded */}
+                  <textarea
+                    className="flex-1 resize-none p-4 font-mono text-sm bg-background outline-none placeholder:text-muted-foreground/50 leading-relaxed"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="SELECT * FROM your_table LIMIT 50;"
+                    spellCheck={false}
+                  />
 
                   <div className="flex items-center justify-between px-4 py-2 border-t bg-muted/30 gap-3 shrink-0">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-mono px-1.5 py-0"
+                      >
                         SQL
                       </Badge>
                       <span className="text-xs text-muted-foreground hidden sm:inline">
@@ -537,8 +553,8 @@ export function DatabaseClient({
 
               <ResizableHandle withHandle />
 
-              {/* Results */}
-              <ResizablePanel defaultSize={70} minSize={20}>
+              {/* Results panel */}
+              <ResizablePanel defaultSize="70%" minSize="15%">
                 <div className="flex flex-col h-full">
                   <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 shrink-0 gap-3">
                     <div className="flex items-center gap-2 min-w-0">
@@ -547,7 +563,10 @@ export function DatabaseClient({
                       </span>
                       {result && (
                         <>
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] px-1.5 py-0 shrink-0"
+                          >
                             {result.total.toLocaleString()} rows
                           </Badge>
                           {columns.length > 0 && (
@@ -586,9 +605,7 @@ export function DatabaseClient({
                         <p className="text-sm">
                           {tables.length === 0
                             ? "Create a table to get started"
-                            : activeTable
-                            ? "Select a table or run a query"
-                            : "Select a table from the sidebar or write a query"}
+                            : "Select a table or run a query"}
                         </p>
                         {tables.length === 0 && (
                           <Button
@@ -640,7 +657,10 @@ export function DatabaseClient({
                                 )}
                                 onClick={() => toggleRow(i)}
                               >
-                                <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
+                                <TableCell
+                                  className="w-10"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   <input
                                     type="checkbox"
                                     className="rounded border-border"
@@ -657,9 +677,12 @@ export function DatabaseClient({
                                     <CellValue value={row[col]} />
                                   </TableCell>
                                 ))}
-                                <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
+                                <TableCell
+                                  className="w-10"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
+                                    <DropdownMenuTrigger>
                                       <Button
                                         variant="ghost"
                                         size="icon"
@@ -668,7 +691,10 @@ export function DatabaseClient({
                                         <MoreHorizontal className="h-3.5 w-3.5" />
                                       </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-36">
+                                    <DropdownMenuContent
+                                      align="end"
+                                      className="w-36"
+                                    >
                                       <DropdownMenuItem className="text-xs gap-2">
                                         <Pencil className="h-3.5 w-3.5" />
                                         Edit row
@@ -711,10 +737,9 @@ export function DatabaseClient({
                 </div>
               </ResizablePanel>
             </ResizablePanelGroup>
-          </main>
+          </div>
         </div>
 
-        {/* ── Add Table Dialog ── */}
         <AddTableDialog
           open={addTableOpen}
           onClose={() => setAddTableOpen(false)}
@@ -731,11 +756,18 @@ export function DatabaseClient({
 
 function CellValue({ value }: { value: unknown }) {
   if (value === null || value === undefined) {
-    return <span className="text-muted-foreground/50 italic text-xs">null</span>;
+    return (
+      <span className="text-muted-foreground/50 italic text-xs">null</span>
+    );
   }
   if (typeof value === "boolean") {
     return (
-      <span className={cn("text-xs font-medium", value ? "text-emerald-600" : "text-rose-500")}>
+      <span
+        className={cn(
+          "text-xs font-medium",
+          value ? "text-emerald-600" : "text-rose-500",
+        )}
+      >
         {String(value)}
       </span>
     );

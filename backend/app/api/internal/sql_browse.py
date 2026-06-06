@@ -4,6 +4,7 @@ Internal-only endpoints for the dashboard to browse SQL (PostgreSQL) data.
 NOT exposed via /v1/ — only callable from Next.js with X-Internal-Secret.
 """
 import logging
+import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
@@ -12,7 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.db.postgres import get_db
+from app.db.postgres import get_db, engine
 
 router = APIRouter(tags=["Internal SQL Browse"])
 logger = logging.getLogger(__name__)
@@ -25,6 +26,29 @@ async def require_internal(x_internal_secret: str = Header(...)) -> None:
 
 InternalGuard = Depends(require_internal)
 
+_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_\-]*$")
+
+
+def _validate_identifier(name: str, label: str = "identifier") -> None:
+    if not _IDENTIFIER_RE.match(name):
+        raise HTTPException(status_code=400, detail=f"Invalid {label}: {name!r}")
+
+
+def _serialize_rows(rows: list[dict]) -> list[dict]:
+    """Convert non-JSON-serializable types to safe values."""
+    serialized = []
+    for row in rows:
+        clean = {}
+        for k, v in row.items():
+            if hasattr(v, "isoformat"):
+                clean[k] = v.isoformat()
+            elif isinstance(v, bytes):
+                clean[k] = v.hex()
+            else:
+                clean[k] = v
+        serialized.append(clean)
+    return serialized
+
 
 @router.get("/projects/{project_id}/sql/tables", dependencies=[InternalGuard])
 async def list_tables(
@@ -32,10 +56,7 @@ async def list_tables(
     db_schema: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """
-    List all user-created tables in the project's PostgreSQL schema,
-    along with approximate row counts.
-    """
+    _validate_identifier(db_schema, "schema")
     result = await db.execute(
         text("""
             SELECT
@@ -47,7 +68,7 @@ async def list_tables(
                 AND s.relname = t.table_name
             WHERE t.table_schema = :schema
               AND t.table_type = 'BASE TABLE'
-              AND t.table_name NOT LIKE '\_%'  -- exclude reserved tables like _auth_users
+              AND t.table_name NOT LIKE '\_%'
             ORDER BY t.table_name
         """),
         {"schema": db_schema},
@@ -63,23 +84,14 @@ async def list_columns(
     db_schema: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """List columns for a specific table."""
-    # Validate identifiers
-    if not table.replace("_", "").isalnum():
-        raise HTTPException(status_code=400, detail="Invalid table name")
-    if not db_schema.replace("_", "").replace("-", "").isalnum():
-        raise HTTPException(status_code=400, detail="Invalid schema name")
+    _validate_identifier(db_schema, "schema")
+    _validate_identifier(table, "table")
 
     result = await db.execute(
         text("""
-            SELECT
-                column_name,
-                data_type,
-                is_nullable,
-                column_default
+            SELECT column_name, data_type, is_nullable, column_default
             FROM information_schema.columns
-            WHERE table_schema = :schema
-              AND table_name = :table
+            WHERE table_schema = :schema AND table_name = :table
             ORDER BY ordinal_position
         """),
         {"schema": db_schema, "table": table},
@@ -99,21 +111,16 @@ async def list_rows(
     order_dir: str = Query(default="desc", pattern="^(asc|desc)$"),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Fetch rows from a table — dashboard use only."""
-    # Validate identifiers
-    if not table.replace("_", "").isalnum():
-        raise HTTPException(status_code=400, detail="Invalid table name")
-    if not db_schema.replace("_", "").replace("-", "").isalnum():
-        raise HTTPException(status_code=400, detail="Invalid schema name")
-    if order_col and not order_col.replace("_", "").isalnum():
-        raise HTTPException(status_code=400, detail="Invalid order column")
-
-    order_clause = ""
+    _validate_identifier(db_schema, "schema")
+    _validate_identifier(table, "table")
     if order_col:
-        order_clause = f'ORDER BY "{order_col}" {order_dir.upper()}'
-    else:
-        # Default: order by created_at if it exists, else id
-        order_clause = "ORDER BY created_at DESC NULLS LAST"
+        _validate_identifier(order_col, "order column")
+
+    order_clause = (
+        f'ORDER BY "{order_col}" {order_dir.upper()}'
+        if order_col
+        else "ORDER BY created_at DESC NULLS LAST"
+    )
 
     rows_result = await db.execute(
         text(f'SELECT * FROM "{db_schema}"."{table}" {order_clause} LIMIT :limit OFFSET :offset'),
@@ -124,21 +131,8 @@ async def list_rows(
     )
 
     rows = [dict(r._mapping) for r in rows_result]
-    # Serialize non-JSON-serializable types
-    serialized = []
-    for row in rows:
-        clean = {}
-        for k, v in row.items():
-            if hasattr(v, "isoformat"):
-                clean[k] = v.isoformat()
-            elif isinstance(v, bytes):
-                clean[k] = v.hex()
-            else:
-                clean[k] = v
-        serialized.append(clean)
-
     total = count_result.scalar() or 0
-    return {"data": {"rows": serialized, "total": total, "limit": limit, "offset": offset}}
+    return {"data": {"rows": _serialize_rows(rows), "total": total, "limit": limit, "offset": offset}}
 
 
 class RunQueryRequest(BaseModel):
@@ -153,39 +147,42 @@ async def run_query(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """
-    Execute a read-only SQL query in the project's schema.
-    Only SELECT statements are permitted.
+    Execute a read-only SELECT query scoped to the project's schema.
+    Uses a raw asyncpg connection so SET LOCAL search_path persists
+    for the duration of the transaction.
     """
     query = body.query.strip()
-    if not query.upper().startswith("SELECT"):
+
+    # Strip leading SQL comments before the keyword check
+    query_no_comments = re.sub(r"(--[^\n]*\n?|/\*.*?\*/)", "", query, flags=re.DOTALL).strip()
+
+    if not query_no_comments.upper().startswith("SELECT"):
         raise HTTPException(
             status_code=400,
             detail="Only SELECT queries are permitted from the dashboard.",
         )
 
     db_schema = body.db_schema
-    if not db_schema.replace("_", "").replace("-", "").isalnum():
-        raise HTTPException(status_code=400, detail="Invalid schema name")
+    _validate_identifier(db_schema, "schema")
 
     try:
-        # Set the search_path so unqualified table names resolve to the project schema
-        await db.execute(text(f'SET LOCAL search_path TO "{db_schema}", public'))
-        result = await db.execute(text(query))
-        rows = [dict(r._mapping) for r in result]
+        # Acquire a raw connection from the pool so we can run SET LOCAL and the
+        # user query in the same transaction without the session layer interfering.
+        async with engine.connect() as conn:
+            await conn.execute(text("BEGIN"))
+            # SET LOCAL scopes the search_path to this transaction
+            await conn.execute(
+                text("SET LOCAL search_path TO :schema, public"),
+                {"schema": db_schema},
+            )
+            result = await conn.execute(text(query_no_comments))
+            rows = [dict(r._mapping) for r in result]
+            await conn.execute(text("ROLLBACK"))  # read-only; always roll back
 
-        # Serialize
-        serialized = []
-        for row in rows:
-            clean = {}
-            for k, v in row.items():
-                if hasattr(v, "isoformat"):
-                    clean[k] = v.isoformat()
-                elif isinstance(v, bytes):
-                    clean[k] = v.hex()
-                else:
-                    clean[k] = v
-            serialized.append(clean)
+        return {"data": {"rows": _serialize_rows(rows), "total": len(rows)}}
 
-        return {"data": {"rows": serialized, "total": len(serialized)}}
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.warning("Query error for project %s: %s", project_id, e)
         raise HTTPException(status_code=400, detail=str(e))

@@ -46,6 +46,56 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* ─── Brand colors — exposed as Tailwind utilities ───────────────────────────
+     Use: bg-brand, text-brand, border-brand, bg-brand-hover, etc.
+     Also: bg-admin-brand, text-admin-brand for the superadmin shell.
+  */
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-foreground: var(--brand-foreground);
+
+  --color-admin-brand: var(--admin-brand);
+  --color-admin-brand-hover: var(--admin-brand-hover);
+
+  /* Semantic surface/text shortcuts */
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  /* Semantic status colors */
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --color-info-bg: var(--info-bg);
+  --color-info-text: var(--info-text);
+  --color-success-bg: var(--success-bg);
+  --color-success-text: var(--success-text);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-text: var(--warn-text);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-text: var(--danger-text);
+
+  /* Sidebar tokens */
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-active-text: var(--sidebar-active-text);
+  --color-sidebar-text: var(--sidebar-text);
+  --color-sidebar-icon: var(--sidebar-icon);
+
+  /* Admin sidebar tokens */
+  --color-admin-sidebar-active: var(--admin-sidebar-active);
+  --color-admin-sidebar-active-text: var(--admin-sidebar-active-text);
+
+  /* Misc */
+  --color-border2: var(--border2);
+  --color-bg3: var(--bg3);
+  --color-code-bg: var(--code-bg);
+  --color-code-text: var(--code-text);
 }
 
 :root {
@@ -82,9 +132,7 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 
-  /* ─── Brand ──────────────────────────────────────────────────────────────────
-     These map to the design tokens in AGENTS.md §2.2
-  */
+  /* ─── Brand ──────────────────────────────────────────────────────────────────*/
   --brand:              #ff9130;
   --brand-hover:        #f97316;
   --brand-foreground:   #ffffff;
@@ -96,6 +144,7 @@
   --admin-sidebar-active-text: #b91c1c;
 
   /* Surfaces */
+  --surface:         #f8f9fa;
   --bg3:             #f1f3f4;
   --surface-hover:   #f1f3f4;
 
@@ -165,12 +214,14 @@
 
   --brand:              #ff9130;
   --brand-hover:        #f97316;
+  --brand-foreground:   #ffffff;
 
   --admin-brand:        #ef4444;
   --admin-brand-hover:  #dc2626;
   --admin-sidebar-active:      #3b1c1c;
   --admin-sidebar-active-text: #f87171;
 
+  --surface:         #2d2f31;
   --bg3:             #17181a;
   --surface-hover:   #3c4043;
 
