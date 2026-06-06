@@ -300,7 +300,7 @@ function SidebarContent({
       >
         {collapsed ? (
           <Tooltip>
-            <TooltipTrigger >
+            <TooltipTrigger>
               <button
                 className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
                 aria-label="Search"
@@ -407,8 +407,8 @@ function SidebarContent({
       {/* ── Desktop collapse toggle ── */}
       {onCollapse && (
         <Tooltip>
-          <TooltipTrigger >
-            <button
+          <TooltipTrigger>
+            <div
               onClick={onCollapse}
               className="absolute -right-[13px] top-[54px] z-20 hidden md:flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-all hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -418,7 +418,7 @@ function SidebarContent({
               ) : (
                 <ChevronLeft className="h-3 w-3" />
               )}
-            </button>
+            </div>
           </TooltipTrigger>
           <TooltipContent side="right">
             {collapsed ? "Expand" : "Collapse"}
@@ -640,7 +640,7 @@ function SidebarNavItem({
   if (collapsed) {
     return (
       <Tooltip>
-        <TooltipTrigger >{linkEl}</TooltipTrigger>
+        <TooltipTrigger>{linkEl}</TooltipTrigger>
         <TooltipContent side="right" className="flex items-center gap-1.5">
           {item.label}
           {item.badge && (
@@ -705,7 +705,7 @@ function UserRow({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger >
+      <DropdownMenuTrigger>
         <div className="flex h-12 w-full items-center gap-2.5 px-3 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
           {avatarEl}
           <div className="flex-1 min-w-0 text-left">
@@ -735,7 +735,7 @@ function UserRow({
           </p>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem >
+        <DropdownMenuItem>
           <Link
             href="/overview/settings/profile"
             className="text-[13px] gap-2"
@@ -746,7 +746,7 @@ function UserRow({
           </Link>
         </DropdownMenuItem>
         {!isAdmin && (
-          <DropdownMenuItem >
+          <DropdownMenuItem>
             <Link
               href="/overview/billing"
               className="text-[13px] gap-2"
@@ -758,7 +758,7 @@ function UserRow({
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem >
+        <DropdownMenuItem>
           <form action={signOutAction} className="w-full">
             <button
               type="submit"

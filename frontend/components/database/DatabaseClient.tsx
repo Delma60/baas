@@ -468,7 +468,7 @@ export function DatabaseClient({
 
           {/* Main workspace */}
           <main className="flex-1 flex flex-col overflow-hidden min-w-0">
-            <ResizablePanelGroup orientation="vertical" className="flex-1">
+            <ResizablePanelGroup direction="vertical" className="flex-1">
               {/* Query Editor */}
               <ResizablePanel defaultSize={30} minSize={10} maxSize={60}>
                 <div className="flex flex-col h-full">
