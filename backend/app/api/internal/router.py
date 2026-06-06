@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from nosql_browse import router as nosql_browser
 from app.config import settings
 from app.db.postgres import get_db
 from app.provisioner.sql_provisioner import (
@@ -31,7 +31,7 @@ from app.storage.minio import ensure_bucket_exists, get_bucket_name
 router = APIRouter(tags=["Internal"])
 logger = logging.getLogger(__name__)
 
-
+router.include_router(nosql_browser)
 # ─── Auth guard ───────────────────────────────────────────────────────────────
 
 async def require_internal(x_internal_secret: str = Header(...)) -> None:
@@ -491,6 +491,77 @@ async def create_storage_bucket(
     ensure_bucket_exists(full_name)
     return {"data": {"bucket": body.bucket, "full_name": full_name, "created": True}}
 
+# ─── Storage (internal dashboard routes) ─────────────────────────────────────
+# Add these routes to backend/app/api/internal/router.py
+# These routes bypass API key auth and are only accessible via X-Internal-Secret
+
+class PresignUploadRequest(BaseModel):
+    filename: str
+    content_type: str
+    expires_in: int = 3600
+
+
+@router.get("/storage/{project_id}/{bucket}/files", dependencies=[InternalGuard])
+async def internal_list_storage_files(
+    project_id: str,
+    bucket: str,
+    prefix: str | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=1000),
+) -> dict[str, Any]:
+    """List files in a project's storage bucket — bypasses API key auth for dashboard use."""
+    from app.engines.storage_engine import list_files
+    files = await list_files(project_id=project_id, bucket=bucket, prefix=prefix or "", limit=limit)
+    return {"data": files}
+
+
+@router.post("/storage/{project_id}/{bucket}/presign-upload", dependencies=[InternalGuard])
+async def internal_presign_upload(
+    project_id: str,
+    bucket: str,
+    body: PresignUploadRequest,
+) -> dict[str, Any]:
+    """Generate a presigned upload URL — for dashboard file uploads."""
+    from app.engines.storage_engine import get_presigned_upload_url
+    result = await get_presigned_upload_url(
+        project_id=project_id,
+        bucket=bucket,
+        filename=body.filename,
+        content_type=body.content_type,
+        expires_in=body.expires_in,
+    )
+    return {"data": result}
+
+
+@router.delete("/storage/{project_id}/{bucket}/{file_path:path}", dependencies=[InternalGuard])
+async def internal_delete_storage_file(
+    project_id: str,
+    bucket: str,
+    file_path: str,
+) -> dict[str, Any]:
+    """Delete a file from a project's storage bucket — for dashboard use."""
+    from app.engines.storage_engine import delete_file
+    deleted = await delete_file(project_id=project_id, bucket=bucket, path=file_path)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="File not found")
+    return {"data": {"deleted": True, "key": file_path}}
+
+
+@router.post("/storage/{project_id}/{bucket}/presign-download", dependencies=[InternalGuard])
+async def internal_presign_download(
+    project_id: str,
+    bucket: str,
+    file_key: str = Query(...),
+    expires_in: int = Query(default=3600),
+) -> dict[str, Any]:
+    """Generate a presigned download URL for dashboard use."""
+    from app.engines.storage_engine import get_presigned_download_url
+    url = await get_presigned_download_url(
+        project_id=project_id,
+        bucket=bucket,
+        file_key=file_key,
+        expires_in=expires_in,
+    )
+    return {"data": {"url": url}}
 
 # ─── API Keys ─────────────────────────────────────────────────────────────────
 

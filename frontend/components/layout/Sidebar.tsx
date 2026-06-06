@@ -239,7 +239,7 @@ export function Sidebar({
         <div className={cn("px-2 py-2 shrink-0", collapsed && "flex justify-center")}>
           {collapsed ? (
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger >
                 <button
                   className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
                   aria-label="Search"
@@ -341,7 +341,7 @@ export function Sidebar({
 
         {/* ── Collapse toggle ── */}
         <Tooltip>
-          <TooltipTrigger asChild>
+          <TooltipTrigger >
             <button
               onClick={() => setCollapsed((c) => !c)}
               className="absolute -right-[13px] top-[54px] z-20 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-all hover:border-border/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -492,7 +492,7 @@ function SidebarNavItem({
   if (collapsed) {
     return (
       <Tooltip>
-        <TooltipTrigger asChild>{linkEl}</TooltipTrigger>
+        <TooltipTrigger >{linkEl}</TooltipTrigger>
         <TooltipContent side="right" className="flex items-center gap-1.5">
           {item.label}
           {item.badge && (
@@ -537,7 +537,7 @@ function UserRow({
   if (collapsed) {
     return (
       <Tooltip>
-        <TooltipTrigger asChild>
+        <TooltipTrigger >
           <button
             className="flex h-12 w-full items-center justify-center transition-colors hover:bg-accent"
             aria-label="User menu"
@@ -555,7 +555,7 @@ function UserRow({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+      <DropdownMenuTrigger >
         <button className="flex h-12 w-full items-center gap-2.5 px-3 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
           {avatarEl}
           <div className="flex-1 min-w-0 text-left">
@@ -581,14 +581,14 @@ function UserRow({
           <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
+        <DropdownMenuItem >
           <Link href="/overview/settings/profile" className="text-[13px] gap-2">
             <Settings className="h-3.5 w-3.5" />
             Account settings
           </Link>
         </DropdownMenuItem>
         {!isAdmin && (
-          <DropdownMenuItem asChild>
+          <DropdownMenuItem >
             <Link href="/overview/billing" className="text-[13px] gap-2">
               <CreditCard className="h-3.5 w-3.5" />
               Billing
@@ -596,7 +596,7 @@ function UserRow({
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
+        <DropdownMenuItem >
           <form action={signOutAction} className="w-full">
             <button
               type="submit"
