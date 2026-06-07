@@ -54,8 +54,8 @@ const ICON_MAP: Record<string, React.ElementType> = {
 const COLOR_MAP: Record<string, { bg: string; text: string; icon: string }> = {
   orange: {
     bg: "bg-brand/10",
-    text: "text-[--brand]",
-    icon: "text-[--brand]",
+    text: "text-brand",
+    icon: "text-brand",
   },
   blue: {
     bg: "bg-[--info-bg]",
@@ -96,7 +96,7 @@ export function ProjectGrid({ projects, className }: ProjectGridProps) {
         <h2 className="text-sm font-medium text-[--text-primary]">Projects</h2>
         <Link
           href="/dashboard/projects"
-          className="text-xs text-[--brand] hover:underline"
+          className="text-xs text-brand hover:underline"
         >
           View all →
         </Link>
@@ -132,7 +132,7 @@ export function ProjectGrid({ projects, className }: ProjectGridProps) {
         {filter !== "paused" && (
           <Link
             href="/dashboard/projects/new"
-            className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[--border2] p-4 text-[--text-muted] transition-colors hover:border-[--brand] hover:bg-brand/5 hover:text-[--brand]"
+            className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[--border2] p-4 text-[--text-muted] transition-colors hover:border-brand hover:bg-brand/5 hover:text-brand"
           >
             <Plus className="h-5 w-5" />
             <span className="text-sm">New project</span>
@@ -154,7 +154,7 @@ function ProjectCard({ project }: { project: Project }) {
       href={`/dashboard/projects/${project.id}`}
       className={cn(
         "group relative flex flex-col rounded-xl border border-[--border] bg-[--background] p-4 transition-all hover:border-[--border2] hover:-translate-y-px",
-        project.status === "active" && "hover:border-[--brand]/30",
+        project.status === "active" && "hover:border-brand/30",
       )}
     >
       {/* Header */}

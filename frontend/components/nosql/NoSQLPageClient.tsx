@@ -89,7 +89,7 @@ const TYPE_COLORS: Record<string, string> = {
   boolean: "text-sky-600 dark:text-sky-400",
   null: "text-rose-500",
   array: "text-emerald-600 dark:text-emerald-400",
-  object: "text-[--brand]",
+  object: "text-brand",
 };
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
@@ -153,7 +153,7 @@ function DocumentCard({
       className={cn(
         "group relative rounded-xl border cursor-pointer transition-all duration-150 hover:-translate-y-px",
         isSelected
-          ? "border-[--brand]/50 bg-brand/5 shadow-sm shadow-[--brand]/10"
+          ? "border-brand/50 bg-brand/5 shadow-sm shadow-brand/10"
           : "border-[--border] bg-[--background] hover:border-[--border2] hover:shadow-sm",
       )}
     >
@@ -255,7 +255,7 @@ function JsonViewer({ data, depth = 0 }: { data: unknown; depth?: number }) {
         ) : (
           <ChevronRight className="h-3 w-3" />
         )}
-        <span className="text-[--brand] font-mono">
+        <span className="text-brand font-mono">
           {type === "array"
             ? `[${(data as any[]).length}]`
             : `{${entries.length}}`}
@@ -303,7 +303,7 @@ function DocumentDetailPanel({
     <div className="flex flex-col h-full bg-[--background] border-l border-[--border]">
       <div className="flex items-center justify-between px-4 py-3 border-b border-[--border] bg-[--surface] shrink-0">
         <div className="flex items-center gap-2">
-          <FileJson className="h-4 w-4 text-[--brand]" />
+          <FileJson className="h-4 w-4 text-brand" />
           <span className="text-[13px] font-medium text-[--text-primary]">
             Document
           </span>
@@ -639,14 +639,14 @@ function InsertDocumentDialog({
           <DialogTitle>Insert document</DialogTitle>
           <DialogDescription>
             Paste or type valid JSON. The document will be inserted into{" "}
-            <code className="text-[--brand]">{collection}</code>.
+            <code className="text-brand">{collection}</code>.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2 py-1">
           <textarea
             value={json}
             onChange={(e) => setJson(e.target.value)}
-            className="w-full h-48 rounded-lg border border-[--border] bg-[--code-bg] font-mono text-[12.5px] text-[--code-text] p-3 outline-none resize-none focus:border-[--brand] transition-colors"
+            className="w-full h-48 rounded-lg border border-[--border] bg-[--code-bg] font-mono text-[12.5px] text-[--code-text] p-3 outline-none resize-none focus:border-brand transition-colors"
             spellCheck={false}
           />
           {error && (
@@ -964,7 +964,7 @@ function CollectionsTab({
               placeholder="Filter…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-8 pl-8 pr-3 text-xs rounded-lg border border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] outline-none focus:border-[--brand] transition-colors"
+              className="w-full h-8 pl-8 pr-3 text-xs rounded-lg border border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] outline-none focus:border-brand transition-colors"
             />
           </div>
         </div>
@@ -989,7 +989,7 @@ function CollectionsTab({
                   className={cn(
                     "group flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-colors text-[13px]",
                     activeCollection === coll
-                      ? "bg-brand/10 text-[--brand] font-medium"
+                      ? "bg-brand/10 text-brand font-medium"
                       : "text-[--text-secondary] hover:bg-[--surface] hover:text-[--text-primary]",
                   )}
                   onClick={() => selectCollection(coll)}
@@ -998,7 +998,7 @@ function CollectionsTab({
                     className={cn(
                       "h-3.5 w-3.5 shrink-0",
                       activeCollection === coll
-                        ? "text-[--brand]"
+                        ? "text-brand"
                         : "text-[--text-muted]",
                     )}
                   />
@@ -1067,7 +1067,7 @@ function CollectionsTab({
           <>
             <div className="flex items-center justify-between px-5 py-3 border-b border-[--border] bg-[--background] shrink-0 gap-3">
               <div className="flex items-center gap-2">
-                <Layers className="h-4 w-4 text-[--brand]" />
+                <Layers className="h-4 w-4 text-brand" />
                 <span className="text-[13.5px] font-medium text-[--text-primary]">
                   {activeCollection}
                 </span>
@@ -1310,7 +1310,7 @@ function KVTab({
               placeholder="Filter by key…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-8 pl-9 pr-3 text-xs rounded-lg border border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] outline-none focus:border-[--brand] transition-colors w-56"
+              className="h-8 pl-9 pr-3 text-xs rounded-lg border border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] outline-none focus:border-brand transition-colors w-56"
             />
           </div>
           <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
@@ -1411,8 +1411,8 @@ function KVTab({
           <DialogHeader>
             <DialogTitle>Delete key?</DialogTitle>
             <DialogDescription>
-              Delete <code className="text-[--brand]">{deleteConfirm}</code>?
-              This cannot be undone.
+              Delete <code className="text-brand">{deleteConfirm}</code>? This
+              cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1507,7 +1507,7 @@ export function NoSQLPageClient({
                 className={cn(
                   "flex items-center gap-2 px-4 pb-3 pt-2 text-[13.5px] font-medium border-b-2 transition-colors whitespace-nowrap",
                   tab === t.id
-                    ? "border-[--brand] text-[--brand]"
+                    ? "border-brand text-brand"
                     : "border-transparent text-[--text-muted] hover:text-[--text-primary]",
                 )}
               >

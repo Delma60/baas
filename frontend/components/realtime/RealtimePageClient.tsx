@@ -389,7 +389,7 @@ function ChannelsTab({
                 placeholder="Filter…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-7 pl-7 pr-3 text-xs rounded-lg border border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] outline-none focus:border-[--brand] transition-colors w-36"
+                className="h-7 pl-7 pr-3 text-xs rounded-lg border border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] outline-none focus:border-brand transition-colors w-36"
               />
             </div>
           </div>
@@ -765,7 +765,7 @@ export function RealtimePageClient({
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                className="rounded-none border-b-2 border-transparent px-4 pb-2.5 pt-1 text-[13px] text-[--text-secondary] data-[state=active]:border-[--brand] data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-[--brand] data-[state=active]:font-medium transition-colors"
+                className="rounded-none border-b-2 border-transparent px-4 pb-2.5 pt-1 text-[13px] text-[--text-secondary] data-[state=active]:border-brand data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-brand data-[state=active]:font-medium transition-colors"
               >
                 {tab.label}
               </TabsTrigger>

@@ -20,7 +20,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="group relative flex h-9 w-full items-center justify-center gap-2 overflow-hidden rounded-lg bg-brand px-4 text-sm font-semibold text-white shadow-md shadow-[--brand]/25 transition-all hover:bg-brand-hover hover:shadow-[--brand]/35 disabled:opacity-60 disabled:cursor-not-allowed"
+      className="group relative flex h-9 w-full items-center justify-center gap-2 overflow-hidden rounded-lg bg-brand px-4 text-sm font-semibold text-white shadow-md shadow-brand/25 transition-all hover:bg-brand-hover hover:shadow-brand/35 disabled:opacity-60 disabled:cursor-not-allowed"
     >
       {pending ? (
         <>
@@ -116,7 +116,7 @@ export default function LoginPage() {
               placeholder="you@example.com"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-[--brand] focus-visible:ring-[--brand]/20"
+              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-brand focus-visible:ring-brand/20"
             />
             {state?.errors?.email && (
               <p className="text-xs text-red-500">{state.errors.email[0]}</p>
@@ -133,7 +133,7 @@ export default function LoginPage() {
               </Label>
               <Link
                 href="/forgot-password"
-                className="text-xs text-[--brand] hover:underline"
+                className="text-xs text-brand hover:underline"
               >
                 Forgot password?
               </Link>
@@ -147,7 +147,7 @@ export default function LoginPage() {
               placeholder="••••••••"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-[--brand] focus-visible:ring-[--brand]/20"
+              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-brand focus-visible:ring-brand/20"
             />
             {state?.errors?.password && (
               <p className="text-xs text-red-500">{state.errors.password[0]}</p>
@@ -164,7 +164,7 @@ export default function LoginPage() {
           Don't have an account?{" "}
           <Link
             href="/signup"
-            className="font-semibold text-[--brand] hover:underline"
+            className="font-semibold text-brand hover:underline"
           >
             Create one free
           </Link>

@@ -213,16 +213,14 @@ export default function MarketingPage() {
 
         <div className="relative mx-auto max-w-4xl text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[--border] bg-[--surface] px-4 py-2 text-sm font-medium text-[--text-secondary]">
-            <Globe className="h-4 w-4 text-[--brand]" />
+            <Globe className="h-4 w-4 text-brand" />
             Africa-first · Open standards · Zero lock-in
           </div>
 
           <h1 className="mb-6 text-5xl font-extrabold leading-tight tracking-tight text-[--text-primary] md:text-6xl lg:text-7xl">
             Backend infrastructure
             <br />
-            <span className="text-[--brand]">
-              that doesn&apos;t surprise you
-            </span>
+            <span className="text-brand">that doesn&apos;t surprise you</span>
           </h1>
 
           <p className="mx-auto mb-10 max-w-2xl text-lg leading-8 text-[--text-secondary] md:text-xl">
@@ -234,7 +232,7 @@ export default function MarketingPage() {
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
               href="/signup"
-              className="flex h-12 items-center gap-2 rounded-xl bg-brand px-8 text-base font-semibold text-white shadow-lg shadow-[--brand]/20 transition-all hover:bg-brand-hover hover:shadow-[--brand]/30"
+              className="flex h-12 items-center gap-2 rounded-xl bg-brand px-8 text-base font-semibold text-white shadow-lg shadow-brand/20 transition-all hover:bg-brand-hover hover:shadow-brand/30"
             >
               Start building free
               <ArrowRight className="h-4 w-4" />
@@ -293,7 +291,7 @@ export default function MarketingPage() {
               return (
                 <div
                   key={mod.name}
-                  className="group rounded-xl border border-[--border] bg-[--surface] p-5 transition-all hover:border-[--brand]/30 hover:shadow-md"
+                  className="group rounded-xl border border-[--border] bg-[--surface] p-5 transition-all hover:border-brand/30 hover:shadow-md"
                 >
                   <div
                     className={`mb-4 inline-flex rounded-lg p-2.5 ${mod.bg}`}
@@ -339,7 +337,7 @@ export default function MarketingPage() {
                 return (
                   <div key={item.title} className="p-8">
                     <div className="mb-4 inline-flex rounded-lg bg-brand/10 p-2.5">
-                      <Icon className="h-5 w-5 text-[--brand]" />
+                      <Icon className="h-5 w-5 text-brand" />
                     </div>
                     <h3 className="mb-2 text-base font-semibold text-[--text-primary]">
                       {item.title}
@@ -410,7 +408,7 @@ export default function MarketingPage() {
                 key={plan.name}
                 className={`relative rounded-2xl border p-8 ${
                   plan.highlight
-                    ? "border-[--brand] bg-brand/5 shadow-lg shadow-[--brand]/10"
+                    ? "border-brand bg-brand/5 shadow-lg shadow-brand/10"
                     : "border-[--border] bg-[--surface]"
                 }`}
               >
@@ -446,7 +444,7 @@ export default function MarketingPage() {
                       key={f}
                       className="flex items-center gap-2 text-sm text-[--text-secondary]"
                     >
-                      <Check className="h-4 w-4 flex-shrink-0 text-[--brand]" />
+                      <Check className="h-4 w-4 flex-shrink-0 text-brand" />
                       {f}
                     </li>
                   ))}
@@ -470,7 +468,7 @@ export default function MarketingPage() {
 
       {/* ─── CTA ──────────────────────────────────────────────────────── */}
       <section className="px-6 pb-24">
-        <div className="mx-auto max-w-4xl overflow-hidden rounded-2xl bg-brand px-8 py-16 text-center shadow-2xl shadow-[--brand]/20">
+        <div className="mx-auto max-w-4xl overflow-hidden rounded-2xl bg-brand px-8 py-16 text-center shadow-2xl shadow-brand/20">
           <h2 className="mb-4 text-3xl font-extrabold tracking-tight text-white md:text-4xl">
             Ready to build?
           </h2>
@@ -480,7 +478,7 @@ export default function MarketingPage() {
           </p>
           <Link
             href="/signup"
-            className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-8 text-base font-bold text-[--brand] shadow-lg transition-all hover:bg-orange-50"
+            className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-8 text-base font-bold text-brand shadow-lg transition-all hover:bg-orange-50"
           >
             Start building — it&apos;s free
             <ArrowRight className="h-4 w-4" />

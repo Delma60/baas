@@ -177,7 +177,7 @@ export default async function ProjectOverviewPage({ params }: Props) {
               </h3>
               <Link
                 href={`/u/${userId}/projects/${projectId}/usage`}
-                className="text-sm text-[--brand] hover:underline font-medium"
+                className="text-sm text-brand hover:underline font-medium"
               >
                 View detailed usage
               </Link>
@@ -214,7 +214,7 @@ export default async function ProjectOverviewPage({ params }: Props) {
                   <Link
                     key={mod.id}
                     href={`/u/${userId}/projects/${projectId}/${mod.id}`}
-                    className="group flex items-center gap-4 rounded-xl border border-[--border] bg-[--surface] p-4 shadow-sm transition-all hover:border-[--brand]/40 hover:shadow-md"
+                    className="group flex items-center gap-4 rounded-xl border border-[--border] bg-[--surface] p-4 shadow-sm transition-all hover:border-brand/40 hover:shadow-md"
                   >
                     <div
                       className={cn(
@@ -302,7 +302,7 @@ export default async function ProjectOverviewPage({ params }: Props) {
 
               <Link
                 href={`/u/${userId}/projects/${projectId}/settings/api-keys`}
-                className="mt-4 block text-center text-sm font-medium text-[--brand] hover:underline"
+                className="mt-4 block text-center text-sm font-medium text-brand hover:underline"
               >
                 Manage all Service Accounts
               </Link>
@@ -325,8 +325,8 @@ function AppPlatformButton({
 }) {
   return (
     <button className="group flex flex-col items-center gap-3">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full border border-[--border] bg-[--background] shadow-sm transition-all group-hover:border-[--brand]/40 group-hover:bg-[--surface-hover] group-hover:shadow-md">
-        <Icon className="h-6 w-6 text-[--text-secondary] transition-colors group-hover:text-[--brand]" />
+      <div className="flex h-14 w-14 items-center justify-center rounded-full border border-[--border] bg-[--background] shadow-sm transition-all group-hover:border-brand/40 group-hover:bg-[--surface-hover] group-hover:shadow-md">
+        <Icon className="h-6 w-6 text-[--text-secondary] transition-colors group-hover:text-brand" />
       </div>
       <span className="text-sm font-medium text-[--text-secondary] group-hover:text-[--text-primary]">
         {label}

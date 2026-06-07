@@ -33,7 +33,7 @@ export default function AuthLayout({
         href="/"
         className="relative z-10 mb-10 flex items-center gap-2.5 transition-opacity hover:opacity-80"
       >
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand shadow-lg shadow-[--brand]/30">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand shadow-lg shadow-brand/30">
           <Database className="h-4.5 w-4.5 text-white" />
         </div>
         <span className="text-xl font-bold tracking-tight text-[--text-primary]">

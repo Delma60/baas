@@ -12,7 +12,7 @@ interface PageHeaderProps {
 }
 
 const ICON_COLORS = {
-  orange: "bg-brand/10 text-[--brand]",
+  orange: "bg-brand/10 text-brand",
   blue: "bg-[--info-bg] text-[--info-text]",
   green: "bg-[--success-bg] text-[--success-text]",
   purple: "bg-[#7F77DD]/10 text-[#7F77DD]",

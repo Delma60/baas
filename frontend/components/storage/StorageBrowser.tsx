@@ -294,7 +294,7 @@ function UploadZone({
       <div
         className={cn(
           "flex flex-col items-center justify-center gap-3 py-10 transition-colors cursor-pointer",
-          isDragging && "bg-brand/5 border-[--brand]",
+          isDragging && "bg-brand/5 border-brand",
         )}
         onDragOver={(e) => {
           e.preventDefault();
@@ -314,7 +314,7 @@ function UploadZone({
         <div className="text-center">
           <p className="text-sm font-medium text-[--text-primary]">
             Drop files here or{" "}
-            <span className="text-[--brand] underline underline-offset-2 cursor-pointer">
+            <span className="text-brand underline underline-offset-2 cursor-pointer">
               browse
             </span>
           </p>
@@ -368,7 +368,7 @@ function UploadZone({
                 </div>
               </div>
               {item.status === "uploading" && (
-                <Loader2 className="h-4 w-4 animate-spin text-[--brand] shrink-0" />
+                <Loader2 className="h-4 w-4 animate-spin text-brand shrink-0" />
               )}
               {item.status === "done" && (
                 <Check className="h-4 w-4 text-[--success] shrink-0" />
@@ -770,8 +770,8 @@ export function StorageBrowser({
 
         {/* Selected actions bar */}
         {selectedFiles.size > 0 && (
-          <div className="flex items-center gap-3 px-6 py-2.5 bg-brand/5 border-b border-[--brand]/20 shrink-0">
-            <span className="text-[13px] font-medium text-[--brand]">
+          <div className="flex items-center gap-3 px-6 py-2.5 bg-brand/5 border-b border-brand/20 shrink-0">
+            <span className="text-[13px] font-medium text-brand">
               {selectedFiles.size} selected
             </span>
             <div className="flex items-center gap-1.5 ml-auto">
@@ -943,7 +943,7 @@ function EmptyState({
       </div>
       <div className="text-center">
         <p className="text-sm font-medium text-[--text-primary]">
-          No files in <span className="font-mono text-[--brand]">{bucket}</span>
+          No files in <span className="font-mono text-brand">{bucket}</span>
         </p>
         <p className="text-xs text-[--text-muted] mt-1">
           Upload your first file to get started

@@ -45,7 +45,7 @@ const TYPE_META: Record<
   },
   ai: {
     bg: "bg-brand/10",
-    text: "text-[--brand]",
+    text: "text-brand
     Icon: Sparkles,
   },
 };
@@ -61,7 +61,7 @@ export function ActivityFeed({ activities, className }: ActivityFeedProps) {
         </h2>
         <Link
           href="/dashboard/logs"
-          className="text-xs text-[--brand] hover:underline"
+          className="text-xs text-brander:underline"
         >
           View log →
         </Link>

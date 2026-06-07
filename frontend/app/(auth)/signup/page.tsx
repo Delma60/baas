@@ -57,7 +57,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="group relative flex h-9 w-full items-center justify-center gap-2 overflow-hidden rounded-lg bg-brand px-4 text-sm font-semibold text-white shadow-md shadow-[--brand]/25 transition-all hover:bg-brand-hover hover:shadow-[--brand]/35 disabled:opacity-60 disabled:cursor-not-allowed"
+      className="group relative flex h-9 w-full items-center justify-center gap-2 overflow-hidden rounded-lg bg-brand px-4 text-sm font-semibold text-white shadow-md shadow-brand/25 transition-all hover:bg-brand-hover hover:shadow-brand/35 disabled:opacity-60 disabled:cursor-not-allowed"
     >
       {pending ? (
         <>
@@ -155,7 +155,7 @@ export default function SignUpPage() {
               placeholder="Jane Doe"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-[--brand] focus-visible:ring-[--brand]/20"
+              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-brand focus-visible:ring-brand/20"
             />
             {state?.errors?.name && (
               <p className="text-xs text-red-500">{state.errors.name[0]}</p>
@@ -177,7 +177,7 @@ export default function SignUpPage() {
               placeholder="Acme Inc"
               value={organizationName}
               onChange={(event) => setOrganizationName(event.target.value)}
-              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-[--brand] focus-visible:ring-[--brand]/20"
+              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-brand focus-visible:ring-brand/20"
             />
             {state?.errors?.organizationName && (
               <p className="text-xs text-red-500">
@@ -202,7 +202,7 @@ export default function SignUpPage() {
               placeholder="you@example.com"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-[--brand] focus-visible:ring-[--brand]/20"
+              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-brand focus-visible:ring-brand/20"
             />
             {state?.errors?.email && (
               <p className="text-xs text-red-500">{state.errors.email[0]}</p>
@@ -225,7 +225,7 @@ export default function SignUpPage() {
               placeholder="Min. 8 characters"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-[--brand] focus-visible:ring-[--brand]/20"
+              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-brand focus-visible:ring-brand/20"
             />
             {state?.errors?.password ? (
               <p className="text-xs text-red-500">{state.errors.password[0]}</p>
@@ -237,11 +237,11 @@ export default function SignUpPage() {
 
         <p className="mt-4 text-center text-xs text-[--text-muted]">
           By creating an account, you agree to our{" "}
-          <Link href="/terms" className="text-[--brand] hover:underline">
+          <Link href="/terms" className="text-brand hover:underline">
             Terms
           </Link>{" "}
           and{" "}
-          <Link href="/privacy" className="text-[--brand] hover:underline">
+          <Link href="/privacy" className="text-brand hover:underline">
             Privacy Policy
           </Link>
           .
@@ -254,7 +254,7 @@ export default function SignUpPage() {
           Already have an account?{" "}
           <Link
             href="/login"
-            className="font-semibold text-[--brand] hover:underline"
+            className="font-semibold text-brand hover:underline"
           >
             Sign in
           </Link>

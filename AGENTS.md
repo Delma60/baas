@@ -300,7 +300,7 @@ Sidebar items:      h-10, rounded-lg, px-3, gap-3 icon + label
     ? 'bg-[--sidebar-active] text-[--sidebar-active-text]'
     : 'text-[--sidebar-text] hover:bg-[--surface-hover]'
 )}>
-  <Icon className={cn('h-4 w-4', isActive ? 'text-[--brand]' : 'text-[--sidebar-icon]')} />
+  <Icon className={cn('h-4 w-4', isActive ? 'text-brand' : 'text-[--sidebar-icon]')} />
   {label}
 </Link>
 ```

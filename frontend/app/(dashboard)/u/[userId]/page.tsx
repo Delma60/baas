@@ -13,7 +13,7 @@ import type { Project } from "@/types/baas";
 import { ProjectList } from "@/components/dashboard/ProjectList";
 import { getProjects, getProjectsByUser } from "@/lib/api/client";
 import { auth } from "@/lib/auth";
-import {AvatarComp} from "@/components/shared/AvatarComp";
+import { AvatarComp } from "@/components/shared/AvatarComp";
 import { User } from "next-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -87,7 +87,6 @@ export default async function ProjectsDashboard({ params }: PageProps) {
     console.error("Failed to fetch projects:", error);
   }
 
-
   return (
     <div className="min-h-screen bg-[#f8f9fa] flex">
       {/* ── Main content ── */}
@@ -95,7 +94,7 @@ export default async function ProjectsDashboard({ params }: PageProps) {
         {/* Top bar */}
         <header className="flex justify-between items-center">
           <div className="h-14 flex items-center px-4 md:px-6 gap-2">
-            <Flame className="w-6 h-6 text-[--brand]" />
+            <Flame className="w-6 h-6 text-brand" />
             <span className="text-[15px] font-medium text-[#202124]">
               YourBaaS
             </span>
@@ -106,7 +105,7 @@ export default async function ProjectsDashboard({ params }: PageProps) {
         <main className="px-6 md:px-10 pb-20 max-w-[1100px] mx-auto w-full">
           {/* Greeting */}
           <div className="mb-10">
-            <h1 className="text-3xl md:text-[40px] font-normal text-[--brand] leading-tight mb-1">
+            <h1 className="text-3xl md:text-[40px] font-normal text-brand leading-tight mb-1">
               Hello, {userName}
             </h1>
             <p className="text-[#3c4043] text-lg md:text-[18px] font-normal">

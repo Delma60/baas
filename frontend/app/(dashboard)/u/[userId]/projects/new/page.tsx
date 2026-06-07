@@ -260,9 +260,9 @@ export default function NewProjectPage({
                       className={cn(
                         "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-all duration-300",
                         isDone
-                          ? "border-[--brand] bg-brand text-white"
+                          ? "border-brand bg-brand text-white"
                           : isCurrent
-                            ? "border-[--brand] bg-background text-[--brand]"
+                            ? "border-brand bg-background text-brand"
                             : "border-border bg-background text-muted-foreground",
                       )}
                     >
@@ -515,7 +515,7 @@ export default function NewProjectPage({
                               {r.recommended && (
                                 <Badge
                                   variant="secondary"
-                                  className="text-[10px] px-1.5 py-0 bg-brand/10 text-[--brand] border-[--brand]/20"
+                                  className="text-[10px] px-1.5 py-0 bg-brand/10 text-brand border-brand/20"
                                 >
                                   Recommended
                                 </Badge>
@@ -539,7 +539,7 @@ export default function NewProjectPage({
                             className={cn(
                               "absolute right-4 top-4 flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all",
                               selected
-                                ? "border-[--brand] bg-brand"
+                                ? "border-brand bg-brand"
                                 : "border-border group-hover:border-foreground/30",
                             )}
                           >
