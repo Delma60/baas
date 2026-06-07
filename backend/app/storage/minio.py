@@ -6,6 +6,7 @@ from app.config import settings
 _s3_client = None
 
 
+
 def get_s3_client():  # type: ignore[no-untyped-def]
     global _s3_client
     if _s3_client is None:
@@ -34,8 +35,9 @@ def ensure_bucket_exists(bucket_name: str) -> None:
 
 def get_bucket_name(project_id: str, user_bucket: str) -> str:
     """Construct a safe bucket name: {projectId}-{userBucketName}"""
+    safe_project = project_id.lower().replace("_", "-")
     safe_bucket = user_bucket.lower().replace("_", "-")
-    return f"{project_id}-{safe_bucket}"
+    return f"{safe_project}-{safe_bucket}"
 
 
 __all__ = ["get_s3_client", "ensure_bucket_exists", "get_bucket_name", "ClientError"]

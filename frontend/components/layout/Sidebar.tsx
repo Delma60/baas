@@ -705,8 +705,8 @@ function UserRow({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<span />}>
-        <div className="flex h-12 w-full items-center gap-2.5 px-3 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+      <DropdownMenuTrigger className="flex h-12 w-full items-center gap-2.5 px-3 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+        <div >
           {avatarEl}
           <div className="flex-1 min-w-0 text-left">
             <p className="truncate text-[12.5px] font-medium text-foreground leading-tight">

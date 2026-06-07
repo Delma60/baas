@@ -41,7 +41,8 @@ async def list_project_buckets(
         try:
             response = s3.list_buckets()
             all_buckets = response.get("Buckets", [])
-            prefix = f"{project_id}-"
+            safe_project = project_id.lower().replace("_", "-")
+            prefix = f"{safe_project}-"
             return [
                 b["Name"].removeprefix(prefix)
                 for b in all_buckets
