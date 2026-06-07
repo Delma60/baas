@@ -1,19 +1,29 @@
 // frontend/components/layout/TopNav.tsx
 import Link from "next/link";
-import { BookOpen, Bell } from "lucide-react";
+import { BookOpen, Bell, Menu } from "lucide-react";
 import { AvatarComp } from "@/components/shared/AvatarComp";
 import type { User } from "next-auth";
 
 interface TopNavProps {
   user: User;
   projectName?: string;
+  onMenuClick?: () => void;
 }
 
-export function TopNav({ user, projectName }: TopNavProps) {
+export function TopNav({ user, projectName, onMenuClick }: TopNavProps) {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-4 md:px-6">
-      {/* Left: breadcrumb / title */}
+      {/* Left: hamburger (mobile) + breadcrumb */}
       <div className="flex items-center gap-2 min-w-0">
+        {/* Hamburger — only visible on mobile */}
+        <button
+          onClick={onMenuClick}
+          className="flex md:hidden h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface hover:text-text-primary"
+          aria-label="Open navigation"
+        >
+          <Menu className="h-4 w-4" />
+        </button>
+
         {projectName && (
           <span className="text-sm font-medium text-text-secondary truncate">
             {projectName}
