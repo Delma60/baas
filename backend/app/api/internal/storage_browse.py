@@ -30,26 +30,31 @@ async def list_project_buckets(
 ) -> dict[str, Any]:
     """
     List available buckets for a project.
-    Buckets are discovered from MinIO by scanning for prefix {project_id}-.
+    Buckets are discovered by scanning for prefix {project_id}-.
     """
-    from app.storage.minio import get_s3_client, get_bucket_name
+    import asyncio
+    from app.storage.minio import get_s3_client
+
     s3 = get_s3_client()
 
-    try:
-        response = s3.list_buckets()
-        all_buckets = response.get("Buckets", [])
-        prefix = f"{project_id}-"
-        project_buckets = [
-            b["Name"].removeprefix(prefix)
-            for b in all_buckets
-            if b["Name"].startswith(prefix)
-        ]
-    except Exception as e:
-        logger.warning("Failed to list MinIO buckets: %s", e)
-        project_buckets = []
+    def _list_buckets():
+        try:
+            response = s3.list_buckets()
+            all_buckets = response.get("Buckets", [])
+            prefix = f"{project_id}-"
+            return [
+                b["Name"].removeprefix(prefix)
+                for b in all_buckets
+                if b["Name"].startswith(prefix)
+            ]
+        except Exception as e:
+            logger.warning("Failed to list buckets: %s", e)
+            return []
+
+    project_bucket_names = await asyncio.to_thread(_list_buckets)
 
     buckets = []
-    for bucket_name in project_buckets:
+    for bucket_name in project_bucket_names:
         info: dict[str, Any] = {"name": bucket_name}
         if include_stats:
             try:
@@ -69,13 +74,29 @@ async def create_bucket(
     bucket: str = Query(...),
 ) -> dict[str, Any]:
     """Create a new storage bucket for the project."""
-    from app.storage.minio import ensure_bucket_exists, get_bucket_name
+    import asyncio
+    from app.storage.minio import get_bucket_name, get_s3_client
+    from botocore.exceptions import ClientError
+
     full_name = get_bucket_name(project_id, bucket)
+    s3 = get_s3_client()
+
+    def _create():
+        try:
+            s3.head_bucket(Bucket=full_name)
+        except ClientError as e:
+            code = int(e.response["Error"]["Code"])
+            if code == 404:
+                s3.create_bucket(Bucket=full_name)
+            else:
+                raise
+
     try:
-        ensure_bucket_exists(full_name)
+        await asyncio.to_thread(_create)
         return {"data": {"bucket": bucket, "full_name": full_name, "created": True}}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to create bucket %s: %s", full_name, e)
+        raise HTTPException(status_code=500, detail=f"Could not create bucket: {e}")
 
 
 @router.get("/storage/{project_id}/{bucket}/files", dependencies=[InternalGuard])
@@ -118,6 +139,7 @@ async def presign_upload(
         )
         return {"data": result}
     except Exception as e:
+        logger.error("Failed to presign upload for %s/%s: %s", project_id, bucket, e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -139,6 +161,7 @@ async def presign_download(
         )
         return {"data": {"url": url, "key": file_key, "expires_in": expires_in}}
     except Exception as e:
+        logger.error("Failed to presign download for %s/%s/%s: %s", project_id, bucket, file_key, e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
