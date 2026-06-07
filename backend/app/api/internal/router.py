@@ -11,6 +11,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from .nosql_browse import router as nosql_browser
 from .sql_browse import router as sql_browser
+from .auth_browse import router as auth_browser
+from .realtime_browse import router as realtime_browser
+from .auth_settings import router as auth_settings_router
+
 from app.config import settings
 from app.db.postgres import get_db
 
@@ -35,6 +39,10 @@ logger = logging.getLogger(__name__)
 
 router.include_router(nosql_browser)
 router.include_router(sql_browser)
+router.include_router(auth_browser)
+router.include_router(realtime_browser)
+router.include_router(auth_settings_router)
+
 # ─── Auth guard ───────────────────────────────────────────────────────────────
 
 async def require_internal(x_internal_secret: str = Header(...)) -> None:

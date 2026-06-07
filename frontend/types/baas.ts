@@ -28,6 +28,7 @@ export interface Project {
   apiCalls: number;
   updatedAt: Date;
   db_schema: string;
+  mongo_database: string
 }
 
 // ─── Activity ─────────────────────────────────────────────────────────────────

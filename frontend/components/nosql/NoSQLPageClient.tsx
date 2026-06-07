@@ -22,13 +22,8 @@ import {
   MoreHorizontal,
   FolderOpen,
   Eye,
-  Code2,
-  AlertCircle,
-  Database,
   ChevronDown,
-  ChevronUp,
   Clock,
-  Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -122,9 +117,9 @@ function truncate(str: string, max = 60): string {
   return str.length > max ? str.slice(0, max) + "…" : str;
 }
 
-// ─── API helpers (client-side calls to our Next.js proxy) ─────────────────────
+// ─── Proxy helper (all NoSQL dashboard calls go through nosql-proxy) ──────────
 
-async function apiFetch(path: string, init?: RequestInit) {
+async function proxyFetch(path: string, init?: RequestInit) {
   const res = await fetch(`/api/nosql-proxy${path}`, {
     ...init,
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
@@ -163,7 +158,6 @@ function DocumentCard({
       )}
     >
       <div className="p-4">
-        {/* Doc ID */}
         <div className="flex items-center justify-between mb-3">
           <code className="text-[11px] font-mono text-[--text-muted] bg-[--surface] border border-[--border] px-2 py-0.5 rounded-md truncate max-w-[200px]">
             {String(doc.id ?? "").slice(0, 24)}
@@ -202,7 +196,6 @@ function DocumentCard({
           </DropdownMenu>
         </div>
 
-        {/* Field previews */}
         <div className="space-y-1.5">
           {preview.map(([k, v]) => {
             const type = getValueType(v);
@@ -417,12 +410,10 @@ function KVRow({ entry, onDelete }: { entry: KVEntry; onDelete: () => void }) {
           <TypeIcon className={cn("h-3.5 w-3.5 shrink-0", TYPE_COLORS[type])} />
         )}
 
-        {/* Key */}
         <code className="text-[12.5px] font-mono text-[--text-primary] flex-1 truncate">
           {entry.key}
         </code>
 
-        {/* Value preview */}
         {!isExpandable && (
           <span
             className={cn(
@@ -434,7 +425,6 @@ function KVRow({ entry, onDelete }: { entry: KVEntry; onDelete: () => void }) {
           </span>
         )}
 
-        {/* TTL badge */}
         {entry.expires_at && (
           <span className="flex items-center gap-1 text-[11px] text-[--warn-text] bg-[--warn-bg] rounded-full px-2 py-0.5 shrink-0">
             <Clock className="h-2.5 w-2.5" />
@@ -442,7 +432,6 @@ function KVRow({ entry, onDelete }: { entry: KVEntry; onDelete: () => void }) {
           </span>
         )}
 
-        {/* Type badge */}
         <Badge
           variant="outline"
           className="text-[10px] h-5 px-1.5 shrink-0 font-mono"
@@ -514,19 +503,24 @@ function CreateCollectionDialog({
     setLoading(true);
     setError("");
     try {
-      await fetch(
-        `/api/nosql-proxy/projects/${projectId}/nosql/collections?mongo_database=${mongoDatabase}`,
+      const res = await fetch(
+        `/api/nosql-proxy/projects/${projectId}/nosql/collections?mongo_database=${encodeURIComponent(mongoDatabase)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ collection: name.trim() }),
         },
       );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.detail ?? data?.error ?? "Failed to create collection");
+        return;
+      }
       onCreated(name.trim());
       setName("");
       onClose();
     } catch (e: any) {
-      setError(e.message ?? "Failed to create collection");
+      setError(e.message ?? "Network error");
     } finally {
       setLoading(false);
     }
@@ -538,8 +532,8 @@ function CreateCollectionDialog({
         <DialogHeader>
           <DialogTitle>New collection</DialogTitle>
           <DialogDescription>
-            Create a MongoDB collection. Collection names must start with a
-            letter or number.
+            Create a MongoDB collection. Names must start with a letter or
+            number.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-1">
@@ -616,19 +610,23 @@ function InsertDocumentDialog({
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/nosql-proxy/projects/${projectId}/nosql/collections/${collection}/documents?mongo_database=${mongoDatabase}`,
+        `/api/nosql-proxy/projects/${projectId}/nosql/collections/${collection}/documents?mongo_database=${encodeURIComponent(mongoDatabase)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(parsed),
         },
       );
-      if (!res.ok) throw new Error("Insert failed");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.detail ?? data?.error ?? "Insert failed");
+        return;
+      }
       onInserted(data.data ?? data);
+      setJson("{\n  \n}");
       onClose();
     } catch (e: any) {
-      setError(e.message ?? "Failed to insert document");
+      setError(e.message ?? "Network error");
     } finally {
       setLoading(false);
     }
@@ -715,18 +713,20 @@ function SetKVDialog({
     }
     setLoading(true);
     try {
+      // Use the internal proxy — no API key needed in the dashboard
       const res = await fetch(
-        `/api/v1/nosql/${projectId}/kv/${encodeURIComponent(key.trim())}`,
+        `/api/nosql-proxy/projects/${projectId}/nosql/kv/${encodeURIComponent(key.trim())}?mongo_database=${encodeURIComponent(mongoDatabase)}`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer __service__",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ value, ttl: ttl ? parseInt(ttl) : null }),
         },
       );
-      if (!res.ok) throw new Error("Set failed");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.detail ?? data?.error ?? "Failed to set key");
+        return;
+      }
       onSet({
         key: key.trim(),
         value,
@@ -739,7 +739,7 @@ function SetKVDialog({
       setTtl("");
       onClose();
     } catch (e: any) {
-      setError(e.message ?? "Failed to set key");
+      setError(e.message ?? "Network error");
     } finally {
       setLoading(false);
     }
@@ -847,7 +847,8 @@ function CollectionsTab({
   );
   const [docs, setDocs] = React.useState<any[]>(initialDocs ?? []);
   const [total, setTotal] = React.useState(initialTotal);
-  const [loading, setLoading] = React.useState(false);
+  const [loadingDocs, setLoadingDocs] = React.useState(false);
+  const [loadingCollections, setLoadingCollections] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const [selectedDoc, setSelectedDoc] = React.useState<any | null>(null);
   const [createCollOpen, setCreateCollOpen] = React.useState(false);
@@ -862,13 +863,28 @@ function CollectionsTab({
     (c) => !search || c.toLowerCase().includes(search.toLowerCase()),
   );
 
+  const refreshCollections = async () => {
+    setLoadingCollections(true);
+    try {
+      const res = await fetch(
+        `/api/internal/nosql/collections?projectId=${projectId}&mongo_database=${encodeURIComponent(mongoDatabase)}`,
+      );
+      const data = await res.json();
+      if (res.ok) {
+        const list: string[] = data?.data?.collections ?? [];
+        setCollections(list);
+      }
+    } catch {}
+    setLoadingCollections(false);
+  };
+
   const loadDocs = async (coll: string) => {
-    setLoading(true);
+    setLoadingDocs(true);
     setSelectedDoc(null);
     setDocs([]);
     try {
       const res = await fetch(
-        `/api/nosql-proxy/projects/${projectId}/nosql/collections/${coll}/documents?mongo_database=${mongoDatabase}&limit=50&skip=0`,
+        `/api/nosql-proxy/projects/${projectId}/nosql/collections/${coll}/documents?mongo_database=${encodeURIComponent(mongoDatabase)}&limit=50&skip=0`,
       );
       const json = await res.json();
       setDocs(json.data?.docs ?? []);
@@ -876,7 +892,7 @@ function CollectionsTab({
     } catch {
       setDocs([]);
     } finally {
-      setLoading(false);
+      setLoadingDocs(false);
     }
   };
 
@@ -892,7 +908,7 @@ function CollectionsTab({
     if (!activeCollection) return;
     try {
       await fetch(
-        `/api/nosql-proxy/projects/${projectId}/nosql/collections/${activeCollection}/documents/${docId}?mongo_database=${mongoDatabase}`,
+        `/api/nosql-proxy/projects/${projectId}/nosql/collections/${activeCollection}/documents/${docId}?mongo_database=${encodeURIComponent(mongoDatabase)}`,
         { method: "DELETE" },
       );
       setDocs((prev) => prev.filter((d) => d.id !== docId));
@@ -904,22 +920,41 @@ function CollectionsTab({
   const handleDeleteCollection = async (coll: string) => {
     try {
       await fetch(
-        `/api/nosql-proxy/projects/${projectId}/nosql/collections/${coll}?mongo_database=${mongoDatabase}`,
+        `/api/nosql-proxy/projects/${projectId}/nosql/collections/${coll}?mongo_database=${encodeURIComponent(mongoDatabase)}`,
         { method: "DELETE" },
       );
-      setCollections((prev) => prev.filter((c) => c !== coll));
+      const updated = collections.filter((c) => c !== coll);
+      setCollections(updated);
       if (activeCollection === coll) {
-        const remaining = collections.filter((c) => c !== coll);
-        if (remaining.length > 0) selectCollection(remaining[0]);
-        else setActiveCollection(null);
+        if (updated.length > 0) selectCollection(updated[0]);
+        else {
+          setActiveCollection(null);
+          setDocs([]);
+          setTotal(0);
+        }
       }
     } catch {}
     setDeleteConfirm(null);
   };
 
+  // After creating a collection, update local state AND re-fetch from server
+  const handleCollectionCreated = async (name: string) => {
+    // Optimistically add to list
+    setCollections((prev) => [...prev, name].sort());
+    // Select it immediately
+    setActiveCollection(name);
+    setDocs([]);
+    setTotal(0);
+    router.replace(`${pathname}?tab=collections&collection=${name}`, {
+      scroll: false,
+    });
+    // Also trigger server component refresh so next navigation is consistent
+    router.refresh();
+  };
+
   return (
     <div className="flex h-full overflow-hidden">
-      {/* Sidebar: collection list */}
+      {/* Sidebar */}
       <aside className="w-[220px] shrink-0 flex flex-col border-r border-[--border] bg-[--surface]/40 overflow-hidden">
         <div className="p-2 border-b border-[--border] shrink-0">
           <div className="relative">
@@ -936,68 +971,88 @@ function CollectionsTab({
 
         <ScrollArea className="flex-1 p-1.5">
           <div className="space-y-0.5">
-            {filteredCollections.length === 0 && (
+            {loadingCollections ? (
+              <div className="flex items-center justify-center py-8 gap-2 text-[--text-muted]">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </div>
+            ) : filteredCollections.length === 0 ? (
               <div className="py-8 text-center">
                 <FolderOpen className="h-6 w-6 text-[--text-muted] mx-auto mb-2 opacity-40" />
                 <p className="text-[11px] text-[--text-muted]">
                   No collections yet
                 </p>
               </div>
-            )}
-            {filteredCollections.map((coll) => (
-              <div
-                key={coll}
-                className={cn(
-                  "group flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-colors text-[13px]",
-                  activeCollection === coll
-                    ? "bg-brand/10 text-[--brand] font-medium"
-                    : "text-[--text-secondary] hover:bg-[--surface] hover:text-[--text-primary]",
-                )}
-                onClick={() => selectCollection(coll)}
-              >
-                <Layers
+            ) : (
+              filteredCollections.map((coll) => (
+                <div
+                  key={coll}
                   className={cn(
-                    "h-3.5 w-3.5 shrink-0",
+                    "group flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-colors text-[13px]",
                     activeCollection === coll
-                      ? "text-[--brand]"
-                      : "text-[--text-muted]",
+                      ? "bg-brand/10 text-[--brand] font-medium"
+                      : "text-[--text-secondary] hover:bg-[--surface] hover:text-[--text-primary]",
                   )}
-                />
-                <span className="truncate flex-1">{coll}</span>
-                <DropdownMenu>
-                  <DropdownMenuTrigger onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                    >
-                      <MoreHorizontal className="h-3 w-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-36">
-                    <DropdownMenuItem
-                      className="text-xs gap-2 text-destructive focus:text-destructive"
-                      onClick={() =>
-                        setDeleteConfirm({
-                          type: "collection",
-                          id: coll,
-                          label: coll,
-                        })
-                      }
-                    >
-                      <Trash2 className="h-3.5 w-3.5" /> Drop collection
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            ))}
+                  onClick={() => selectCollection(coll)}
+                >
+                  <Layers
+                    className={cn(
+                      "h-3.5 w-3.5 shrink-0",
+                      activeCollection === coll
+                        ? "text-[--brand]"
+                        : "text-[--text-muted]",
+                    )}
+                  />
+                  <span className="truncate flex-1">{coll}</span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                      >
+                        <MoreHorizontal className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-36">
+                      <DropdownMenuItem
+                        className="text-xs gap-2 text-destructive focus:text-destructive"
+                        onClick={() =>
+                          setDeleteConfirm({
+                            type: "collection",
+                            id: coll,
+                            label: coll,
+                          })
+                        }
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Drop collection
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              ))
+            )}
           </div>
         </ScrollArea>
 
-        <div className="p-2 border-t border-[--border] shrink-0">
+        <div className="p-2 border-t border-[--border] shrink-0 flex gap-1.5">
           <Button
             size="sm"
-            className="w-full h-8 gap-1.5 text-xs bg-brand text-white hover:bg-brand-hover border-0"
+            variant="ghost"
+            className="h-8 w-8 shrink-0 p-0"
+            onClick={refreshCollections}
+            disabled={loadingCollections}
+            title="Refresh list"
+          >
+            <RefreshCw
+              className={cn(
+                "h-3.5 w-3.5",
+                loadingCollections && "animate-spin",
+              )}
+            />
+          </Button>
+          <Button
+            size="sm"
+            className="flex-1 h-8 gap-1.5 text-xs bg-brand text-white hover:bg-brand-hover border-0"
             onClick={() => setCreateCollOpen(true)}
           >
             <Plus className="h-3.5 w-3.5" />
@@ -1006,11 +1061,10 @@ function CollectionsTab({
         </div>
       </aside>
 
-      {/* Main: documents grid */}
+      {/* Main: documents */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {activeCollection ? (
           <>
-            {/* Toolbar */}
             <div className="flex items-center justify-between px-5 py-3 border-b border-[--border] bg-[--background] shrink-0 gap-3">
               <div className="flex items-center gap-2">
                 <Layers className="h-4 w-4 text-[--brand]" />
@@ -1032,11 +1086,17 @@ function CollectionsTab({
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => loadDocs(activeCollection)}
+                      disabled={loadingDocs}
                     >
-                      <RefreshCw className="h-3.5 w-3.5" />
+                      <RefreshCw
+                        className={cn(
+                          "h-3.5 w-3.5",
+                          loadingDocs && "animate-spin",
+                        )}
+                      />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Refresh</TooltipContent>
+                  <TooltipContent>Refresh documents</TooltipContent>
                 </Tooltip>
                 <Button
                   size="sm"
@@ -1049,11 +1109,10 @@ function CollectionsTab({
             </div>
 
             <div className="flex flex-1 overflow-hidden">
-              {/* Document grid */}
               <ScrollArea
                 className={cn("flex-1 p-5", selectedDoc ? "pr-3" : "")}
               >
-                {loading ? (
+                {loadingDocs ? (
                   <div className="flex items-center justify-center h-48 gap-2 text-[--text-muted]">
                     <Loader2 className="h-5 w-5 animate-spin" />
                     <span className="text-sm">Loading documents…</span>
@@ -1062,9 +1121,7 @@ function CollectionsTab({
                   <div className="flex flex-col items-center justify-center h-48 gap-3 text-[--text-muted]">
                     <FileJson className="h-10 w-10 opacity-20" />
                     <p className="text-sm font-medium">No documents yet</p>
-                    <p className="text-xs text-[--text-muted]">
-                      Insert a document to get started
-                    </p>
+                    <p className="text-xs">Insert a document to get started</p>
                     <Button
                       size="sm"
                       className="mt-1 gap-1.5 bg-brand text-white hover:bg-brand-hover border-0"
@@ -1098,7 +1155,6 @@ function CollectionsTab({
                 )}
               </ScrollArea>
 
-              {/* Document detail panel */}
               {selectedDoc && (
                 <div className="w-[340px] shrink-0 overflow-hidden">
                   <DocumentDetailPanel
@@ -1137,10 +1193,7 @@ function CollectionsTab({
       <CreateCollectionDialog
         open={createCollOpen}
         onClose={() => setCreateCollOpen(false)}
-        onCreated={(name) => {
-          setCollections((prev) => [...prev, name]);
-          selectCollection(name);
-        }}
+        onCreated={handleCollectionCreated}
         projectId={projectId}
         mongoDatabase={mongoDatabase}
       />
@@ -1149,14 +1202,16 @@ function CollectionsTab({
         <InsertDocumentDialog
           open={insertDocOpen}
           onClose={() => setInsertDocOpen(false)}
-          onInserted={(doc) => setDocs((prev) => [doc, ...prev])}
+          onInserted={(doc) => {
+            setDocs((prev) => [doc, ...prev]);
+            setTotal((t) => t + 1);
+          }}
           projectId={projectId}
           mongoDatabase={mongoDatabase}
           collection={activeCollection}
         />
       )}
 
-      {/* Delete confirm */}
       <Dialog
         open={!!deleteConfirm}
         onOpenChange={() => setDeleteConfirm(null)}
@@ -1225,7 +1280,7 @@ function KVTab({
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/nosql-proxy/projects/${projectId}/nosql/kv?mongo_database=${mongoDatabase}`,
+        `/api/nosql-proxy/projects/${projectId}/nosql/kv?mongo_database=${encodeURIComponent(mongoDatabase)}`,
       );
       const json = await res.json();
       setEntries(json.data?.entries ?? []);
@@ -1236,7 +1291,7 @@ function KVTab({
   const handleDelete = async (key: string) => {
     try {
       await fetch(
-        `/api/nosql-proxy/projects/${projectId}/nosql/kv/${encodeURIComponent(key)}?mongo_database=${mongoDatabase}`,
+        `/api/nosql-proxy/projects/${projectId}/nosql/kv/${encodeURIComponent(key)}?mongo_database=${encodeURIComponent(mongoDatabase)}`,
         { method: "DELETE" },
       );
       setEntries((prev) => prev.filter((e) => e.key !== key));
@@ -1246,7 +1301,6 @@ function KVTab({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Toolbar */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-[--border] bg-[--background] shrink-0 gap-3">
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -1290,7 +1344,6 @@ function KVTab({
         </div>
       </div>
 
-      {/* Table header */}
       <div className="grid grid-cols-[auto_1fr_1fr_auto] gap-0 bg-[--surface] border-b border-[--border] px-4 py-2">
         {["", "Key", "Value", "Actions"].map((h, i) => (
           <span
@@ -1421,7 +1474,7 @@ export function NoSQLPageClient({
   return (
     <TooltipProvider>
       <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden bg-[--background]">
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-[--border] bg-[--background] px-6 py-5 shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-emerald-500/10">
@@ -1443,7 +1496,7 @@ export function NoSQLPageClient({
           </div>
         </div>
 
-        {/* ── Tabs ── */}
+        {/* Tabs */}
         <div className="flex border-b border-[--border] bg-[--background] px-6 shrink-0">
           {TABS.map((t) => {
             const Icon = t.icon;
@@ -1474,7 +1527,7 @@ export function NoSQLPageClient({
           })}
         </div>
 
-        {/* ── Tab content ── */}
+        {/* Tab content */}
         <div className="flex-1 overflow-hidden">
           {tab === "collections" && (
             <CollectionsTab

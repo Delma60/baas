@@ -6,7 +6,7 @@ These are NOT exposed via /v1/ — only callable from Next.js with X-Internal-Se
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
 from pydantic import BaseModel
 
 from app.config import settings
@@ -31,9 +31,13 @@ async def list_collections(
 ) -> dict[str, Any]:
     """List all non-reserved collection names in a project's MongoDB database."""
     db = get_project_db(mongo_database)
-    names = await db.list_collection_names()
+    try:
+        names = await db.list_collection_names()
+    except Exception as e:
+        logger.error("Failed to list collections for %s: %s", mongo_database, e)
+        return {"data": {"collections": []}}
     # Filter reserved collections
-    public = [n for n in names if not n.startswith("_")]
+    public = sorted([n for n in names if not n.startswith("_")])
     return {"data": {"collections": public}}
 
 
@@ -52,9 +56,13 @@ async def list_collection_documents(
     from app.engines.nosql_engine import find_documents
 
     db = get_project_db(mongo_database)
-    docs, total = await find_documents(
-        db, collection, limit=limit, skip=skip, sort=[("_id", -1)]
-    )
+    try:
+        docs, total = await find_documents(
+            db, collection, limit=limit, skip=skip, sort=[("_id", -1)]
+        )
+    except Exception as e:
+        logger.error("Failed to list documents from %s: %s", collection, e)
+        return {"data": {"docs": [], "total": 0}}
     return {"data": {"docs": docs, "total": total}}
 
 
@@ -67,13 +75,16 @@ async def insert_document_internal(
     project_id: str,
     collection: str,
     mongo_database: str = Query(...),
-    body: dict[str, Any] = None,
+    body: dict[str, Any] = Body(default_factory=dict),
 ) -> dict[str, Any]:
     from app.engines.nosql_engine import insert_document
-    from fastapi import Body
 
     db = get_project_db(mongo_database)
-    doc = await insert_document(db, collection, body or {})
+    try:
+        doc = await insert_document(db, collection, body)
+    except Exception as e:
+        logger.error("Failed to insert document into %s: %s", collection, e)
+        raise HTTPException(status_code=500, detail=str(e))
     return {"data": doc}
 
 
@@ -110,6 +121,27 @@ async def list_kv_internal(
     return {"data": {"entries": entries}}
 
 
+@router.put(
+    "/projects/{project_id}/nosql/kv/{key:path}",
+    status_code=201,
+    dependencies=[InternalGuard],
+)
+async def set_kv_internal(
+    project_id: str,
+    key: str,
+    mongo_database: str = Query(...),
+    body: dict[str, Any] = Body(...),
+) -> dict[str, Any]:
+    """Set a KV entry — used by the dashboard instead of the SDK endpoint."""
+    from app.engines.nosql_engine import kv_set
+
+    value = body.get("value")
+    ttl = body.get("ttl")
+    db = get_project_db(mongo_database)
+    await kv_set(db, key, value, ttl=ttl)
+    return {"data": {"key": key, "value": value}}
+
+
 @router.delete(
     "/projects/{project_id}/nosql/kv/{key:path}",
     dependencies=[InternalGuard],
@@ -144,7 +176,11 @@ async def create_collection_internal(
 ) -> dict[str, Any]:
     from app.provisioner.nosql_provisioner import create_collection
 
-    await create_collection(mongo_database, body.collection)
+    try:
+        await create_collection(mongo_database, body.collection)
+    except Exception as e:
+        logger.error("Failed to create collection %s: %s", body.collection, e)
+        raise HTTPException(status_code=500, detail=str(e))
     return {"data": {"collection": body.collection, "created": True}}
 
 
@@ -159,5 +195,9 @@ async def drop_collection_internal(
 ) -> dict[str, Any]:
     from app.provisioner.nosql_provisioner import drop_collection
 
-    await drop_collection(mongo_database, collection)
+    try:
+        await drop_collection(mongo_database, collection)
+    except Exception as e:
+        logger.error("Failed to drop collection %s: %s", collection, e)
+        raise HTTPException(status_code=500, detail=str(e))
     return {"data": {"collection": collection, "dropped": True}}

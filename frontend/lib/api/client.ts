@@ -52,6 +52,7 @@ function mapBackendProject(project: BackendProject): Project {
     icon: projectIconFromName(project.name),
     color: projectColorFromStatus(project.status),
     db_schema: project.db_schema ?? "",
+    mongo_database: project.mongo_database ?? "",
     modules: ["sql", "nosql", "auth", "storage", "realtime", "ai", "functions"] as const,
     sqlRows: 0,
     apiCalls: 0,

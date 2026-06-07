@@ -30,7 +30,8 @@ export default async function NoSQLPage({ params, searchParams }: Props) {
 
   try {
     collections = await getNoSQLCollections(projectId, mongoDatabase);
-  } catch {
+  } catch(e) {
+    console.log(e)
     collections = [];
   }
 
