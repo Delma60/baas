@@ -274,3 +274,64 @@ async def delete_row(
         raise HTTPException(status_code=404, detail="Row not found")
     await db.commit()
     return {"data": {"deleted": True, "id": row_id}}
+
+# ─── Truncate table (empty all rows) ─────────────────────────────────────────
+
+@router.post("/projects/{project_id}/tables/{table}/truncate", dependencies=[InternalGuard])
+async def truncate_table(
+    project_id: str,
+    table: str,
+    db_schema: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    TRUNCATE a table — removes all rows but preserves structure.
+    Dashboard-internal only; never exposed via /v1/.
+    """
+    _validate_identifier(db_schema, "schema")
+    _validate_identifier(table, "table")
+
+    # Safety: never truncate system tables
+    if table.startswith("_"):
+        raise HTTPException(status_code=400, detail="Cannot truncate reserved tables")
+
+    await db.execute(text(f'TRUNCATE TABLE "{db_schema}"."{table}" RESTART IDENTITY'))
+    await db.commit()
+    logger.info("Truncated table: %s.%s (project: %s)", db_schema, table, project_id)
+    return {"data": {"table": table, "truncated": True}}
+
+
+# ─── Drop a single column ─────────────────────────────────────────────────────
+
+@router.delete(
+    "/projects/{project_id}/tables/{table}/columns/{column}",
+    dependencies=[InternalGuard],
+)
+async def drop_column_endpoint(
+    project_id: str,
+    table: str,
+    column: str,
+    db_schema: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    DROP COLUMN from a table.
+    Refuses to drop system columns (id, created_at, updated_at).
+    """
+    _validate_identifier(db_schema, "schema")
+    _validate_identifier(table, "table")
+    _validate_identifier(column, "column")
+
+    PROTECTED = {"id", "created_at", "updated_at"}
+    if column in PROTECTED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot drop system column '{column}'",
+        )
+
+    await db.execute(
+        text(f'ALTER TABLE "{db_schema}"."{table}" DROP COLUMN IF EXISTS "{column}"')
+    )
+    await db.commit()
+    logger.info("Dropped column %s from %s.%s (project: %s)", column, db_schema, table, project_id)
+    return {"data": {"column": column, "dropped": True}}

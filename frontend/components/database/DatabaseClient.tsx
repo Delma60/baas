@@ -1,7 +1,7 @@
 // frontend/components/database/DatabaseClient.tsx
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   Database,
   Terminal,
@@ -20,10 +20,13 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
-  AlertCircle,
   X,
-  Check,
   Save,
+  Eraser,
+  AlertCircle,
+  Check,
+  Columns,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,6 +64,14 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
@@ -70,6 +81,8 @@ import { cn } from "@/lib/utils";
 import type { SqlTable, SqlQueryResult, SqlColumn } from "@/lib/api/sql-client";
 import { AddTableDialog } from "./AddTableDialog";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 interface Props {
   projectId: string;
   dbSchema: string;
@@ -77,6 +90,16 @@ interface Props {
   initialTable: string | null;
   initialResult: SqlQueryResult | null;
 }
+
+const COLUMN_TYPES = [
+  { value: "text", label: "Text" },
+  { value: "integer", label: "Integer" },
+  { value: "float", label: "Float" },
+  { value: "boolean", label: "Boolean" },
+  { value: "timestamp", label: "Timestamp" },
+  { value: "jsonb", label: "JSON" },
+  { value: "uuid", label: "UUID" },
+];
 
 // ─── Row Form Dialog ──────────────────────────────────────────────────────────
 
@@ -183,7 +206,7 @@ function RowFormDialog({
           <DialogDescription className="text-xs text-muted-foreground">
             {mode === "insert"
               ? `Add a new row to "${table}". id, created_at, updated_at are auto-set.`
-              : `Edit row in "${table}". id, created_at, updated_at cannot be changed.`}
+              : `Edit row in "${table}". System columns cannot be changed.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -283,6 +306,259 @@ function RowFormDialog({
   );
 }
 
+// ─── Add Column Dialog ────────────────────────────────────────────────────────
+
+function AddColumnDialog({
+  open,
+  onClose,
+  projectId,
+  dbSchema,
+  table,
+  onAdded,
+}: {
+  open: boolean;
+  onClose: () => void;
+  projectId: string;
+  dbSchema: string;
+  table: string;
+  onAdded: (col: SqlColumn) => void;
+}) {
+  const [name, setName] = useState("");
+  const [type, setType] = useState("text");
+  const [nullable, setNullable] = useState(true);
+  const [defaultVal, setDefaultVal] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const reset = () => {
+    setName("");
+    setType("text");
+    setNullable(true);
+    setDefaultVal("");
+    setError(null);
+  };
+
+  const handleAdd = async () => {
+    if (!name.trim()) {
+      setError("Column name is required");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/internal/sql/tables/${table}/columns`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          dbSchema,
+          table,
+          column: {
+            name: name.trim(),
+            type,
+            nullable,
+            default: defaultVal || null,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data?.error ?? "Failed to add column");
+        return;
+      }
+      onAdded({
+        column_name: name.trim(),
+        data_type: type,
+        is_nullable: nullable ? "YES" : "NO",
+        column_default: defaultVal || null,
+      });
+      reset();
+      onClose();
+    } catch {
+      setError("Network error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) {
+          reset();
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Add column</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            Add a new column to &quot;{table}&quot;.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-1">
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              {error}
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Column name</Label>
+            <Input
+              placeholder="e.g. description"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="h-9 text-sm font-mono"
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Type</Label>
+            <Select value={type} onValueChange={setType}>
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {COLUMN_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value} className="text-sm">
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">
+              Default value{" "}
+              <span className="text-muted-foreground">(optional)</span>
+            </Label>
+            <Input
+              placeholder="e.g. 0, 'draft', NOW()"
+              value={defaultVal}
+              onChange={(e) => setDefaultVal(e.target.value)}
+              className="h-9 text-sm font-mono"
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+            <span className="text-sm font-medium">Allow NULL</span>
+            <Switch checked={nullable} onCheckedChange={setNullable} />
+          </div>
+        </div>
+        <DialogFooter className="pt-2 border-t">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              reset();
+              onClose();
+            }}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleAdd}
+            disabled={loading || !name.trim()}
+            className="gap-1.5 bg-brand hover:bg-brand-hover text-white border-0"
+          >
+            {loading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Plus className="h-3.5 w-3.5" />
+            )}
+            Add column
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Confirm Dialog ───────────────────────────────────────────────────────────
+
+function ConfirmDialog({
+  open,
+  onClose,
+  onConfirm,
+  title,
+  description,
+  confirmLabel = "Confirm",
+  variant = "destructive",
+  loading,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  description: string;
+  confirmLabel?: string;
+  variant?: "destructive" | "default";
+  loading?: boolean;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            variant={variant === "destructive" ? "destructive" : "default"}
+            onClick={onConfirm}
+            disabled={loading}
+            className="gap-1.5"
+          >
+            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Cell value renderer ──────────────────────────────────────────────────────
+
+function CellValue({ value }: { value: unknown }) {
+  if (value === null || value === undefined)
+    return (
+      <span className="text-muted-foreground/50 italic text-xs">null</span>
+    );
+  if (typeof value === "boolean")
+    return (
+      <span
+        className={cn(
+          "text-xs font-medium",
+          value ? "text-emerald-600" : "text-rose-500",
+        )}
+      >
+        {String(value)}
+      </span>
+    );
+  if (typeof value === "object")
+    return (
+      <span className="text-violet-600 dark:text-violet-400 text-xs">
+        {JSON.stringify(value)}
+      </span>
+    );
+  const str = String(value);
+  return <span className={str.length > 80 ? "text-xs" : ""}>{str}</span>;
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function DatabaseClient({
@@ -316,9 +592,22 @@ export function DatabaseClient({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [crudError, setCrudError] = useState<string | null>(null);
 
+  // Column management
+  const [addColumnOpen, setAddColumnOpen] = useState(false);
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [droppingColumn, setDroppingColumn] = useState<string | null>(null);
+
+  // Table-level confirms
+  const [dropTableTarget, setDropTableTarget] = useState<string | null>(null);
+  const [emptyTableTarget, setEmptyTableTarget] = useState<string | null>(null);
+  const [dropTableLoading, setDropTableLoading] = useState(false);
+  const [emptyTableLoading, setEmptyTableLoading] = useState(false);
+
   const filteredTables = tables.filter((t) =>
     t.name.toLowerCase().includes(filter.toLowerCase()),
   );
+
+  // ── Data fetching ──────────────────────────────────────────────────────────
 
   const refreshTableList = useCallback(async () => {
     setIsRefreshingTables(true);
@@ -329,14 +618,7 @@ export function DatabaseClient({
         body: JSON.stringify({
           projectId,
           dbSchema,
-          query: `
-            SELECT table_name
-            FROM information_schema.tables
-            WHERE table_schema = '${dbSchema}'
-              AND table_type = 'BASE TABLE'
-              AND table_name NOT LIKE '\_%'
-            ORDER BY table_name
-          `,
+          query: `SELECT table_name FROM information_schema.tables WHERE table_schema = '${dbSchema}' AND table_type = 'BASE TABLE' AND table_name NOT LIKE '\\_%' ORDER BY table_name`,
         }),
       });
       const data = await res.json();
@@ -346,7 +628,7 @@ export function DatabaseClient({
         );
       }
     } catch {
-      // non-fatal
+      /* non-fatal */
     } finally {
       setIsRefreshingTables(false);
     }
@@ -355,27 +637,18 @@ export function DatabaseClient({
   const fetchColumns = useCallback(
     async (tableName: string) => {
       try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/internal/sql/query`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              projectId,
-              dbSchema,
-              query: `
-              SELECT column_name, data_type, is_nullable, column_default
-              FROM information_schema.columns
-              WHERE table_schema = '${dbSchema}' AND table_name = '${tableName}'
-              ORDER BY ordinal_position
-            `,
-            }),
-          },
-        );
+        const res = await fetch(`/api/internal/sql/query`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectId,
+            dbSchema,
+            query: `SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = '${dbSchema}' AND table_name = '${tableName}' ORDER BY ordinal_position`,
+          }),
+        });
         const data = await res.json();
-        if (res.ok && data.data?.rows) {
+        if (res.ok && data.data?.rows)
           setColumns(data.data.rows as SqlColumn[]);
-        }
       } catch {
         setColumns([]);
       }
@@ -406,11 +679,8 @@ export function DatabaseClient({
           }),
         });
         const data = await res.json();
-        if (!res.ok) {
-          setQueryError(data?.error ?? "Failed to load table");
-        } else {
-          setResult(data.data);
-        }
+        if (!res.ok) setQueryError(data?.error ?? "Failed to load table");
+        else setResult(data.data);
       } catch {
         setQueryError("Cannot reach backend");
       } finally {
@@ -435,11 +705,8 @@ export function DatabaseClient({
         body: JSON.stringify({ projectId, dbSchema, query }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        setQueryError(data?.error ?? "Query failed");
-      } else {
-        setResult(data.data);
-      }
+      if (!res.ok) setQueryError(data?.error ?? "Query failed");
+      else setResult(data.data);
     } catch {
       setQueryError("Cannot reach backend");
     } finally {
@@ -459,9 +726,8 @@ export function DatabaseClient({
   const handleRowSaved = (row: Record<string, unknown>, isNew: boolean) => {
     setResult((prev) => {
       if (!prev) return { rows: [row], total: 1 };
-      if (isNew) {
+      if (isNew)
         return { ...prev, rows: [row, ...prev.rows], total: prev.total + 1 };
-      }
       return {
         ...prev,
         rows: prev.rows.map((r) => (r.id === row.id ? row : r)),
@@ -472,8 +738,6 @@ export function DatabaseClient({
   const handleDeleteRow = async (row: Record<string, unknown>) => {
     const id = row.id;
     if (!id || !activeTable) return;
-    if (!confirm(`Delete this row? This cannot be undone.`)) return;
-
     setDeletingId(String(id));
     setCrudError(null);
     try {
@@ -509,16 +773,103 @@ export function DatabaseClient({
 
   const handleDeleteSelected = async () => {
     if (!activeTable || selectedRows.size === 0) return;
-    if (!confirm(`Delete ${selectedRows.size} rows? This cannot be undone.`))
-      return;
-
     const rows = result?.rows ?? [];
     const toDelete = [...selectedRows].map((i) => rows[i]).filter(Boolean);
-
-    for (const row of toDelete) {
-      await handleDeleteRow(row);
-    }
+    for (const row of toDelete) await handleDeleteRow(row);
     setSelectedRows(new Set());
+  };
+
+  // ── Table-level operations ─────────────────────────────────────────────────
+
+  const handleDropTable = async (tableName: string) => {
+    setDropTableLoading(true);
+    try {
+      const res = await fetch(
+        `/api/internal/sql/tables/${encodeURIComponent(tableName)}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId, dbSchema }),
+        },
+      );
+      if (res.ok) {
+        setTables((prev) => prev.filter((t) => t.name !== tableName));
+        if (activeTable === tableName) {
+          setActiveTable(null);
+          setResult(null);
+          setColumns([]);
+          setQuery("SELECT * FROM your_table LIMIT 50;");
+        }
+      }
+    } catch {
+      /* non-fatal */
+    } finally {
+      setDropTableLoading(false);
+      setDropTableTarget(null);
+    }
+  };
+
+  const handleEmptyTable = async (tableName: string) => {
+    setEmptyTableLoading(true);
+    try {
+      const res = await fetch(
+        `/api/internal/sql/tables/${encodeURIComponent(tableName)}/truncate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId, dbSchema }),
+        },
+      );
+      if (res.ok) {
+        setResult((prev) => (prev ? { ...prev, rows: [], total: 0 } : null));
+        setCrudError(null);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setCrudError(data?.error ?? "Failed to empty table");
+      }
+    } catch {
+      setCrudError("Network error");
+    } finally {
+      setEmptyTableLoading(false);
+      setEmptyTableTarget(null);
+    }
+  };
+
+  const handleDropColumn = async (colName: string) => {
+    if (!activeTable) return;
+    setDroppingColumn(colName);
+    try {
+      const res = await fetch(
+        `/api/internal/sql/tables/${encodeURIComponent(activeTable)}/columns/${encodeURIComponent(colName)}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId, dbSchema }),
+        },
+      );
+      if (res.ok) {
+        setColumns((prev) => prev.filter((c) => c.column_name !== colName));
+        // refresh rows to remove that column from display
+        if (result) {
+          setResult((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  rows: prev.rows.map((r) => {
+                    const nr = { ...r };
+                    delete nr[colName];
+                    return nr;
+                  }),
+                }
+              : prev,
+          );
+        }
+      }
+    } catch {
+      /* non-fatal */
+    } finally {
+      setDroppingColumn(null);
+    }
   };
 
   // ── misc ───────────────────────────────────────────────────────────────────
@@ -537,9 +888,6 @@ export function DatabaseClient({
       prev.size === rows.length ? new Set() : new Set(rows.map((_, i) => i)),
     );
   };
-
-  const rows = result?.rows ?? [];
-  const cols = rows.length > 0 ? Object.keys(rows[0]) : [];
 
   const handleExportCSV = () => {
     if (rows.length === 0) return;
@@ -561,32 +909,16 @@ export function DatabaseClient({
     await handleSelectTable(tableName);
   };
 
-  const handleDeleteTable = async (tableName: string) => {
-    if (!confirm(`Drop table "${tableName}"? This cannot be undone.`)) return;
-    try {
-      const res = await fetch(
-        `/api/internal/sql/tables/${encodeURIComponent(tableName)}`,
-        {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ projectId, dbSchema }),
-        },
-      );
-      if (res.ok) {
-        setTables((prev) => prev.filter((t) => t.name !== tableName));
-        if (activeTable === tableName) {
-          setActiveTable(null);
-          setResult(null);
-          setColumns([]);
-          setQuery("SELECT * FROM your_table LIMIT 50;");
-        }
-      }
-    } catch {
-      // non-fatal
-    }
-  };
-
   const canCRUD = !!activeTable;
+  const rows = result?.rows ?? [];
+  const cols =
+    rows.length > 0
+      ? Object.keys(rows[0])
+      : columns.length > 0
+        ? columns.map((c) => c.column_name)
+        : [];
+
+  const SYSTEM_COLS = ["id", "created_at", "updated_at"];
 
   return (
     <TooltipProvider>
@@ -629,22 +961,95 @@ export function DatabaseClient({
                 <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded-md">
                   {activeTable}
                 </span>
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] h-4 px-1.5 ml-1"
+                >
+                  {result?.total ?? 0} rows
+                </Badge>
               </div>
             )}
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Insert row button — only shown when a table is selected */}
             {canCRUD && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-xs"
-                onClick={() => setInsertOpen(true)}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Insert row
-              </Button>
+              <>
+                {/* Columns manager */}
+                <DropdownMenu open={columnsOpen} onOpenChange={setColumnsOpen}>
+                  <DropdownMenuTrigger>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1.5 text-xs"
+                    >
+                      <Columns className="h-3.5 w-3.5" />
+                      Columns
+                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64">
+                    <div className="px-2 py-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Table columns
+                    </div>
+                    <DropdownMenuSeparator />
+                    <ScrollArea className="max-h-48">
+                      {columns.map((col) => (
+                        <div
+                          key={col.column_name}
+                          className="flex items-center justify-between px-2 py-1.5 group"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <code className="text-xs font-mono text-foreground truncate">
+                              {col.column_name}
+                            </code>
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] h-4 px-1 font-mono shrink-0"
+                            >
+                              {col.data_type}
+                            </Badge>
+                          </div>
+                          {!SYSTEM_COLS.includes(col.column_name) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDropColumn(col.column_name)}
+                              disabled={droppingColumn === col.column_name}
+                            >
+                              {droppingColumn === col.column_name ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <X className="h-3 w-3" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </ScrollArea>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-xs gap-2 cursor-pointer"
+                      onClick={() => {
+                        setColumnsOpen(false);
+                        setAddColumnOpen(true);
+                      }}
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add column
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-xs"
+                  onClick={() => setInsertOpen(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Insert row
+                </Button>
+              </>
             )}
 
             <Tooltip>
@@ -754,8 +1159,7 @@ export function DatabaseClient({
                         className="h-7 text-xs gap-1"
                         onClick={() => setAddTableOpen(true)}
                       >
-                        <Plus className="h-3 w-3" />
-                        Create table
+                        <Plus className="h-3 w-3" /> Create table
                       </Button>
                     </div>
                   )}
@@ -795,13 +1199,12 @@ export function DatabaseClient({
                             <MoreHorizontal className="h-3 w-3" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-36">
+                        <DropdownMenuContent align="end" className="w-40">
                           <DropdownMenuItem
                             className="text-xs gap-2"
                             onClick={() => handleSelectTable(table.name)}
                           >
-                            <TableIcon className="h-3.5 w-3.5" />
-                            Browse rows
+                            <TableIcon className="h-3.5 w-3.5" /> Browse rows
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-xs gap-2"
@@ -810,16 +1213,29 @@ export function DatabaseClient({
                               setTimeout(() => setInsertOpen(true), 300);
                             }}
                           >
-                            <Plus className="h-3.5 w-3.5" />
-                            Insert row
+                            <Plus className="h-3.5 w-3.5" /> Insert row
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-xs gap-2"
+                            onClick={() => {
+                              handleSelectTable(table.name);
+                              setTimeout(() => setAddColumnOpen(true), 300);
+                            }}
+                          >
+                            <Columns className="h-3.5 w-3.5" /> Add column
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            className="text-xs gap-2 text-destructive focus:text-destructive"
-                            onClick={() => handleDeleteTable(table.name)}
+                            className="text-xs gap-2 text-amber-600 focus:text-amber-600 dark:text-amber-400"
+                            onClick={() => setEmptyTableTarget(table.name)}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Drop table
+                            <Eraser className="h-3.5 w-3.5" /> Empty table
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-xs gap-2 text-destructive focus:text-destructive"
+                            onClick={() => setDropTableTarget(table.name)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Drop table
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -866,7 +1282,7 @@ export function DatabaseClient({
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="SELECT * FROM your_table LIMIT 50;"
+                    placeholder={`SELECT * FROM your_table LIMIT 50;\n\n-- Press ⌘ Enter to run`}
                     spellCheck={false}
                   />
 
@@ -930,7 +1346,6 @@ export function DatabaseClient({
                       )}
                     </div>
 
-                    {/* Bulk delete */}
                     {selectedRows.size > 0 && canCRUD && (
                       <Button
                         size="sm"
@@ -942,9 +1357,29 @@ export function DatabaseClient({
                         Delete {selectedRows.size} selected
                       </Button>
                     )}
+
+                    {canCRUD &&
+                      result &&
+                      result.total > 0 &&
+                      selectedRows.size === 0 && (
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-xs gap-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 shrink-0"
+                              onClick={() => setEmptyTableTarget(activeTable!)}
+                            >
+                              <Eraser className="h-3.5 w-3.5" /> Empty table
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            Truncate all rows from this table
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                   </div>
 
-                  {/* CRUD error banner */}
                   {crudError && (
                     <div className="mx-4 mt-3">
                       <Alert variant="destructive">
@@ -993,8 +1428,7 @@ export function DatabaseClient({
                             className="gap-1.5 text-xs bg-brand hover:bg-brand-hover text-white border-0"
                             onClick={() => setAddTableOpen(true)}
                           >
-                            <Plus className="h-3.5 w-3.5" />
-                            New Table
+                            <Plus className="h-3.5 w-3.5" /> New Table
                           </Button>
                         )}
                       </div>
@@ -1008,8 +1442,7 @@ export function DatabaseClient({
                             className="gap-1.5 text-xs bg-brand hover:bg-brand-hover text-white border-0"
                             onClick={() => setInsertOpen(true)}
                           >
-                            <Plus className="h-3.5 w-3.5" />
-                            Insert first row
+                            <Plus className="h-3.5 w-3.5" /> Insert first row
                           </Button>
                         )}
                       </div>
@@ -1034,7 +1467,17 @@ export function DatabaseClient({
                                   key={col}
                                   className="font-mono text-xs text-muted-foreground font-semibold whitespace-nowrap"
                                 >
-                                  {col}
+                                  <div className="flex items-center gap-1">
+                                    {col}
+                                    {SYSTEM_COLS.includes(col) && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[8px] h-3 px-1 ml-1 text-muted-foreground"
+                                      >
+                                        auto
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </TableHead>
                               ))}
                               {canCRUD && <TableHead className="w-10" />}
@@ -1098,7 +1541,7 @@ export function DatabaseClient({
                                           className="text-xs gap-2"
                                           onClick={() => setEditRow(row)}
                                         >
-                                          <Pencil className="h-3.5 w-3.5" />
+                                          <Pencil className="h-3.5 w-3.5" />{" "}
                                           Edit row
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
@@ -1109,15 +1552,15 @@ export function DatabaseClient({
                                             )
                                           }
                                         >
-                                          <Copy className="h-3.5 w-3.5" />
-                                          Copy JSON
+                                          <Copy className="h-3.5 w-3.5" /> Copy
+                                          JSON
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem
                                           className="text-xs gap-2 text-destructive focus:text-destructive"
                                           onClick={() => handleDeleteRow(row)}
                                         >
-                                          <Trash2 className="h-3.5 w-3.5" />
+                                          <Trash2 className="h-3.5 w-3.5" />{" "}
                                           Delete row
                                         </DropdownMenuItem>
                                       </DropdownMenuContent>
@@ -1145,8 +1588,7 @@ export function DatabaseClient({
                           className="h-6 text-xs gap-1 text-muted-foreground"
                           onClick={() => setInsertOpen(true)}
                         >
-                          <Plus className="h-3 w-3" />
-                          Insert row
+                          <Plus className="h-3 w-3" /> Insert row
                         </Button>
                       )}
                     </div>
@@ -1165,6 +1607,17 @@ export function DatabaseClient({
           dbSchema={dbSchema}
           onCreated={handleTableCreated}
         />
+
+        {addColumnOpen && activeTable && (
+          <AddColumnDialog
+            open={addColumnOpen}
+            onClose={() => setAddColumnOpen(false)}
+            projectId={projectId}
+            dbSchema={dbSchema}
+            table={activeTable}
+            onAdded={(col) => setColumns((prev) => [...prev, col])}
+          />
+        )}
 
         {insertOpen && activeTable && (
           <RowFormDialog
@@ -1192,38 +1645,31 @@ export function DatabaseClient({
             onSaved={(row) => handleRowSaved(row, false)}
           />
         )}
+
+        <ConfirmDialog
+          open={!!dropTableTarget}
+          onClose={() => setDropTableTarget(null)}
+          onConfirm={() => dropTableTarget && handleDropTable(dropTableTarget)}
+          title={`Drop table "${dropTableTarget}"?`}
+          description="This will permanently delete the table and all its data. This cannot be undone."
+          confirmLabel="Drop table"
+          variant="destructive"
+          loading={dropTableLoading}
+        />
+
+        <ConfirmDialog
+          open={!!emptyTableTarget}
+          onClose={() => setEmptyTableTarget(null)}
+          onConfirm={() =>
+            emptyTableTarget && handleEmptyTable(emptyTableTarget)
+          }
+          title={`Empty table "${emptyTableTarget}"?`}
+          description="This will delete all rows but keep the table structure and columns. This cannot be undone."
+          confirmLabel="Empty table"
+          variant="destructive"
+          loading={emptyTableLoading}
+        />
       </div>
     </TooltipProvider>
   );
-}
-
-// ─── Cell value renderer ──────────────────────────────────────────────────────
-
-function CellValue({ value }: { value: unknown }) {
-  if (value === null || value === undefined) {
-    return (
-      <span className="text-muted-foreground/50 italic text-xs">null</span>
-    );
-  }
-  if (typeof value === "boolean") {
-    return (
-      <span
-        className={cn(
-          "text-xs font-medium",
-          value ? "text-emerald-600" : "text-rose-500",
-        )}
-      >
-        {String(value)}
-      </span>
-    );
-  }
-  if (typeof value === "object") {
-    return (
-      <span className="text-violet-600 dark:text-violet-400 text-xs">
-        {JSON.stringify(value)}
-      </span>
-    );
-  }
-  const str = String(value);
-  return <span className={str.length > 80 ? "text-xs" : ""}>{str}</span>;
 }
