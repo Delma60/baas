@@ -1217,7 +1217,7 @@ export function DatabaseClient({
                         Press <kbd className="px-1 py-0.5 bg-muted rounded text-[10px] font-mono">⌘ Enter</kbd> to run
                       </span>
                     </div>
-                    <Button size="sm" className="h-7 gap-1.5 text-xs" onClick={handleRunQuery} disabled={isRunning || !query.trim()}>
+                    <Button size="sm" className="h-7 gap-1.5 text-xs bg-brand hover:bg-brand-hover" onClick={handleRunQuery} disabled={isRunning || !query.trim()}>
                       {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
                       {isRunning ? "Running…" : "Run Query"}
                     </Button>
