@@ -1,43 +1,78 @@
 // frontend/app/(dashboard)/u/[userId]/projects/[projectId]/auth/page.tsx
-import type { Metadata } from "next";
-import { getProjectById } from "@/lib/api/client";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { getAuthUsers, getAuthStats } from "@/lib/api/auth-client";
 import { getAuthSettings, getEmailTemplates } from "@/lib/api/auth-settings-client";
+import { getProjectById } from "@/lib/api/client";
 import { AuthPageClient } from "@/components/auth/AuthPageClient";
 
-interface Props {
+interface PageProps {
   params: Promise<{ userId: string; projectId: string }>;
-  searchParams: Promise<{ tab?: string; search?: string; page?: string }>;
+  searchParams: Promise<{
+    tab?: string;
+    search?: string;
+    page?: string;
+  }>;
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { projectId } = await params;
-  return { title: `Authentication · ${projectId}` };
-}
+const PAGE_SIZE = 50;
 
-export default async function AuthPage({ params, searchParams }: Props) {
+export default async function AuthPage({ params, searchParams }: PageProps) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
   const { userId, projectId } = await params;
   const { tab = "users", search = "", page = "1" } = await searchParams;
 
-  const project = await getProjectById(projectId);
-  const dbSchema = (project as any).db_schema ?? "";
-  const offset = (parseInt(page) - 1) * 50;
+  const currentPage = Math.max(1, parseInt(page, 10) || 1);
+  const offset = (currentPage - 1) * PAGE_SIZE;
 
-  const [usersResult, stats, authSettings, emailTemplates] = await Promise.all([
-    getAuthUsers(projectId, dbSchema, { limit: 50, offset, search: search || undefined }).catch(() => ({
-      users: [],
-      total: 0,
-    })),
-    getAuthStats(projectId, dbSchema).catch(() => ({
-      total_users: 0,
-      verified_users: 0,
-      unverified_users: 0,
-      new_last_30d: 0,
-      new_last_7d: 0,
-    })),
-    getAuthSettings(projectId).catch(() => null),
-    getEmailTemplates(projectId).catch(() => null),
-  ]);
+  // Fetch project to get dbSchema
+  let project;
+  try {
+    project = await getProjectById(projectId);
+  } catch {
+    redirect(`/u/${userId}`);
+  }
+
+  const dbSchema = project.db_schema;
+
+  // Fetch all data in parallel
+  const [usersResult, statsResult, authSettingsResult, emailTemplatesResult] =
+    await Promise.allSettled([
+      getAuthUsers(projectId, dbSchema, {
+        limit: PAGE_SIZE,
+        offset,
+        search: search || undefined,
+      }),
+      getAuthStats(projectId, dbSchema),
+      getAuthSettings(projectId),
+      getEmailTemplates(projectId),
+    ]);
+
+  const usersData =
+    usersResult.status === "fulfilled"
+      ? usersResult.value
+      : { users: [], total: 0 };
+
+  const stats =
+    statsResult.status === "fulfilled"
+      ? statsResult.value
+      : {
+          total_users: 0,
+          verified_users: 0,
+          unverified_users: 0,
+          new_last_30d: 0,
+          new_last_7d: 0,
+        };
+
+  const authSettings =
+    authSettingsResult.status === "fulfilled" ? authSettingsResult.value : null;
+
+  const emailTemplates =
+    emailTemplatesResult.status === "fulfilled"
+      ? emailTemplatesResult.value
+      : null;
 
   return (
     <AuthPageClient
@@ -46,10 +81,10 @@ export default async function AuthPage({ params, searchParams }: Props) {
       dbSchema={dbSchema}
       initialTab={tab}
       initialSearch={search}
-      initialUsers={usersResult.users}
-      totalUsers={usersResult.total}
+      initialUsers={usersData.users}
+      totalUsers={usersData.total}
       stats={stats}
-      currentPage={parseInt(page)}
+      currentPage={currentPage}
       initialAuthSettings={authSettings}
       initialEmailTemplates={emailTemplates}
     />

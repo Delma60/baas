@@ -1,5 +1,5 @@
-// frontend/components/auth/AuthPageClient.tsx
 "use client";
+// frontend/components/auth/AuthPageClient.tsx
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -28,14 +28,15 @@ import {
   RotateCcw,
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
-  Info,
   BarChart3,
   Shield,
   ServerCrash,
   Pencil,
   Mail as MailIcon,
   MessageSquare,
-  ChevronRight,
+  ArrowLeft,
+  X,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -94,7 +95,7 @@ interface Props {
 
 const TABS = [
   { id: "users", label: "Users", icon: Users },
-  { id: "signin", label: "Sign-in method", icon: Shield },
+  { id: "signin", label: "Sign-in", icon: Shield },
   { id: "templates", label: "Templates", icon: Mail },
   { id: "usage", label: "Usage", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: Settings },
@@ -134,15 +135,11 @@ const SIGN_IN_PROVIDERS = [
   },
 ];
 
-// ─── Template definitions ─────────────────────────────────────────────────────
-
 interface TemplateMeta {
   key: string;
   label: string;
   desc: string;
-  category: "email" | "sms";
   variables: string[];
-  icon: React.ElementType;
 }
 
 const EMAIL_TEMPLATES: TemplateMeta[] = [
@@ -150,38 +147,30 @@ const EMAIL_TEMPLATES: TemplateMeta[] = [
     key: "verification",
     label: "Email address verification",
     desc: "Sent when a user signs up with email/password.",
-    category: "email",
     variables: ["{{name}}", "{{verification_url}}", "{{app_name}}"],
-    icon: MailIcon,
   },
   {
     key: "password_reset",
     label: "Password reset",
     desc: "Sent when a user requests a password reset.",
-    category: "email",
     variables: ["{{name}}", "{{reset_url}}", "{{app_name}}"],
-    icon: MailIcon,
   },
   {
     key: "email_change",
     label: "Email address change",
     desc: "Sent to the old address when a user changes their email.",
-    category: "email",
     variables: [
       "{{name}}",
       "{{new_email}}",
       "{{confirmation_url}}",
       "{{app_name}}",
     ],
-    icon: MailIcon,
   },
   {
     key: "magic_link",
     label: "Magic link (sign-in)",
     desc: "Sent when a user requests a passwordless login link.",
-    category: "email",
     variables: ["{{magic_url}}", "{{app_name}}"],
-    icon: MailIcon,
   },
 ];
 
@@ -223,6 +212,23 @@ function formatDate(iso: string): string {
   }
 }
 
+function fillTemplateBody(body: string): string {
+  return (body || "")
+    .replace(/\{\{name\}\}/g, "Jane Doe")
+    .replace(
+      /\{\{verification_url\}\}/g,
+      "https://yourapp.com/verify?token=abc123",
+    )
+    .replace(/\{\{reset_url\}\}/g, "https://yourapp.com/reset?token=abc123")
+    .replace(
+      /\{\{confirmation_url\}\}/g,
+      "https://yourapp.com/confirm?token=abc123",
+    )
+    .replace(/\{\{magic_url\}\}/g, "https://yourapp.com/magic?token=abc123")
+    .replace(/\{\{new_email\}\}/g, "jane@new.com")
+    .replace(/\{\{app_name\}\}/g, "YourBaaS");
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatCard({
@@ -235,7 +241,7 @@ function StatCard({
   sub?: string;
 }) {
   return (
-    <div className="rounded-sm border border-border bg-background p-4">
+    <div className="rounded-lg border border-border bg-background p-4">
       <p className="text-[11.5px] text-muted-foreground font-medium">{label}</p>
       <p className="text-2xl font-semibold tracking-tight mt-1">{value}</p>
       {sub && <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>}
@@ -256,7 +262,7 @@ function SaveBanner({
 }) {
   if (!dirty) return null;
   return (
-    <div className="sticky top-0 z-10 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-950/20 px-4 py-2.5 mb-4">
+    <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-950/20 px-4 py-2.5 mb-4">
       <p className="text-[12.5px] text-amber-800 dark:text-amber-300 font-medium">
         You have unsaved changes.
       </p>
@@ -513,21 +519,187 @@ function ResetPasswordDialog({
   );
 }
 
-// ─── Firebase-style Template Panel ───────────────────────────────────────────
+// ─── Inline SMTP Panel ────────────────────────────────────────────────────────
+
+function SmtpPanel({
+  projectId,
+  initialSmtp,
+}: {
+  projectId: string;
+  initialSmtp: SmtpConfig;
+}) {
+  const [smtp, setSmtp] = React.useState<SmtpConfig>(initialSmtp);
+  const [saving, setSaving] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+  const [dirty, setDirty] = React.useState(false);
+  const [showPass, setShowPass] = React.useState(false);
+
+  const update = (key: keyof SmtpConfig, value: string | number | boolean) => {
+    setSmtp((prev) => ({ ...prev, [key]: value }));
+    setDirty(true);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(
+        `/api/nosql-proxy/projects/${projectId}/auth/settings`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ settings: { smtp } }),
+        },
+      );
+      if (res.ok) {
+        setSaved(true);
+        setDirty(false);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <Alert className="border-sky-200 bg-sky-50 dark:border-sky-800/40 dark:bg-sky-950/20 py-3">
+        <Info className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+        <AlertDescription className="text-[12px] text-sky-800 dark:text-sky-300">
+          Credentials are stored encrypted and never returned in API responses.
+        </AlertDescription>
+      </Alert>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">SMTP host</Label>
+          <Input
+            value={smtp.host}
+            onChange={(e) => update("host", e.target.value)}
+            placeholder="smtp.gmail.com"
+            className="h-9 text-sm"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Port</Label>
+          <Input
+            type="number"
+            value={smtp.port}
+            onChange={(e) => update("port", parseInt(e.target.value) || 587)}
+            className="h-9 text-sm"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Username</Label>
+          <Input
+            value={smtp.user}
+            onChange={(e) => update("user", e.target.value)}
+            placeholder="user@gmail.com"
+            className="h-9 text-sm"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Password</Label>
+          <div className="relative">
+            <Input
+              type={showPass ? "text" : "password"}
+              value={smtp.password}
+              onChange={(e) => update("password", e.target.value)}
+              className="h-9 text-sm pr-9"
+            />
+            <button
+              onClick={() => setShowPass(!showPass)}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              {showPass ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">From name</Label>
+          <Input
+            value={smtp.from_name}
+            onChange={(e) => update("from_name", e.target.value)}
+            placeholder="YourApp"
+            className="h-9 text-sm"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">From email</Label>
+          <Input
+            type="email"
+            value={smtp.from_email}
+            onChange={(e) => update("from_email", e.target.value)}
+            placeholder="noreply@yourapp.com"
+            className="h-9 text-sm"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+        <div>
+          <p className="text-[13px] font-medium">TLS / STARTTLS</p>
+          <p className="text-[11.5px] text-muted-foreground">
+            Enable encrypted connection
+          </p>
+        </div>
+        <Switch
+          checked={smtp.secure}
+          onCheckedChange={(v) => update("secure", v)}
+        />
+      </div>
+
+      {dirty && (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={saving}
+            className="gap-1.5 bg-brand text-white hover:bg-brand-hover"
+          >
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : saved ? (
+              <Check className="h-3.5 w-3.5" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            {saved ? "Saved!" : "Save settings"}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Templates Tab — Firebase two-panel with inline editing ──────────────────
 
 function TemplatesTab({
   projectId,
   templates,
   onTemplatesChange,
+  authSettings,
 }: {
   projectId: string;
   templates: EmailTemplates;
   onTemplatesChange: (t: EmailTemplates) => void;
+  authSettings: AuthSettings;
 }) {
   const [selectedKey, setSelectedKey] = React.useState<string>(
     EMAIL_TEMPLATES[0].key,
   );
-  const [editing, setEditing] = React.useState(false);
+  const [view, setView] = React.useState<"preview" | "edit" | "smtp">(
+    "preview",
+  );
   const [editSubject, setEditSubject] = React.useState("");
   const [editBody, setEditBody] = React.useState("");
   const [saving, setSaving] = React.useState(false);
@@ -538,26 +710,20 @@ function TemplatesTab({
     ok: boolean;
     msg: string;
   } | null>(null);
-  const [smtpDialogOpen, setSmtpDialogOpen] = React.useState(false);
-  const [showEditDialog, setShowEditDialog] = React.useState(false);
 
   const selected = EMAIL_TEMPLATES.find((t) => t.key === selectedKey)!;
-  const currentTemplate = templates[selectedKey] ?? {
-    subject: "",
-    body: "",
-  };
+  const currentTemplate = templates[selectedKey] ?? { subject: "", body: "" };
 
   const handleSelectTemplate = (key: string) => {
     setSelectedKey(key);
-    setEditing(false);
-    setSaved(false);
+    setView("preview");
     setTestResult(null);
   };
 
   const handleOpenEdit = () => {
     setEditSubject(currentTemplate.subject);
     setEditBody(currentTemplate.body);
-    setShowEditDialog(true);
+    setView("edit");
   };
 
   const handleSave = async () => {
@@ -568,10 +734,7 @@ function TemplatesTab({
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            subject: editSubject,
-            body: editBody,
-          }),
+          body: JSON.stringify({ subject: editSubject, body: editBody }),
         },
       );
       if (res.ok) {
@@ -580,8 +743,10 @@ function TemplatesTab({
           [selectedKey]: { subject: editSubject, body: editBody },
         });
         setSaved(true);
-        setShowEditDialog(false);
-        setTimeout(() => setSaved(false), 2000);
+        setTimeout(() => {
+          setSaved(false);
+          setView("preview");
+        }, 1200);
       }
     } finally {
       setSaving(false);
@@ -610,52 +775,40 @@ function TemplatesTab({
     }
   };
 
-  const filledBody = (currentTemplate.body || "")
-    .replace(/\{\{name\}\}/g, "Jane Doe")
-    .replace(
-      /\{\{verification_url\}\}/g,
-      "https://yourapp.com/verify?token=abc123",
-    )
-    .replace(/\{\{reset_url\}\}/g, "https://yourapp.com/reset?token=abc123")
-    .replace(
-      /\{\{confirmation_url\}\}/g,
-      "https://yourapp.com/confirm?token=abc123",
-    )
-    .replace(/\{\{magic_url\}\}/g, "https://yourapp.com/magic?token=abc123")
-    .replace(/\{\{new_email\}\}/g, "jane@new.com")
-    .replace(/\{\{app_name\}\}/g, "YourBaaS");
+  const filledBody = fillTemplateBody(currentTemplate.body);
 
   return (
-    <div className="flex h-full min-h-[600px]">
-      {/* ── Left sidebar: template list ── */}
-      <div className="w-[260px] shrink-0 border-r border-border bg-background flex flex-col">
-        {/* Email section */}
-        <div className="px-4 pt-5 pb-2">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Email
+    <div className="flex flex-col lg:flex-row min-h-[600px] border-t border-border">
+      {/* ── Left sidebar ── */}
+      <div className="w-full lg:w-[240px] shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-background flex flex-col">
+        <div className="px-4 pt-4 pb-2">
+          <p className="text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Email templates
           </p>
         </div>
         <nav className="flex flex-col">
           {EMAIL_TEMPLATES.map((tmpl) => {
-            const isActive = selectedKey === tmpl.key;
+            const isActive = selectedKey === tmpl.key && view !== "smtp";
             return (
               <button
                 key={tmpl.key}
-                onClick={() => handleSelectTemplate(tmpl.key)}
+                onClick={() => {
+                  handleSelectTemplate(tmpl.key);
+                }}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 text-left text-[13.5px] transition-colors relative",
+                  "flex items-center gap-2.5 px-4 py-2.5 text-left text-[13px] transition-colors border-l-2",
                   isActive
-                    ? "bg-[--info-bg] text-[--info-text] font-medium border-l-2 border-brand"
-                    : "text-foreground hover:bg-muted/50 border-l-2 border-transparent",
+                    ? "bg-[--info-bg] text-[--info-text] font-medium border-brand"
+                    : "text-foreground hover:bg-muted/50 border-transparent",
                 )}
               >
                 <MailIcon
                   className={cn(
-                    "h-4 w-4 shrink-0",
+                    "h-3.5 w-3.5 shrink-0",
                     isActive ? "text-brand" : "text-muted-foreground",
                   )}
                 />
-                <span className="leading-snug">{tmpl.label}</span>
+                <span className="leading-snug line-clamp-1">{tmpl.label}</span>
               </button>
             );
           })}
@@ -663,505 +816,326 @@ function TemplatesTab({
 
         <Separator className="my-2" />
 
-        {/* SMTP settings link */}
         <button
-          onClick={() => setSmtpDialogOpen(true)}
-          className="flex items-center gap-3 px-4 py-3 text-left text-[13.5px] text-foreground hover:bg-muted/50 transition-colors"
+          onClick={() => setView("smtp")}
+          className={cn(
+            "flex items-center gap-2.5 px-4 py-2.5 text-left text-[13px] transition-colors border-l-2",
+            view === "smtp"
+              ? "bg-[--info-bg] text-[--info-text] font-medium border-brand"
+              : "text-foreground hover:bg-muted/50 border-transparent",
+          )}
         >
-          <Settings className="h-4 w-4 text-muted-foreground shrink-0" />
-          <span>SMTP settings</span>
+          <Settings
+            className={cn(
+              "h-3.5 w-3.5 shrink-0",
+              view === "smtp" ? "text-brand" : "text-muted-foreground",
+            )}
+          />
+          SMTP settings
         </button>
 
         <Separator className="my-2" />
 
-        <div className="px-4 pt-1 pb-2">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+        <div className="px-4 pb-3">
+          <p className="text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
             SMS
           </p>
           <button
             disabled
-            className="flex items-center gap-3 py-2 text-left text-[13.5px] text-muted-foreground cursor-not-allowed opacity-60 w-full"
+            className="flex items-center gap-2.5 py-1.5 text-left text-[13px] text-muted-foreground cursor-not-allowed opacity-60 w-full"
           >
-            <MessageSquare className="h-4 w-4 shrink-0" />
+            <MessageSquare className="h-3.5 w-3.5 shrink-0" />
             <span>SMS verification</span>
-            <Badge variant="outline" className="ml-auto text-[9px] py-0 px-1.5">
+            <Badge variant="outline" className="ml-auto text-[9px] py-0 px-1">
               SOON
             </Badge>
           </button>
         </div>
       </div>
 
-      {/* ── Right panel: template detail ── */}
+      {/* ── Right panel ── */}
       <div className="flex-1 overflow-y-auto bg-muted/10">
-        {/* Panel header */}
-        <div className="border-b border-border bg-background px-8 py-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-[18px] font-medium text-foreground leading-tight">
+        {/* SMTP Panel */}
+        {view === "smtp" && (
+          <div>
+            <div className="border-b border-border bg-background px-6 py-4">
+              <h2 className="text-[16px] font-medium text-foreground">
+                SMTP settings
+              </h2>
+              <p className="text-[12.5px] text-muted-foreground mt-0.5">
+                Configure a custom SMTP server to send auth emails from your own
+                domain.
+              </p>
+            </div>
+            <div className="px-6 py-5">
+              <SmtpPanel
+                projectId={projectId}
+                initialSmtp={authSettings.smtp}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Edit template — inline, not a dialog */}
+        {view === "edit" && (
+          <div>
+            <div className="border-b border-border bg-background px-6 py-4 flex items-center gap-3">
+              <button
+                onClick={() => setView("preview")}
+                className="flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </button>
+              <span className="text-muted-foreground">/</span>
+              <h2 className="text-[15px] font-medium text-foreground">
                 {selected.label}
               </h2>
-              <p className="text-[13px] text-muted-foreground mt-1">
-                {selected.desc}
-              </p>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1.5 text-[13px] text-brand hover:text-brand-hover hover:bg-[--info-bg] shrink-0"
-              onClick={handleOpenEdit}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Edit template
-            </Button>
-          </div>
-        </div>
 
-        <div className="px-8 py-6 space-y-6">
-          {/* Template details card — Firebase-style read view */}
-          <div className="rounded-lg border border-border bg-background divide-y divide-border">
-            {/* Sender info row */}
-            <div className="flex items-start justify-between px-6 py-4 gap-8">
-              <div className="grid grid-cols-2 gap-8 flex-1">
-                <div>
-                  <p className="text-[11.5px] text-muted-foreground mb-1">
-                    Sender name
-                  </p>
-                  <p className="text-[13.5px] text-foreground">not provided</p>
-                </div>
-                <div>
-                  <p className="text-[11.5px] text-muted-foreground mb-1">
-                    From
-                  </p>
-                  <p className="text-[13.5px] text-foreground font-mono text-[12.5px]">
-                    noreply@yourbaas.com
-                  </p>
-                </div>
+            <div className="px-6 py-5 space-y-5">
+              {/* Variables */}
+              <div className="flex flex-wrap gap-1.5 rounded-lg border border-border bg-background px-4 py-3">
+                <span className="text-[11.5px] text-muted-foreground mr-1 self-center">
+                  Variables:
+                </span>
+                {selected.variables.map((v) => (
+                  <code
+                    key={v}
+                    className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono text-foreground border border-border cursor-pointer hover:bg-muted/60"
+                    onClick={() => setEditBody((prev) => prev + v)}
+                    title="Click to insert"
+                  >
+                    {v}
+                  </code>
+                ))}
               </div>
-              <button className="text-muted-foreground hover:text-foreground transition-colors mt-0.5">
-                <Pencil className="h-4 w-4" />
-              </button>
-            </div>
 
-            {/* Reply-to row */}
-            <div className="px-6 py-4">
-              <p className="text-[11.5px] text-muted-foreground mb-1">
-                Reply to
-              </p>
-              <p className="text-[13.5px] text-foreground">noreply</p>
-            </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Subject line</Label>
+                <Input
+                  value={editSubject}
+                  onChange={(e) => setEditSubject(e.target.value)}
+                  placeholder="Email subject..."
+                  className="h-9 text-sm"
+                />
+              </div>
 
-            {/* Subject row */}
-            <div className="px-6 py-4">
-              <p className="text-[11.5px] text-muted-foreground mb-1.5">
-                Subject
-              </p>
-              <p className="text-[13.5px] text-foreground font-medium">
-                {currentTemplate.subject || `Verify your email for %APP_NAME%`}
-              </p>
-            </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Message body</Label>
+                <Textarea
+                  value={editBody}
+                  onChange={(e) => setEditBody(e.target.value)}
+                  placeholder="Email body..."
+                  className="text-sm font-mono min-h-[240px] resize-y leading-relaxed"
+                />
+              </div>
 
-            {/* Message body */}
-            <div className="px-6 py-4">
-              <p className="text-[11.5px] text-muted-foreground mb-3">
-                Message
-              </p>
-              {filledBody ? (
-                <div className="space-y-2">
-                  {filledBody.split("\n").map((line, i) => {
-                    if (!line.trim()) {
-                      return <div key={i} className="h-2" />;
-                    }
-                    // Detect URLs and make them blue like Firebase
-                    if (
-                      line.startsWith("http://") ||
-                      line.startsWith("https://")
-                    ) {
-                      return (
-                        <p
-                          key={i}
-                          className="text-[13.5px] text-blue-600 dark:text-blue-400 break-all"
-                        >
-                          {line}
-                        </p>
-                      );
-                    }
-                    return (
-                      <p
-                        key={i}
-                        className="text-[13.5px] text-foreground leading-relaxed"
-                      >
-                        {line}
-                      </p>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="rounded-md border border-dashed border-border px-4 py-6 text-center">
-                  <p className="text-[13px] text-muted-foreground">
-                    No message body set. Click{" "}
-                    <button
-                      className="text-brand hover:underline"
-                      onClick={handleOpenEdit}
-                    >
-                      Edit template
-                    </button>{" "}
-                    to add one.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Variables info */}
-          <div className="rounded-lg border border-border bg-background px-6 py-4">
-            <p className="text-[12px] font-medium text-foreground mb-2">
-              Available variables
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {selected.variables.map((v) => (
-                <code
-                  key={v}
-                  className="rounded bg-muted px-2 py-1 text-[11.5px] font-mono text-foreground border border-border"
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setView("preview")}
+                  disabled={saving}
                 >
-                  {v}
-                </code>
-              ))}
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="gap-1.5 bg-brand text-white hover:bg-brand-hover"
+                >
+                  {saving ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : saved ? (
+                    <Check className="h-3.5 w-3.5" />
+                  ) : (
+                    <Save className="h-3.5 w-3.5" />
+                  )}
+                  {saved ? "Saved!" : "Save template"}
+                </Button>
+              </div>
             </div>
           </div>
+        )}
 
-          {/* Send test email */}
-          <div className="rounded-lg border border-border bg-background px-6 py-5">
-            <p className="text-[13.5px] font-medium text-foreground mb-1">
-              Send test email
-            </p>
-            <p className="text-[12.5px] text-muted-foreground mb-4">
-              Preview this template in your inbox. Variables will be replaced
-              with sample values.
-            </p>
-            <div className="flex items-center gap-3 max-w-md">
-              <Input
-                type="email"
-                placeholder="you@example.com"
-                value={testEmail}
-                onChange={(e) => setTestEmail(e.target.value)}
-                className="h-9 text-sm flex-1"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSendTest();
-                }}
-              />
+        {/* Preview template */}
+        {view === "preview" && (
+          <div>
+            <div className="border-b border-border bg-background px-6 py-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-[16px] font-medium text-foreground leading-tight">
+                  {selected.label}
+                </h2>
+                <p className="text-[12.5px] text-muted-foreground mt-0.5">
+                  {selected.desc}
+                </p>
+              </div>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="h-9 text-[13px] gap-1.5 shrink-0"
-                onClick={handleSendTest}
-                disabled={!testEmail || sendingTest}
+                className="h-8 gap-1.5 text-[13px] text-brand hover:text-brand-hover hover:bg-[--info-bg] shrink-0"
+                onClick={handleOpenEdit}
               >
-                {sendingTest ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Send className="h-3.5 w-3.5" />
-                )}
-                Send test
+                <Pencil className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Edit template</span>
+                <span className="sm:hidden">Edit</span>
               </Button>
             </div>
-            {testResult && (
-              <p
-                className={cn(
-                  "text-[12.5px] mt-2 flex items-center gap-1.5",
-                  testResult.ok ? "text-[--success-text]" : "text-destructive",
-                )}
-              >
-                {testResult.ok ? (
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                ) : (
-                  <AlertCircle className="h-3.5 w-3.5" />
-                )}
-                {testResult.msg}
-              </p>
-            )}
-          </div>
 
-          {/* Template language note */}
-          <div className="flex items-center justify-between rounded-lg border border-border bg-background px-6 py-3.5">
-            <div>
-              <p className="text-[12.5px] text-muted-foreground">
-                Template language
-              </p>
-              <p className="text-[13.5px] text-foreground mt-0.5">English</p>
-            </div>
-            <button className="text-muted-foreground hover:text-foreground transition-colors">
-              <Pencil className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Edit Template Dialog ── */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Edit template — {selected.label}</DialogTitle>
-            <DialogDescription>
-              Use variables like {selected.variables.slice(0, 2).join(", ")} to
-              insert dynamic content.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto space-y-4 py-2">
-            <div className="flex flex-wrap gap-1.5">
-              {selected.variables.map((v) => (
-                <code
-                  key={v}
-                  className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono text-foreground cursor-pointer hover:bg-muted/80"
-                  onClick={() => {
-                    setEditBody((prev) => prev + v);
-                  }}
-                  title="Click to insert"
-                >
-                  {v}
-                </code>
-              ))}
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Subject line</Label>
-              <Input
-                value={editSubject}
-                onChange={(e) => setEditSubject(e.target.value)}
-                placeholder="Email subject..."
-                className="h-9 text-sm"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Message body</Label>
-              <Textarea
-                value={editBody}
-                onChange={(e) => setEditBody(e.target.value)}
-                placeholder="Email body..."
-                className="text-sm font-mono min-h-[220px] resize-y leading-relaxed"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowEditDialog(false)}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={saving}
-              className="gap-1.5 bg-brand text-white hover:bg-brand-hover"
-            >
-              {saving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Save className="h-3.5 w-3.5" />
-              )}
-              Save template
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── SMTP Dialog ── */}
-      <SmtpDialog
-        open={smtpDialogOpen}
-        onClose={() => setSmtpDialogOpen(false)}
-        projectId={projectId}
-      />
-    </div>
-  );
-}
-
-// ─── SMTP Dialog ──────────────────────────────────────────────────────────────
-
-function SmtpDialog({
-  open,
-  onClose,
-  projectId,
-}: {
-  open: boolean;
-  onClose: () => void;
-  projectId: string;
-}) {
-  const [smtp, setSmtp] = React.useState<SmtpConfig>({
-    host: "",
-    port: 587,
-    user: "",
-    password: "",
-    from_name: "",
-    from_email: "",
-    secure: false,
-  });
-  const [saving, setSaving] = React.useState(false);
-  const [saved, setSaved] = React.useState(false);
-  const [showPass, setShowPass] = React.useState(false);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch(
-        `/api/nosql-proxy/projects/${projectId}/auth/settings`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ settings: { smtp } }),
-        },
-      );
-      if (res.ok) {
-        setSaved(true);
-        setTimeout(() => {
-          setSaved(false);
-          onClose();
-        }, 1500);
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>SMTP settings</DialogTitle>
-          <DialogDescription>
-            Configure a custom SMTP server to send auth emails from your own
-            domain.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <Alert className="border-sky-200 bg-sky-50 dark:border-sky-800/40 dark:bg-sky-950/20 py-3">
-            <Info className="h-4 w-4 text-sky-600 dark:text-sky-400" />
-            <AlertDescription className="text-[12px] text-sky-800 dark:text-sky-300">
-              Credentials are stored encrypted and never returned in API
-              responses.
-            </AlertDescription>
-          </Alert>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">SMTP host</Label>
-              <Input
-                value={smtp.host}
-                onChange={(e) => setSmtp({ ...smtp, host: e.target.value })}
-                placeholder="smtp.gmail.com"
-                className="h-9 text-sm"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Port</Label>
-              <Input
-                type="number"
-                value={smtp.port}
-                onChange={(e) =>
-                  setSmtp({ ...smtp, port: parseInt(e.target.value) || 587 })
-                }
-                className="h-9 text-sm"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Username</Label>
-              <Input
-                value={smtp.user}
-                onChange={(e) => setSmtp({ ...smtp, user: e.target.value })}
-                placeholder="user@gmail.com"
-                className="h-9 text-sm"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Password</Label>
-              <div className="relative">
-                <Input
-                  type={showPass ? "text" : "password"}
-                  value={smtp.password}
-                  onChange={(e) =>
-                    setSmtp({ ...smtp, password: e.target.value })
-                  }
-                  className="h-9 text-sm pr-9"
-                />
-                <button
-                  onClick={() => setShowPass(!showPass)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPass ? (
-                    <EyeOff className="h-4 w-4" />
+            <div className="px-6 py-5 space-y-5">
+              {/* Template detail card */}
+              <div className="rounded-lg border border-border bg-background divide-y divide-border">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-border">
+                  <div className="px-5 py-3.5">
+                    <p className="text-[11px] text-muted-foreground mb-1">
+                      Sender name
+                    </p>
+                    <p className="text-[13px] text-foreground">not provided</p>
+                  </div>
+                  <div className="px-5 py-3.5">
+                    <p className="text-[11px] text-muted-foreground mb-1">
+                      From
+                    </p>
+                    <p className="text-[12px] text-foreground font-mono">
+                      noreply@yourbaas.com
+                    </p>
+                  </div>
+                </div>
+                <div className="px-5 py-3.5">
+                  <p className="text-[11px] text-muted-foreground mb-1.5">
+                    Subject
+                  </p>
+                  <p className="text-[13px] text-foreground font-medium">
+                    {currentTemplate.subject ||
+                      "Verify your email for %APP_NAME%"}
+                  </p>
+                </div>
+                <div className="px-5 py-4">
+                  <p className="text-[11px] text-muted-foreground mb-3">
+                    Message preview
+                  </p>
+                  {filledBody ? (
+                    <div className="space-y-1.5">
+                      {filledBody.split("\n").map((line, i) => {
+                        if (!line.trim())
+                          return <div key={i} className="h-2" />;
+                        if (
+                          line.startsWith("http://") ||
+                          line.startsWith("https://")
+                        ) {
+                          return (
+                            <p
+                              key={i}
+                              className="text-[13px] text-blue-600 dark:text-blue-400 break-all"
+                            >
+                              {line}
+                            </p>
+                          );
+                        }
+                        return (
+                          <p
+                            key={i}
+                            className="text-[13px] text-foreground leading-relaxed"
+                          >
+                            {line}
+                          </p>
+                        );
+                      })}
+                    </div>
                   ) : (
-                    <Eye className="h-4 w-4" />
+                    <div className="rounded-md border border-dashed border-border px-4 py-5 text-center">
+                      <p className="text-[12.5px] text-muted-foreground">
+                        No message body set.{" "}
+                        <button
+                          className="text-brand hover:underline"
+                          onClick={handleOpenEdit}
+                        >
+                          Edit template
+                        </button>{" "}
+                        to add one.
+                      </p>
+                    </div>
                   )}
-                </button>
+                </div>
+              </div>
+
+              {/* Variables */}
+              <div className="rounded-lg border border-border bg-background px-5 py-4">
+                <p className="text-[12px] font-medium text-foreground mb-2">
+                  Available variables
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {selected.variables.map((v) => (
+                    <code
+                      key={v}
+                      className="rounded bg-muted px-2 py-1 text-[11px] font-mono text-foreground border border-border"
+                    >
+                      {v}
+                    </code>
+                  ))}
+                </div>
+              </div>
+
+              {/* Send test email */}
+              <div className="rounded-lg border border-border bg-background px-5 py-4">
+                <p className="text-[13px] font-medium text-foreground mb-1">
+                  Send test email
+                </p>
+                <p className="text-[12px] text-muted-foreground mb-3">
+                  Preview this template in your inbox. Variables will be
+                  replaced with sample values.
+                </p>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 max-w-lg">
+                  <Input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                    className="h-9 text-sm flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSendTest();
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 text-[13px] gap-1.5 shrink-0"
+                    onClick={handleSendTest}
+                    disabled={!testEmail || sendingTest}
+                  >
+                    {sendingTest ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Send className="h-3.5 w-3.5" />
+                    )}
+                    Send test
+                  </Button>
+                </div>
+                {testResult && (
+                  <p
+                    className={cn(
+                      "text-[12px] mt-2 flex items-center gap-1.5",
+                      testResult.ok
+                        ? "text-[--success-text]"
+                        : "text-destructive",
+                    )}
+                  >
+                    {testResult.ok ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    ) : (
+                      <AlertCircle className="h-3.5 w-3.5" />
+                    )}
+                    {testResult.msg}
+                  </p>
+                )}
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">From name</Label>
-              <Input
-                value={smtp.from_name}
-                onChange={(e) =>
-                  setSmtp({ ...smtp, from_name: e.target.value })
-                }
-                placeholder="YourApp"
-                className="h-9 text-sm"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">From email</Label>
-              <Input
-                type="email"
-                value={smtp.from_email}
-                onChange={(e) =>
-                  setSmtp({ ...smtp, from_email: e.target.value })
-                }
-                placeholder="noreply@yourapp.com"
-                className="h-9 text-sm"
-              />
-            </div>
-          </div>
-          <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-            <div>
-              <p className="text-[13px] font-medium">TLS / STARTTLS</p>
-              <p className="text-[11.5px] text-muted-foreground">
-                Enable encrypted connection
-              </p>
-            </div>
-            <Switch
-              checked={smtp.secure}
-              onCheckedChange={(v) => setSmtp({ ...smtp, secure: v })}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onClose}
-            disabled={saving}
-          >
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={saving}
-            className="gap-1.5 bg-brand text-white hover:bg-brand-hover"
-          >
-            {saving ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : saved ? (
-              <Check className="h-3.5 w-3.5" />
-            ) : (
-              <Save className="h-3.5 w-3.5" />
-            )}
-            {saved ? "Saved!" : "Save settings"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1327,12 +1301,12 @@ export function AuthPageClient({
   return (
     <TooltipProvider>
       <div className="flex flex-col min-h-full bg-background">
-        {/* Page title + tabs */}
-        <div className="px-8 pt-8 pb-0 border-b border-border">
-          <h1 className="text-[28px] font-normal text-foreground tracking-tight mb-5">
+        {/* Title + tabs */}
+        <div className="px-4 sm:px-8 pt-6 sm:pt-8 pb-0 border-b border-border">
+          <h1 className="text-[22px] sm:text-[28px] font-normal text-foreground tracking-tight mb-4 sm:mb-5">
             Authentication
           </h1>
-          <div className="flex items-end gap-0 -mb-px overflow-x-auto">
+          <div className="flex items-end gap-0 -mb-px overflow-x-auto scrollbar-hide">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
@@ -1341,7 +1315,7 @@ export function AuthPageClient({
                   navigate({ tab: tab.id });
                 }}
                 className={cn(
-                  "flex items-center gap-1.5 px-4 pb-3 pt-1 text-[13.5px] font-medium whitespace-nowrap border-b-2 transition-colors",
+                  "flex items-center gap-1.5 px-3 sm:px-4 pb-3 pt-1 text-[12.5px] sm:text-[13.5px] font-medium whitespace-nowrap border-b-2 transition-colors",
                   activeTab === tab.id
                     ? "border-brand text-brand"
                     : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
@@ -1356,13 +1330,17 @@ export function AuthPageClient({
 
         {/* Tab content */}
         <div
-          className={cn("flex-1", activeTab === "templates" ? "" : "px-8 py-6")}
+          className={cn(
+            "flex-1",
+            activeTab === "templates" ? "" : "px-4 sm:px-8 py-5 sm:py-6",
+          )}
         >
           {/* ── USERS TAB ── */}
           {activeTab === "users" && (
             <div className="space-y-4 max-w-5xl">
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1 max-w-xl">
+              {/* Toolbar */}
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <Input
                     placeholder="Search by email or name"
@@ -1375,187 +1353,199 @@ export function AuthPageClient({
                     className="pl-9 h-9 text-sm bg-muted/30"
                   />
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 px-3"
-                  onClick={() => navigate({ search: searchInput, page: 1 })}
-                >
-                  Search
-                </Button>
-                <Button
-                  onClick={() => setAddUserOpen(true)}
-                  size="sm"
-                  className="h-9 px-5 gap-1.5 bg-brand text-white hover:bg-brand-hover text-[13px] font-medium"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add user
-                </Button>
-                <Tooltip>
-                  <TooltipTrigger render={<span />}>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9"
-                      onClick={() => {
-                        setRefreshing(true);
-                        router.refresh();
-                        setTimeout(() => setRefreshing(false), 800);
-                      }}
-                      disabled={refreshing}
-                    >
-                      <RefreshCw
-                        className={cn(
-                          "h-4 w-4 text-muted-foreground",
-                          refreshing && "animate-spin",
-                        )}
-                      />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Refresh</TooltipContent>
-                </Tooltip>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 px-3"
+                    onClick={() => navigate({ search: searchInput, page: 1 })}
+                  >
+                    Search
+                  </Button>
+                  <Button
+                    onClick={() => setAddUserOpen(true)}
+                    size="sm"
+                    className="h-9 px-4 gap-1.5 bg-brand text-white hover:bg-brand-hover text-[13px] font-medium"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add user
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
+                    onClick={() => {
+                      setRefreshing(true);
+                      router.refresh();
+                      setTimeout(() => setRefreshing(false), 800);
+                    }}
+                    disabled={refreshing}
+                  >
+                    <RefreshCw
+                      className={cn(
+                        "h-4 w-4 text-muted-foreground",
+                        refreshing && "animate-spin",
+                      )}
+                    />
+                  </Button>
+                </div>
               </div>
 
-              <div className="border border-border rounded-sm overflow-hidden">
-                <div className="grid grid-cols-[2.5fr_1.5fr_1.5fr_2fr_auto] gap-0 bg-muted/30 border-b border-border">
-                  {["Identifier", "Status", "Created", "User UID", ""].map(
-                    (col, i) => (
-                      <div
-                        key={i}
-                        className="px-4 py-3 text-[12.5px] font-semibold text-foreground"
-                      >
-                        {col}
-                      </div>
-                    ),
-                  )}
-                </div>
-
-                {users.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-sm gap-2">
-                    <Users className="h-8 w-8 opacity-30" />
-                    {search
-                      ? "No users match your search."
-                      : "No users yet. Add the first one."}
-                  </div>
-                ) : (
-                  users.map((user, i) => (
-                    <div
-                      key={user.id}
-                      className={cn(
-                        "group grid grid-cols-[2.5fr_1.5fr_1.5fr_2fr_auto] gap-0 items-center hover:bg-muted/30 transition-colors",
-                        i < users.length - 1 && "border-b border-border/60",
+              {/* Table — scrollable on mobile */}
+              <div className="border border-border rounded-sm overflow-hidden overflow-x-auto">
+                <table className="w-full min-w-[600px]">
+                  <thead>
+                    <tr className="bg-muted/30 border-b border-border">
+                      {["Identifier", "Status", "Created", "User UID", ""].map(
+                        (col, i) => (
+                          <th
+                            key={i}
+                            className="px-4 py-3 text-left text-[12px] font-semibold text-foreground whitespace-nowrap"
+                          >
+                            {col}
+                          </th>
+                        ),
                       )}
-                    >
-                      <div className="px-4 py-3 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground uppercase">
-                            {user.email[0]}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-16 text-center">
+                          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                            <Users className="h-8 w-8 opacity-30" />
+                            <p className="text-sm">
+                              {search
+                                ? "No users match your search."
+                                : "No users yet. Add the first one."}
+                            </p>
                           </div>
-                          <div className="min-w-0">
-                            <span
-                              className="text-[13px] text-foreground truncate block max-w-[200px]"
-                              title={user.email}
-                            >
-                              {user.email.length > 30
-                                ? user.email.slice(0, 28) + "…"
-                                : user.email}
-                            </span>
-                            {user.name && (
-                              <span className="text-[11px] text-muted-foreground">
-                                {user.name}
+                        </td>
+                      </tr>
+                    ) : (
+                      users.map((user) => (
+                        <tr
+                          key={user.id}
+                          className="group border-b border-border/60 last:border-b-0 hover:bg-muted/30 transition-colors"
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground uppercase">
+                                {user.email[0]}
+                              </div>
+                              <div className="min-w-0">
+                                <p
+                                  className="text-[13px] text-foreground truncate max-w-[160px] sm:max-w-[200px]"
+                                  title={user.email}
+                                >
+                                  {user.email}
+                                </p>
+                                {user.name && (
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {user.name}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {user.is_email_verified ? (
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-[--success-bg] text-[--success-text]">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Verified
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400">
+                                <AlertCircle className="h-3 w-3" />
+                                Unverified
                               </span>
                             )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="px-4 py-3">
-                        {user.is_email_verified ? (
-                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-[--success-bg] text-[--success-text]">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Verified
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400">
-                            <AlertCircle className="h-3 w-3" />
-                            Unverified
-                          </span>
-                        )}
-                      </div>
-                      <div className="px-4 py-3">
-                        <span className="text-[13px] text-foreground">
-                          {user.created_at ? formatDate(user.created_at) : "—"}
-                        </span>
-                      </div>
-                      <div className="px-4 py-3 flex items-center gap-2 min-w-0">
-                        <span className="text-[12px] text-muted-foreground font-mono truncate">
-                          {user.id.length > 20
-                            ? user.id.slice(0, 18) + "…"
-                            : user.id}
-                        </span>
-                        <button
-                          onClick={() => handleCopy(user.id, user.id)}
-                          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                        >
-                          {copiedId === user.id ? (
-                            <Check className="h-3.5 w-3.5 text-emerald-500" />
-                          ) : (
-                            <Copy className="h-3.5 w-3.5" />
-                          )}
-                        </button>
-                      </div>
-                      <div className="px-3 py-3 flex items-center justify-end">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger render={<span />}>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                              disabled={
-                                deletingId === user.id ||
-                                verifyingId === user.id
-                              }
-                            >
-                              {deletingId === user.id ||
-                              verifyingId === user.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <MoreVertical className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44">
-                            <DropdownMenuItem
-                              className="text-xs gap-2"
-                              onClick={() => setResetTarget(user)}
-                            >
-                              <KeyRound className="h-3.5 w-3.5" />
-                              Reset password
-                            </DropdownMenuItem>
-                            {!user.is_email_verified && (
-                              <DropdownMenuItem
-                                className="text-xs gap-2"
-                                onClick={() => handleVerify(user)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="text-[13px] text-foreground">
+                              {user.created_at
+                                ? formatDate(user.created_at)
+                                : "—"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="text-[12px] text-muted-foreground font-mono truncate max-w-[120px]"
+                                title={user.id}
                               >
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                Mark as verified
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-xs gap-2 text-destructive focus:text-destructive"
-                              onClick={() => handleDelete(user)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              Delete account
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  ))
-                )}
+                                {user.id.length > 18
+                                  ? user.id.slice(0, 16) + "…"
+                                  : user.id}
+                              </span>
+                              <button
+                                onClick={() => handleCopy(user.id, user.id)}
+                                className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                              >
+                                {copiedId === user.id ? (
+                                  <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                ) : (
+                                  <Copy className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger render={<span />}>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  disabled={
+                                    deletingId === user.id ||
+                                    verifyingId === user.id
+                                  }
+                                >
+                                  {deletingId === user.id ||
+                                  verifyingId === user.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <MoreVertical className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-44">
+                                <DropdownMenuItem
+                                  className="text-xs gap-2"
+                                  onClick={() => setResetTarget(user)}
+                                >
+                                  <KeyRound className="h-3.5 w-3.5" />
+                                  Reset password
+                                </DropdownMenuItem>
+                                {!user.is_email_verified && (
+                                  <DropdownMenuItem
+                                    className="text-xs gap-2"
+                                    onClick={() => handleVerify(user)}
+                                  >
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                    Mark as verified
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-xs gap-2 text-destructive focus:text-destructive"
+                                  onClick={() => handleDelete(user)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Delete account
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
 
+              {/* Pagination */}
               <div className="flex items-center justify-between">
                 <p className="text-[12px] text-muted-foreground">
                   {total === 0
@@ -1591,9 +1581,9 @@ export function AuthPageClient({
             </div>
           )}
 
-          {/* ── SIGN-IN METHOD TAB ── */}
+          {/* ── SIGN-IN TAB ── */}
           {activeTab === "signin" && (
-            <div className="max-w-2xl space-y-6">
+            <div className="max-w-2xl space-y-5">
               <SaveBanner
                 dirty={settingsDirty}
                 saving={settingsSaving}
@@ -1613,7 +1603,7 @@ export function AuthPageClient({
               </div>
               {(["native", "oauth"] as const).map((category) => (
                 <div key={category}>
-                  <p className="text-[11.5px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
                     {category === "native"
                       ? "Native providers"
                       : "OAuth providers"}
@@ -1630,30 +1620,30 @@ export function AuthPageClient({
                       return (
                         <div
                           key={provider.id}
-                          className="flex items-center gap-4 px-4 py-3.5 bg-background hover:bg-muted/20 transition-colors"
+                          className="flex items-center gap-3 sm:gap-4 px-4 py-3.5 bg-background hover:bg-muted/20 transition-colors"
                         >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-background">
+                          <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full border border-border bg-background">
                             <Icon className="h-4 w-4 text-muted-foreground" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[13.5px] font-medium text-foreground">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[13px] font-medium text-foreground">
                                 {provider.label}
                               </span>
                               {provider.badge && (
-                                <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-muted-foreground">
+                                <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
                                   {provider.badge}
                                 </span>
                               )}
                             </div>
-                            <p className="text-[12px] text-muted-foreground mt-0.5">
+                            <p className="text-[11.5px] text-muted-foreground mt-0.5 hidden sm:block">
                               {provider.description}
                             </p>
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2 shrink-0">
                             <span
                               className={cn(
-                                "text-[11.5px] font-medium",
+                                "text-[11px] font-medium hidden sm:block",
                                 enabled
                                   ? "text-emerald-600 dark:text-emerald-400"
                                   : "text-muted-foreground",
@@ -1681,12 +1671,13 @@ export function AuthPageClient({
             </div>
           )}
 
-          {/* ── TEMPLATES TAB — Firebase two-panel ── */}
+          {/* ── TEMPLATES TAB ── */}
           {activeTab === "templates" && (
             <TemplatesTab
               projectId={projectId}
               templates={templates}
               onTemplatesChange={setTemplates}
+              authSettings={authSettings}
             />
           )}
 
@@ -1706,13 +1697,7 @@ export function AuthPageClient({
                 <StatCard
                   label="Verified"
                   value={stats.verified_users}
-                  sub={`${
-                    stats.total_users > 0
-                      ? Math.round(
-                          (stats.verified_users / stats.total_users) * 100,
-                        )
-                      : 0
-                  }% of total`}
+                  sub={`${stats.total_users > 0 ? Math.round((stats.verified_users / stats.total_users) * 100) : 0}% of total`}
                 />
                 <StatCard label="Unverified" value={stats.unverified_users} />
                 <StatCard label="Sign-ups (30d)" value={stats.new_last_30d} />
@@ -1723,7 +1708,7 @@ export function AuthPageClient({
 
           {/* ── SETTINGS TAB ── */}
           {activeTab === "settings" && (
-            <div className="max-w-2xl space-y-6">
+            <div className="max-w-2xl space-y-5">
               <SaveBanner
                 dirty={settingsDirty}
                 saving={settingsSaving}
@@ -1764,11 +1749,11 @@ export function AuthPageClient({
                     key={s.key}
                     className="flex items-center justify-between px-4 py-4 bg-background"
                   >
-                    <div className="pr-6">
-                      <p className="text-[13.5px] font-medium text-foreground">
+                    <div className="pr-4">
+                      <p className="text-[13px] font-medium text-foreground">
                         {s.label}
                       </p>
-                      <p className="text-[12px] text-muted-foreground mt-0.5">
+                      <p className="text-[11.5px] text-muted-foreground mt-0.5 hidden sm:block">
                         {s.desc}
                       </p>
                     </div>
@@ -1778,13 +1763,12 @@ export function AuthPageClient({
                     />
                   </div>
                 ))}
-
                 <div className="flex items-center justify-between px-4 py-4 bg-background">
-                  <div className="pr-6">
-                    <p className="text-[13.5px] font-medium text-foreground">
+                  <div className="pr-4">
+                    <p className="text-[13px] font-medium text-foreground">
                       Session duration
                     </p>
-                    <p className="text-[12px] text-muted-foreground mt-0.5">
+                    <p className="text-[11.5px] text-muted-foreground mt-0.5 hidden sm:block">
                       How long before a user must sign in again.
                     </p>
                   </div>
@@ -1802,17 +1786,16 @@ export function AuthPageClient({
                       min={1}
                     />
                     <span className="text-[12px] text-muted-foreground">
-                      hours
+                      hrs
                     </span>
                   </div>
                 </div>
-
                 <div className="flex items-center justify-between px-4 py-4 bg-background">
-                  <div className="pr-6">
-                    <p className="text-[13.5px] font-medium text-foreground">
-                      Minimum password length
+                  <div className="pr-4">
+                    <p className="text-[13px] font-medium text-foreground">
+                      Min. password length
                     </p>
-                    <p className="text-[12px] text-muted-foreground mt-0.5">
+                    <p className="text-[11.5px] text-muted-foreground mt-0.5 hidden sm:block">
                       Enforce a minimum character count for new passwords.
                     </p>
                   </div>
@@ -1840,16 +1823,16 @@ export function AuthPageClient({
               <Separator />
 
               <div className="space-y-3">
-                <h3 className="text-[14px] font-semibold text-destructive">
+                <h3 className="text-[13px] font-semibold text-destructive">
                   Danger zone
                 </h3>
                 <div className="border border-destructive/30 rounded-sm">
-                  <div className="flex items-center justify-between px-4 py-4">
-                    <div className="pr-4">
-                      <p className="text-[13.5px] font-medium">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-4">
+                    <div>
+                      <p className="text-[13px] font-medium">
                         Rotate JWT secret
                       </p>
-                      <p className="text-[12px] text-muted-foreground mt-0.5">
+                      <p className="text-[11.5px] text-muted-foreground mt-0.5">
                         All existing tokens will be immediately invalidated.
                         Users will need to sign in again.
                       </p>
@@ -1857,7 +1840,7 @@ export function AuthPageClient({
                     <Button
                       variant="destructive"
                       size="sm"
-                      className="h-8 text-xs shrink-0 gap-1.5"
+                      className="h-8 text-xs shrink-0 gap-1.5 self-start sm:self-auto"
                       onClick={() => setRotateOpen(true)}
                     >
                       <RotateCcw className="h-3.5 w-3.5" />

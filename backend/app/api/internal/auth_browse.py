@@ -27,6 +27,14 @@ async def require_internal(x_internal_secret: str = Header(...)) -> None:
 InternalGuard = Depends(require_internal)
 
 
+def _serialize_user(row: dict) -> dict:
+    u = dict(row)
+    for field in ("created_at", "updated_at"):
+        if u.get(field) and hasattr(u[field], "isoformat"):
+            u[field] = u[field].isoformat()
+    return u
+
+
 # ─── List users ────────────────────────────────────────────────────────────────
 
 @router.get("/projects/{project_id}/auth/users", dependencies=[InternalGuard])
@@ -49,10 +57,31 @@ async def list_auth_users(
         where = "(email ILIKE :search OR name ILIKE :search)"
         params["search"] = f"%{search}%"
 
+    # Check which columns actually exist to be safe across schema versions
+    try:
+        col_result = await db.execute(
+            text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = :schema AND table_name = '_auth_users'
+            """),
+            {"schema": db_schema},
+        )
+        existing_cols = {r[0] for r in col_result}
+    except Exception:
+        existing_cols = {"id", "email", "name", "is_email_verified", "created_at"}
+
+    # Build SELECT list based on what actually exists
+    select_cols = ["id", "email", "name", "is_email_verified", "created_at"]
+    if "updated_at" in existing_cols:
+        select_cols.append("updated_at")
+
+    select_clause = ", ".join(select_cols)
+
     try:
         result = await db.execute(
             text(f"""
-                SELECT id, email, name, is_email_verified, created_at, updated_at
+                SELECT {select_clause}
                 FROM "{db_schema}"."_auth_users"
                 WHERE {where}
                 ORDER BY created_at DESC
@@ -60,15 +89,7 @@ async def list_auth_users(
             """),
             params,
         )
-        users = []
-        for row in result.mappings():
-            u = dict(row)
-            # Serialize datetime
-            if u.get("created_at") and hasattr(u["created_at"], "isoformat"):
-                u["created_at"] = u["created_at"].isoformat()
-            if u.get("updated_at") and hasattr(u["updated_at"], "isoformat"):
-                u["updated_at"] = u["updated_at"].isoformat()
-            users.append(u)
+        users = [_serialize_user(dict(row._mapping)) for row in result]
 
         count_result = await db.execute(
             text(f'SELECT COUNT(*) FROM "{db_schema}"."_auth_users" WHERE {where}'),
@@ -79,7 +100,6 @@ async def list_auth_users(
         return {"data": {"users": users, "total": total}}
     except Exception as e:
         logger.warning("Failed to list auth users for schema %s: %s", db_schema, e)
-        # Table may not exist yet
         return {"data": {"users": [], "total": 0}}
 
 
@@ -97,7 +117,7 @@ async def get_auth_user(
 
     result = await db.execute(
         text(f"""
-            SELECT id, email, name, is_email_verified, created_at, updated_at
+            SELECT id, email, name, is_email_verified, created_at
             FROM "{db_schema}"."_auth_users"
             WHERE id = :user_id
         """),
@@ -107,13 +127,7 @@ async def get_auth_user(
     if not row:
         raise HTTPException(status_code=404, detail="User not found")
 
-    u = dict(row)
-    if u.get("created_at") and hasattr(u["created_at"], "isoformat"):
-        u["created_at"] = u["created_at"].isoformat()
-    if u.get("updated_at") and hasattr(u["updated_at"], "isoformat"):
-        u["updated_at"] = u["updated_at"].isoformat()
-
-    return {"data": u}
+    return {"data": _serialize_user(dict(row))}
 
 
 # ─── Create user ───────────────────────────────────────────────────────────────
@@ -136,7 +150,6 @@ async def create_auth_user(
 
     from app.auth.project_auth import hash_password
 
-    # Check duplicate
     existing = await db.execute(
         text(f'SELECT id FROM "{db_schema}"."_auth_users" WHERE email = :email'),
         {"email": body.email},
@@ -273,7 +286,6 @@ async def get_auth_stats(
     db_schema: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Return auth usage statistics for the dashboard."""
     if not db_schema.replace("_", "").replace("-", "").isalnum():
         raise HTTPException(status_code=400, detail="Invalid schema name")
 
