@@ -83,7 +83,7 @@ export function StatCards({ stats, className }: StatCardsProps) {
                       ? "bg-[--danger]"
                       : card.progress > 60
                         ? "bg-[--warning]"
-                        : "bg-[--brand]",
+                        : "bg-brand",
                   )}
                   style={{ width: `${card.progress}%` }}
                 />

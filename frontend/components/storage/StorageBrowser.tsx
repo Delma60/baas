@@ -294,7 +294,7 @@ function UploadZone({
       <div
         className={cn(
           "flex flex-col items-center justify-center gap-3 py-10 transition-colors cursor-pointer",
-          isDragging && "bg-[--brand]/5 border-[--brand]",
+          isDragging && "bg-brand/5 border-[--brand]",
         )}
         onDragOver={(e) => {
           e.preventDefault();
@@ -350,7 +350,7 @@ function UploadZone({
                           ? "bg-[--success]"
                           : item.status === "error"
                             ? "bg-[--danger]"
-                            : "bg-[--brand]",
+                            : "bg-brand",
                       )}
                       style={{
                         width:
@@ -750,7 +750,7 @@ export function StorageBrowser({
 
           <Button
             size="sm"
-            className="h-8 gap-1.5 text-xs bg-[--brand] hover:bg-[--brand-hover] text-white border-0"
+            className="h-8 gap-1.5 text-xs bg-brand hover:bg-brand-hover text-white border-0"
             onClick={() => setShowUpload((s) => !s)}
           >
             <Upload className="h-3.5 w-3.5" />
@@ -770,7 +770,7 @@ export function StorageBrowser({
 
         {/* Selected actions bar */}
         {selectedFiles.size > 0 && (
-          <div className="flex items-center gap-3 px-6 py-2.5 bg-[--brand]/5 border-b border-[--brand]/20 shrink-0">
+          <div className="flex items-center gap-3 px-6 py-2.5 bg-brand/5 border-b border-[--brand]/20 shrink-0">
             <span className="text-[13px] font-medium text-[--brand]">
               {selectedFiles.size} selected
             </span>
@@ -951,7 +951,7 @@ function EmptyState({
       </div>
       <Button
         size="sm"
-        className="h-8 gap-1.5 text-xs bg-[--brand] hover:bg-[--brand-hover] text-white border-0 mt-1"
+        className="h-8 gap-1.5 text-xs bg-brand hover:bg-brand-hover text-white border-0 mt-1"
         onClick={onUpload}
       >
         <Upload className="h-3.5 w-3.5" />

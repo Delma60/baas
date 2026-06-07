@@ -21,6 +21,9 @@ import {
   Pencil,
   Trash2,
   AlertCircle,
+  X,
+  Check,
+  Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -49,13 +53,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
-import type { SqlTable, SqlQueryResult } from "@/lib/api/sql-client";
+import type { SqlTable, SqlQueryResult, SqlColumn } from "@/lib/api/sql-client";
 import { AddTableDialog } from "./AddTableDialog";
 
 interface Props {
@@ -65,6 +77,213 @@ interface Props {
   initialTable: string | null;
   initialResult: SqlQueryResult | null;
 }
+
+// ─── Row Form Dialog ──────────────────────────────────────────────────────────
+
+function RowFormDialog({
+  open,
+  onClose,
+  mode,
+  projectId,
+  dbSchema,
+  table,
+  columns,
+  existingRow,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  mode: "insert" | "edit";
+  projectId: string;
+  dbSchema: string;
+  table: string;
+  columns: SqlColumn[];
+  existingRow?: Record<string, unknown>;
+  onSaved: (row: Record<string, unknown>, isNew: boolean) => void;
+}) {
+  const editableCols = columns.filter(
+    (c) => !["id", "created_at", "updated_at"].includes(c.column_name),
+  );
+
+  const [fields, setFields] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    for (const col of editableCols) {
+      init[col.column_name] =
+        existingRow?.[col.column_name] != null
+          ? String(existingRow[col.column_name])
+          : "";
+    }
+    return init;
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    setError(null);
+
+    const data: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(fields)) {
+      if (v === "") continue;
+      const col = editableCols.find((c) => c.column_name === k);
+      const t = col?.data_type ?? "text";
+      if (t.includes("int") || t.includes("serial")) data[k] = parseInt(v);
+      else if (
+        t.includes("float") ||
+        t.includes("double") ||
+        t.includes("numeric") ||
+        t.includes("real")
+      )
+        data[k] = parseFloat(v);
+      else if (t.includes("bool")) data[k] = v === "true";
+      else if (t.includes("json")) {
+        try {
+          data[k] = JSON.parse(v);
+        } catch {
+          data[k] = v;
+        }
+      } else data[k] = v;
+    }
+
+    const body =
+      mode === "insert"
+        ? { projectId, table, dbSchema, data }
+        : { projectId, table, dbSchema, rowId: existingRow?.id, data };
+
+    const method = mode === "insert" ? "POST" : "PATCH";
+
+    try {
+      const res = await fetch("/api/internal/sql/rows", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setError(result?.error ?? "Operation failed");
+        return;
+      }
+      onSaved(result.data, mode === "insert");
+      onClose();
+    } catch {
+      setError("Network error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle>
+            {mode === "insert" ? "Insert row" : "Edit row"}
+          </DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            {mode === "insert"
+              ? `Add a new row to "${table}". id, created_at, updated_at are auto-set.`
+              : `Edit row in "${table}". id, created_at, updated_at cannot be changed.`}
+          </DialogDescription>
+        </DialogHeader>
+
+        <ScrollArea className="flex-1 pr-1">
+          <div className="space-y-3 py-2">
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {error}
+              </div>
+            )}
+            {editableCols.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No editable columns (only auto-managed system columns exist).
+              </p>
+            )}
+            {editableCols.map((col) => (
+              <div key={col.column_name} className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs font-medium">
+                    {col.column_name}
+                  </Label>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] h-4 px-1.5 font-mono"
+                  >
+                    {col.data_type}
+                  </Badge>
+                  {col.is_nullable === "YES" && (
+                    <span className="text-[10px] text-muted-foreground">
+                      nullable
+                    </span>
+                  )}
+                </div>
+                {col.data_type.includes("bool") ? (
+                  <select
+                    value={fields[col.column_name]}
+                    onChange={(e) =>
+                      setFields((f) => ({
+                        ...f,
+                        [col.column_name]: e.target.value,
+                      }))
+                    }
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">— null —</option>
+                    <option value="true">true</option>
+                    <option value="false">false</option>
+                  </select>
+                ) : (
+                  <Input
+                    value={fields[col.column_name]}
+                    onChange={(e) =>
+                      setFields((f) => ({
+                        ...f,
+                        [col.column_name]: e.target.value,
+                      }))
+                    }
+                    placeholder={
+                      col.column_default
+                        ? `default: ${col.column_default}`
+                        : col.column_name
+                    }
+                    className="h-9 text-sm font-mono"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+
+        <DialogFooter className="border-t pt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSubmit}
+            disabled={loading || editableCols.length === 0}
+            className="gap-1.5 bg-brand hover:bg-brand-hover text-white border-0"
+          >
+            {loading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            {mode === "insert" ? "Insert row" : "Save changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export function DatabaseClient({
   projectId,
@@ -76,6 +295,7 @@ export function DatabaseClient({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [tables, setTables] = useState<SqlTable[]>(initialTables);
   const [activeTable, setActiveTable] = useState<string | null>(initialTable);
+  const [columns, setColumns] = useState<SqlColumn[]>([]);
   const [query, setQuery] = useState(
     initialTable
       ? `SELECT *\nFROM "${initialTable}"\nLIMIT 50;`
@@ -89,6 +309,12 @@ export function DatabaseClient({
   const [isLoadingTable, setIsLoadingTable] = useState(false);
   const [isRefreshingTables, setIsRefreshingTables] = useState(false);
   const [addTableOpen, setAddTableOpen] = useState(false);
+
+  // CRUD dialog state
+  const [insertOpen, setInsertOpen] = useState(false);
+  const [editRow, setEditRow] = useState<Record<string, unknown> | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [crudError, setCrudError] = useState<string | null>(null);
 
   const filteredTables = tables.filter((t) =>
     t.name.toLowerCase().includes(filter.toLowerCase()),
@@ -126,14 +352,48 @@ export function DatabaseClient({
     }
   }, [projectId, dbSchema]);
 
+  const fetchColumns = useCallback(
+    async (tableName: string) => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/internal/sql/query`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              dbSchema,
+              query: `
+              SELECT column_name, data_type, is_nullable, column_default
+              FROM information_schema.columns
+              WHERE table_schema = '${dbSchema}' AND table_name = '${tableName}'
+              ORDER BY ordinal_position
+            `,
+            }),
+          },
+        );
+        const data = await res.json();
+        if (res.ok && data.data?.rows) {
+          setColumns(data.data.rows as SqlColumn[]);
+        }
+      } catch {
+        setColumns([]);
+      }
+    },
+    [projectId, dbSchema],
+  );
+
   const handleSelectTable = useCallback(
     async (tableName: string) => {
       setActiveTable(tableName);
       setQuery(`SELECT *\nFROM "${tableName}"\nLIMIT 50;`);
       setQueryError(null);
+      setCrudError(null);
       setResult(null);
       setSelectedRows(new Set());
       setIsLoadingTable(true);
+
+      await fetchColumns(tableName);
 
       try {
         const res = await fetch(`/api/internal/sql/query`, {
@@ -157,13 +417,14 @@ export function DatabaseClient({
         setIsLoadingTable(false);
       }
     },
-    [projectId, dbSchema],
+    [projectId, dbSchema, fetchColumns],
   );
 
   const handleRunQuery = useCallback(async () => {
     if (!query.trim()) return;
     setIsRunning(true);
     setQueryError(null);
+    setCrudError(null);
     setResult(null);
     setSelectedRows(new Set());
 
@@ -193,6 +454,75 @@ export function DatabaseClient({
     }
   };
 
+  // ── CRUD handlers ──────────────────────────────────────────────────────────
+
+  const handleRowSaved = (row: Record<string, unknown>, isNew: boolean) => {
+    setResult((prev) => {
+      if (!prev) return { rows: [row], total: 1 };
+      if (isNew) {
+        return { ...prev, rows: [row, ...prev.rows], total: prev.total + 1 };
+      }
+      return {
+        ...prev,
+        rows: prev.rows.map((r) => (r.id === row.id ? row : r)),
+      };
+    });
+  };
+
+  const handleDeleteRow = async (row: Record<string, unknown>) => {
+    const id = row.id;
+    if (!id || !activeTable) return;
+    if (!confirm(`Delete this row? This cannot be undone.`)) return;
+
+    setDeletingId(String(id));
+    setCrudError(null);
+    try {
+      const res = await fetch("/api/internal/sql/rows", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          table: activeTable,
+          dbSchema,
+          rowId: id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCrudError(data?.error ?? "Delete failed");
+        return;
+      }
+      setResult((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          rows: prev.rows.filter((r) => r.id !== id),
+          total: prev.total - 1,
+        };
+      });
+    } catch {
+      setCrudError("Network error");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!activeTable || selectedRows.size === 0) return;
+    if (!confirm(`Delete ${selectedRows.size} rows? This cannot be undone.`))
+      return;
+
+    const rows = result?.rows ?? [];
+    const toDelete = [...selectedRows].map((i) => rows[i]).filter(Boolean);
+
+    for (const row of toDelete) {
+      await handleDeleteRow(row);
+    }
+    setSelectedRows(new Set());
+  };
+
+  // ── misc ───────────────────────────────────────────────────────────────────
+
   const toggleRow = (i: number) => {
     setSelectedRows((prev) => {
       const next = new Set(prev);
@@ -209,15 +539,13 @@ export function DatabaseClient({
   };
 
   const rows = result?.rows ?? [];
-  const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+  const cols = rows.length > 0 ? Object.keys(rows[0]) : [];
 
   const handleExportCSV = () => {
     if (rows.length === 0) return;
-    const header = columns.join(",");
+    const header = cols.join(",");
     const body = rows
-      .map((row) =>
-        columns.map((col) => JSON.stringify(row[col] ?? "")).join(","),
-      )
+      .map((row) => cols.map((col) => JSON.stringify(row[col] ?? "")).join(","))
       .join("\n");
     const blob = new Blob([`${header}\n${body}`], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -249,6 +577,7 @@ export function DatabaseClient({
         if (activeTable === tableName) {
           setActiveTable(null);
           setResult(null);
+          setColumns([]);
           setQuery("SELECT * FROM your_table LIMIT 50;");
         }
       }
@@ -257,9 +586,10 @@ export function DatabaseClient({
     }
   };
 
+  const canCRUD = !!activeTable;
+
   return (
     <TooltipProvider>
-      {/* Full viewport height, no overflow — children manage their own scroll */}
       <div className="flex flex-col h-screen bg-background text-foreground">
         {/* ── Top Bar ── */}
         <header className="flex items-center justify-between px-4 sm:px-6 h-14 border-b shrink-0 gap-3">
@@ -304,6 +634,19 @@ export function DatabaseClient({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Insert row button — only shown when a table is selected */}
+            {canCRUD && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-xs"
+                onClick={() => setInsertOpen(true)}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Insert row
+              </Button>
+            )}
+
             <Tooltip>
               <TooltipTrigger>
                 <Button
@@ -336,7 +679,7 @@ export function DatabaseClient({
 
             <Button
               size="sm"
-              className="h-8 gap-1.5 bg-brand hover:bg-[--brand-hover] text-white border-0"
+              className="h-8 gap-1.5 bg-brand hover:bg-brand-hover text-white border-0"
               onClick={() => setAddTableOpen(true)}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -345,7 +688,7 @@ export function DatabaseClient({
           </div>
         </header>
 
-        {/* ── Body: sidebar + main, fills remaining height ── */}
+        {/* ── Body ── */}
         <div className="flex flex-1 min-h-0">
           {/* Sidebar */}
           <aside
@@ -460,6 +803,16 @@ export function DatabaseClient({
                             <TableIcon className="h-3.5 w-3.5" />
                             Browse rows
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-xs gap-2"
+                            onClick={() => {
+                              handleSelectTable(table.name);
+                              setTimeout(() => setInsertOpen(true), 300);
+                            }}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Insert row
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-xs gap-2 text-destructive focus:text-destructive"
@@ -477,13 +830,13 @@ export function DatabaseClient({
             </div>
           </aside>
 
-          {/* ── Main workspace: ResizablePanelGroup fills remaining space ── */}
+          {/* Main workspace */}
           <div className="flex-1 min-w-0 min-h-0 flex flex-col">
             <ResizablePanelGroup
               orientation="vertical"
               className="flex-1 min-h-0"
             >
-              {/* Query Editor panel */}
+              {/* Query Editor */}
               <ResizablePanel defaultSize="30%" minSize="15%" maxSize="85%">
                 <div className="flex flex-col h-full">
                   <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 shrink-0">
@@ -508,7 +861,6 @@ export function DatabaseClient({
                     </Tooltip>
                   </div>
 
-                  {/* textarea fills the panel — overflow hidden on panel keeps it bounded */}
                   <textarea
                     className="flex-1 resize-none p-4 font-mono text-sm bg-background outline-none placeholder:text-muted-foreground/50 leading-relaxed"
                     value={query}
@@ -553,7 +905,7 @@ export function DatabaseClient({
 
               <ResizableHandle withHandle />
 
-              {/* Results panel */}
+              {/* Results */}
               <ResizablePanel defaultSize="70%" minSize="15%">
                 <div className="flex flex-col h-full">
                   <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 shrink-0 gap-3">
@@ -569,20 +921,48 @@ export function DatabaseClient({
                           >
                             {result.total.toLocaleString()} rows
                           </Badge>
-                          {columns.length > 0 && (
+                          {cols.length > 0 && (
                             <span className="text-[10px] text-muted-foreground hidden sm:inline">
-                              · {columns.length} columns
+                              · {cols.length} columns
                             </span>
                           )}
                         </>
                       )}
                     </div>
-                    {selectedRows.size > 0 && (
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        {selectedRows.size} selected
-                      </span>
+
+                    {/* Bulk delete */}
+                    {selectedRows.size > 0 && canCRUD && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-7 text-xs gap-1.5 shrink-0"
+                        onClick={handleDeleteSelected}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete {selectedRows.size} selected
+                      </Button>
                     )}
                   </div>
+
+                  {/* CRUD error banner */}
+                  {crudError && (
+                    <div className="mx-4 mt-3">
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription className="text-xs flex items-center justify-between">
+                          {crudError}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 ml-2 shrink-0"
+                            onClick={() => setCrudError(null)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  )}
 
                   <ScrollArea className="flex-1">
                     {queryError ? (
@@ -610,7 +990,7 @@ export function DatabaseClient({
                         {tables.length === 0 && (
                           <Button
                             size="sm"
-                            className="gap-1.5 text-xs bg-[--brand] hover:bg-[--brand-hover] text-white border-0"
+                            className="gap-1.5 text-xs bg-brand hover:bg-brand-hover text-white border-0"
                             onClick={() => setAddTableOpen(true)}
                           >
                             <Plus className="h-3.5 w-3.5" />
@@ -621,7 +1001,17 @@ export function DatabaseClient({
                     ) : rows.length === 0 ? (
                       <div className="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground">
                         <DatabaseZap className="h-8 w-8 opacity-20" />
-                        <p className="text-sm">No rows returned</p>
+                        <p className="text-sm">No rows yet</p>
+                        {canCRUD && (
+                          <Button
+                            size="sm"
+                            className="gap-1.5 text-xs bg-brand hover:bg-brand-hover text-white border-0"
+                            onClick={() => setInsertOpen(true)}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Insert first row
+                          </Button>
+                        )}
                       </div>
                     ) : (
                       <div className="min-w-max">
@@ -632,11 +1022,14 @@ export function DatabaseClient({
                                 <input
                                   type="checkbox"
                                   className="rounded border-border"
-                                  checked={selectedRows.size === rows.length}
+                                  checked={
+                                    selectedRows.size === rows.length &&
+                                    rows.length > 0
+                                  }
                                   onChange={toggleAll}
                                 />
                               </TableHead>
-                              {columns.map((col) => (
+                              {cols.map((col) => (
                                 <TableHead
                                   key={col}
                                   className="font-mono text-xs text-muted-foreground font-semibold whitespace-nowrap"
@@ -644,7 +1037,7 @@ export function DatabaseClient({
                                   {col}
                                 </TableHead>
                               ))}
-                              <TableHead className="w-10" />
+                              {canCRUD && <TableHead className="w-10" />}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -654,6 +1047,7 @@ export function DatabaseClient({
                                 className={cn(
                                   "group cursor-pointer",
                                   selectedRows.has(i) && "bg-primary/5",
+                                  deletingId === String(row.id) && "opacity-50",
                                 )}
                                 onClick={() => toggleRow(i)}
                               >
@@ -668,7 +1062,7 @@ export function DatabaseClient({
                                     onChange={() => toggleRow(i)}
                                   />
                                 </TableCell>
-                                {columns.map((col) => (
+                                {cols.map((col) => (
                                   <TableCell
                                     key={col}
                                     className="text-sm font-mono whitespace-nowrap max-w-[240px] truncate"
@@ -677,47 +1071,59 @@ export function DatabaseClient({
                                     <CellValue value={row[col]} />
                                   </TableCell>
                                 ))}
-                                <TableCell
-                                  className="w-10"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                {canCRUD && (
+                                  <TableCell
+                                    className="w-10"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                          {deletingId === String(row.id) ? (
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                          ) : (
+                                            <MoreHorizontal className="h-3.5 w-3.5" />
+                                          )}
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent
+                                        align="end"
+                                        className="w-36"
                                       >
-                                        <MoreHorizontal className="h-3.5 w-3.5" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                      align="end"
-                                      className="w-36"
-                                    >
-                                      <DropdownMenuItem className="text-xs gap-2">
-                                        <Pencil className="h-3.5 w-3.5" />
-                                        Edit row
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        className="text-xs gap-2"
-                                        onClick={() =>
-                                          navigator.clipboard.writeText(
-                                            JSON.stringify(row, null, 2),
-                                          )
-                                        }
-                                      >
-                                        <Copy className="h-3.5 w-3.5" />
-                                        Copy JSON
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem className="text-xs gap-2 text-destructive focus:text-destructive">
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                        Delete row
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </TableCell>
+                                        <DropdownMenuItem
+                                          className="text-xs gap-2"
+                                          onClick={() => setEditRow(row)}
+                                        >
+                                          <Pencil className="h-3.5 w-3.5" />
+                                          Edit row
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          className="text-xs gap-2"
+                                          onClick={() =>
+                                            navigator.clipboard.writeText(
+                                              JSON.stringify(row, null, 2),
+                                            )
+                                          }
+                                        >
+                                          <Copy className="h-3.5 w-3.5" />
+                                          Copy JSON
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          className="text-xs gap-2 text-destructive focus:text-destructive"
+                                          onClick={() => handleDeleteRow(row)}
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                          Delete row
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </TableCell>
+                                )}
                               </TableRow>
                             ))}
                           </TableBody>
@@ -732,6 +1138,17 @@ export function DatabaseClient({
                         Showing {rows.length.toLocaleString()} of{" "}
                         {result.total.toLocaleString()} rows
                       </span>
+                      {canCRUD && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 text-xs gap-1 text-muted-foreground"
+                          onClick={() => setInsertOpen(true)}
+                        >
+                          <Plus className="h-3 w-3" />
+                          Insert row
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -740,6 +1157,7 @@ export function DatabaseClient({
           </div>
         </div>
 
+        {/* ── Dialogs ── */}
         <AddTableDialog
           open={addTableOpen}
           onClose={() => setAddTableOpen(false)}
@@ -747,6 +1165,33 @@ export function DatabaseClient({
           dbSchema={dbSchema}
           onCreated={handleTableCreated}
         />
+
+        {insertOpen && activeTable && (
+          <RowFormDialog
+            open={insertOpen}
+            onClose={() => setInsertOpen(false)}
+            mode="insert"
+            projectId={projectId}
+            dbSchema={dbSchema}
+            table={activeTable}
+            columns={columns}
+            onSaved={(row) => handleRowSaved(row, true)}
+          />
+        )}
+
+        {editRow && activeTable && (
+          <RowFormDialog
+            open={!!editRow}
+            onClose={() => setEditRow(null)}
+            mode="edit"
+            projectId={projectId}
+            dbSchema={dbSchema}
+            table={activeTable}
+            columns={columns}
+            existingRow={editRow}
+            onSaved={(row) => handleRowSaved(row, false)}
+          />
+        )}
       </div>
     </TooltipProvider>
   );

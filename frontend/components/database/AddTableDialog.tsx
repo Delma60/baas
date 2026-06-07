@@ -80,17 +80,32 @@ function generateId() {
 }
 
 function slugifyColumn(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/^_+|_+$/g, "");
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function AddTableDialog({ open, onClose, projectId, dbSchema, onCreated }: Props) {
+export function AddTableDialog({
+  open,
+  onClose,
+  projectId,
+  dbSchema,
+  onCreated,
+}: Props) {
   const [tableName, setTableName] = React.useState("");
   const [tableNameError, setTableNameError] = React.useState("");
   const [enableRealtime, setEnableRealtime] = React.useState(false);
   const [columns, setColumns] = React.useState<ColumnDef[]>([
-    { id: generateId(), name: "title", type: "text", nullable: false, default: "" },
+    {
+      id: generateId(),
+      name: "title",
+      type: "text",
+      nullable: false,
+      default: "",
+    },
   ]);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -102,7 +117,13 @@ export function AddTableDialog({ open, onClose, projectId, dbSchema, onCreated }
       setTableNameError("");
       setError("");
       setColumns([
-        { id: generateId(), name: "title", type: "text", nullable: false, default: "" },
+        {
+          id: generateId(),
+          name: "title",
+          type: "text",
+          nullable: false,
+          default: "",
+        },
       ]);
       setEnableRealtime(false);
     }
@@ -111,7 +132,8 @@ export function AddTableDialog({ open, onClose, projectId, dbSchema, onCreated }
   const validateTableName = (val: string) => {
     const cleaned = val.toLowerCase().replace(/[^a-z0-9_]/g, "_");
     if (!cleaned) return "Table name is required";
-    if (!/^[a-z_]/.test(cleaned)) return "Must start with a letter or underscore";
+    if (!/^[a-z_]/.test(cleaned))
+      return "Must start with a letter or underscore";
     if (cleaned.startsWith("_")) return "Names starting with _ are reserved";
     return "";
   };
@@ -133,12 +155,17 @@ export function AddTableDialog({ open, onClose, projectId, dbSchema, onCreated }
   };
 
   const updateColumn = (id: string, patch: Partial<ColumnDef>) => {
-    setColumns((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    setColumns((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    );
   };
 
   const handleSubmit = async () => {
     const nameErr = validateTableName(tableName);
-    if (nameErr) { setTableNameError(nameErr); return; }
+    if (nameErr) {
+      setTableNameError(nameErr);
+      return;
+    }
 
     const cleanTableName = tableName.toLowerCase().replace(/[^a-z0-9_]/g, "_");
 
@@ -192,11 +219,15 @@ export function AddTableDialog({ open, onClose, projectId, dbSchema, onCreated }
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-base font-semibold">Create new table</DialogTitle>
+          <DialogTitle className="text-base font-semibold">
+            Create new table
+          </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            Define the table name and columns. An <code className="font-mono">id</code>,{" "}
+            Define the table name and columns. An{" "}
+            <code className="font-mono">id</code>,{" "}
             <code className="font-mono">created_at</code>, and{" "}
-            <code className="font-mono">updated_at</code> column are added automatically.
+            <code className="font-mono">updated_at</code> column are added
+            automatically.
           </DialogDescription>
         </DialogHeader>
 
@@ -209,11 +240,17 @@ export function AddTableDialog({ open, onClose, projectId, dbSchema, onCreated }
                 placeholder="e.g. posts"
                 value={tableName}
                 onChange={(e) => handleTableNameChange(e.target.value)}
-                className={cn("h-9 text-sm font-mono", tableNameError && "border-destructive")}
+                className={cn(
+                  "h-9 text-sm font-mono",
+                  tableNameError && "border-destructive",
+                )}
                 autoFocus
               />
               {cleanedName && !tableNameError && (
-                <Badge variant="outline" className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                <Badge
+                  variant="outline"
+                  className="shrink-0 font-mono text-[11px] text-muted-foreground"
+                >
                   {cleanedName}
                 </Badge>
               )}
@@ -229,16 +266,31 @@ export function AddTableDialog({ open, onClose, projectId, dbSchema, onCreated }
               Auto-added columns
             </p>
             {[
-              { name: "id", type: "text", note: "PRIMARY KEY · gen_random_uuid()" },
+              {
+                name: "id",
+                type: "text",
+                note: "PRIMARY KEY · gen_random_uuid()",
+              },
               { name: "created_at", type: "timestamp", note: "DEFAULT NOW()" },
-              { name: "updated_at", type: "timestamp", note: "DEFAULT NOW() · auto-updated" },
+              {
+                name: "updated_at",
+                type: "timestamp",
+                note: "DEFAULT NOW() · auto-updated",
+              },
             ].map((c) => (
               <div key={c.name} className="flex items-center gap-3 text-[12px]">
-                <code className="font-mono text-foreground/60 w-24 shrink-0">{c.name}</code>
-                <Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-mono">
+                <code className="font-mono text-foreground/60 w-24 shrink-0">
+                  {c.name}
+                </code>
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] h-4 px-1.5 font-mono"
+                >
                   {c.type}
                 </Badge>
-                <span className="text-muted-foreground text-[11px]">{c.note}</span>
+                <span className="text-muted-foreground text-[11px]">
+                  {c.note}
+                </span>
               </div>
             ))}
           </div>
@@ -270,7 +322,8 @@ export function AddTableDialog({ open, onClose, projectId, dbSchema, onCreated }
 
             <div className="space-y-1.5">
               {columns.map((col) => {
-                const TypeIcon = COLUMN_TYPES.find((t) => t.value === col.type)?.icon ?? Type;
+                const TypeIcon =
+                  COLUMN_TYPES.find((t) => t.value === col.type)?.icon ?? Type;
                 return (
                   <div
                     key={col.id}
@@ -296,9 +349,15 @@ export function AddTableDialog({ open, onClose, projectId, dbSchema, onCreated }
                       </SelectTrigger>
                       <SelectContent>
                         {COLUMN_TYPES.map((t) => (
-                          <SelectItem key={t.value} value={t.value} className="text-xs">
+                          <SelectItem
+                            key={t.value}
+                            value={t.value}
+                            className="text-xs"
+                          >
                             <div className="flex items-center gap-1.5">
-                              <t.icon className={cn("h-3 w-3", TYPE_COLORS[t.value])} />
+                              <t.icon
+                                className={cn("h-3 w-3", TYPE_COLORS[t.value])}
+                              />
                               {t.label}
                             </div>
                           </SelectItem>
@@ -320,7 +379,9 @@ export function AddTableDialog({ open, onClose, projectId, dbSchema, onCreated }
                     <div className="flex justify-center">
                       <Switch
                         checked={col.nullable}
-                        onCheckedChange={(v) => updateColumn(col.id, { nullable: v })}
+                        onCheckedChange={(v) =>
+                          updateColumn(col.id, { nullable: v })
+                        }
                         className="scale-75"
                       />
                     </div>
@@ -345,7 +406,9 @@ export function AddTableDialog({ open, onClose, projectId, dbSchema, onCreated }
           {/* Options */}
           <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3.5 py-3">
             <div>
-              <p className="text-[13px] font-medium text-foreground">Enable Realtime</p>
+              <p className="text-[13px] font-medium text-foreground">
+                Enable Realtime
+              </p>
               <p className="text-[11px] text-muted-foreground">
                 Broadcast INSERT / UPDATE / DELETE via pg_notify
               </p>
@@ -366,19 +429,28 @@ export function AddTableDialog({ open, onClose, projectId, dbSchema, onCreated }
         </div>
 
         <DialogFooter className="pt-2 border-t">
-          <Button variant="outline" size="sm" onClick={onClose} disabled={isLoading}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            disabled={isLoading}
+          >
             Cancel
           </Button>
           <Button
             size="sm"
             onClick={handleSubmit}
             disabled={isLoading || !!tableNameError || !tableName}
-            className="gap-1.5 bg-[--brand] hover:bg-[--brand-hover] text-white border-0"
+            className="gap-1.5 bg-brand hover:bg-brand-hover text-white border-0"
           >
             {isLoading ? (
-              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Creating…</>
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Creating…
+              </>
             ) : (
-              <><Plus className="h-3.5 w-3.5" /> Create table</>
+              <>
+                <Plus className="h-3.5 w-3.5" /> Create table
+              </>
             )}
           </Button>
         </DialogFooter>

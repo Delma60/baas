@@ -31,15 +31,16 @@ type FilterTab = "all" | "active" | "paused";
 
 // ─── Module metadata ──────────────────────────────────────────────────────────
 
-const MODULE_META: Record<string, { icon: React.ElementType; label: string }> = {
-  sql: { icon: Database, label: "SQL" },
-  nosql: { icon: Layers, label: "NoSQL" },
-  auth: { icon: ShieldCheck, label: "Auth" },
-  storage: { icon: HardDrive, label: "Storage" },
-  realtime: { icon: Radio, label: "Realtime" },
-  ai: { icon: Sparkles, label: "AI" },
-  functions: { icon: Zap, label: "Functions" },
-};
+const MODULE_META: Record<string, { icon: React.ElementType; label: string }> =
+  {
+    sql: { icon: Database, label: "SQL" },
+    nosql: { icon: Layers, label: "NoSQL" },
+    auth: { icon: ShieldCheck, label: "Auth" },
+    storage: { icon: HardDrive, label: "Storage" },
+    realtime: { icon: Radio, label: "Realtime" },
+    ai: { icon: Sparkles, label: "AI" },
+    functions: { icon: Zap, label: "Functions" },
+  };
 
 // ─── Icon map ─────────────────────────────────────────────────────────────────
 
@@ -50,12 +51,9 @@ const ICON_MAP: Record<string, React.ElementType> = {
   chart: BarChart3,
 };
 
-const COLOR_MAP: Record<
-  string,
-  { bg: string; text: string; icon: string }
-> = {
+const COLOR_MAP: Record<string, { bg: string; text: string; icon: string }> = {
   orange: {
-    bg: "bg-[--brand]/10",
+    bg: "bg-brand/10",
     text: "text-[--brand]",
     icon: "text-[--brand]",
   },
@@ -117,7 +115,9 @@ export function ProjectGrid({ projects, className }: ProjectGridProps) {
                 : "text-[--text-secondary] hover:text-[--text-primary]",
             )}
           >
-            {tab === "all" ? `All (${counts.all})` : `${tab.charAt(0).toUpperCase() + tab.slice(1)} (${counts[tab]})`}
+            {tab === "all"
+              ? `All (${counts.all})`
+              : `${tab.charAt(0).toUpperCase() + tab.slice(1)} (${counts[tab]})`}
           </button>
         ))}
       </div>
@@ -132,7 +132,7 @@ export function ProjectGrid({ projects, className }: ProjectGridProps) {
         {filter !== "paused" && (
           <Link
             href="/dashboard/projects/new"
-            className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[--border2] p-4 text-[--text-muted] transition-colors hover:border-[--brand] hover:bg-[--brand]/5 hover:text-[--brand]"
+            className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[--border2] p-4 text-[--text-muted] transition-colors hover:border-[--brand] hover:bg-brand/5 hover:text-[--brand]"
           >
             <Plus className="h-5 w-5" />
             <span className="text-sm">New project</span>

@@ -44,7 +44,7 @@ const TYPE_META: Record<
     Icon: KeyRound,
   },
   ai: {
-    bg: "bg-[--brand]/10",
+    bg: "bg-brand/10",
     text: "text-[--brand]",
     Icon: Sparkles,
   },

@@ -158,7 +158,7 @@ function DocumentCard({
       className={cn(
         "group relative rounded-xl border cursor-pointer transition-all duration-150 hover:-translate-y-px",
         isSelected
-          ? "border-[--brand]/50 bg-[--brand]/5 shadow-sm shadow-[--brand]/10"
+          ? "border-[--brand]/50 bg-brand/5 shadow-sm shadow-[--brand]/10"
           : "border-[--border] bg-[--background] hover:border-[--border2] hover:shadow-sm",
       )}
     >
@@ -568,7 +568,7 @@ function CreateCollectionDialog({
             size="sm"
             onClick={handleCreate}
             disabled={!name.trim() || loading}
-            className="bg-[--brand] text-white hover:bg-[--brand-hover] border-0 gap-1.5"
+            className="bg-brand text-white hover:bg-brand-hover border-0 gap-1.5"
           >
             {loading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -665,7 +665,7 @@ function InsertDocumentDialog({
             size="sm"
             onClick={handleInsert}
             disabled={loading}
-            className="bg-[--brand] text-white hover:bg-[--brand-hover] border-0 gap-1.5"
+            className="bg-brand text-white hover:bg-brand-hover border-0 gap-1.5"
           >
             {loading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -806,7 +806,7 @@ function SetKVDialog({
             size="sm"
             onClick={handleSet}
             disabled={loading || !key.trim()}
-            className="bg-[--brand] text-white hover:bg-[--brand-hover] border-0 gap-1.5"
+            className="bg-brand text-white hover:bg-brand-hover border-0 gap-1.5"
           >
             {loading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -950,7 +950,7 @@ function CollectionsTab({
                 className={cn(
                   "group flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-colors text-[13px]",
                   activeCollection === coll
-                    ? "bg-[--brand]/10 text-[--brand] font-medium"
+                    ? "bg-brand/10 text-[--brand] font-medium"
                     : "text-[--text-secondary] hover:bg-[--surface] hover:text-[--text-primary]",
                 )}
                 onClick={() => selectCollection(coll)}
@@ -997,7 +997,7 @@ function CollectionsTab({
         <div className="p-2 border-t border-[--border] shrink-0">
           <Button
             size="sm"
-            className="w-full h-8 gap-1.5 text-xs bg-[--brand] text-white hover:bg-[--brand-hover] border-0"
+            className="w-full h-8 gap-1.5 text-xs bg-brand text-white hover:bg-brand-hover border-0"
             onClick={() => setCreateCollOpen(true)}
           >
             <Plus className="h-3.5 w-3.5" />
@@ -1040,7 +1040,7 @@ function CollectionsTab({
                 </Tooltip>
                 <Button
                   size="sm"
-                  className="h-8 gap-1.5 text-xs bg-[--brand] text-white hover:bg-[--brand-hover] border-0"
+                  className="h-8 gap-1.5 text-xs bg-brand text-white hover:bg-brand-hover border-0"
                   onClick={() => setInsertDocOpen(true)}
                 >
                   <Plus className="h-3.5 w-3.5" /> Insert document
@@ -1067,7 +1067,7 @@ function CollectionsTab({
                     </p>
                     <Button
                       size="sm"
-                      className="mt-1 gap-1.5 bg-[--brand] text-white hover:bg-[--brand-hover] border-0"
+                      className="mt-1 gap-1.5 bg-brand text-white hover:bg-brand-hover border-0"
                       onClick={() => setInsertDocOpen(true)}
                     >
                       <Plus className="h-3.5 w-3.5" /> Insert document
@@ -1124,7 +1124,7 @@ function CollectionsTab({
             </div>
             <Button
               size="sm"
-              className="gap-1.5 bg-[--brand] text-white hover:bg-[--brand-hover] border-0"
+              className="gap-1.5 bg-brand text-white hover:bg-brand-hover border-0"
               onClick={() => setCreateCollOpen(true)}
             >
               <Plus className="h-3.5 w-3.5" /> New collection
@@ -1282,7 +1282,7 @@ function KVTab({
           </Tooltip>
           <Button
             size="sm"
-            className="h-8 gap-1.5 text-xs bg-[--brand] text-white hover:bg-[--brand-hover] border-0"
+            className="h-8 gap-1.5 text-xs bg-brand text-white hover:bg-brand-hover border-0"
             onClick={() => setSetKVOpen(true)}
           >
             <Plus className="h-3.5 w-3.5" /> Set key
@@ -1312,7 +1312,7 @@ function KVTab({
             {!search && (
               <Button
                 size="sm"
-                className="gap-1.5 bg-[--brand] text-white hover:bg-[--brand-hover] border-0"
+                className="gap-1.5 bg-brand text-white hover:bg-brand-hover border-0"
                 onClick={() => setSetKVOpen(true)}
               >
                 <Plus className="h-3.5 w-3.5" /> Set first key
@@ -1464,7 +1464,7 @@ export function NoSQLPageClient({
                   variant={tab === t.id ? "default" : "secondary"}
                   className={cn(
                     "text-[10px] h-4 px-1.5",
-                    tab === t.id ? "bg-[--brand] text-white" : "",
+                    tab === t.id ? "bg-brand text-white" : "",
                   )}
                 >
                   {t.count}

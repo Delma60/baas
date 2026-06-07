@@ -162,7 +162,7 @@ function SubmitButton({ disabled }: { disabled?: boolean }) {
     <Button
       type="submit"
       disabled={pending || disabled}
-      // className="h-10 gap-2 bg-[--brand] px-6 text-white hover:bg-[--brand-hover]"
+      // className="h-10 gap-2 bg-brand px-6 text-white hover:bg-brand-hover"
     >
       {pending ? (
         <>
@@ -260,7 +260,7 @@ export default function NewProjectPage({
                       className={cn(
                         "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-all duration-300",
                         isDone
-                          ? "border-[--brand] bg-[--brand] text-white"
+                          ? "border-[--brand] bg-brand text-white"
                           : isCurrent
                             ? "border-[--brand] bg-background text-[--brand]"
                             : "border-border bg-background text-muted-foreground",
@@ -272,7 +272,7 @@ export default function NewProjectPage({
                       <div
                         className={cn(
                           "my-1 w-px flex-1 min-h-[32px] transition-colors duration-500",
-                          step > s.id ? "bg-[--brand]" : "bg-border",
+                          step > s.id ? "bg-brand" : "bg-border",
                         )}
                       />
                     )}
@@ -443,7 +443,6 @@ export default function NewProjectPage({
                         {state.errors.description[0]}
                       </p>
                     )}
-
                   </div>
 
                   <div className="flex items-center gap-3 pt-2">
@@ -451,7 +450,7 @@ export default function NewProjectPage({
                       type="button"
                       disabled={!canGoToStep2}
                       onClick={() => setStep(2)}
-                      // className="h-10 gap-2 bg-[--brand] px-6 text-white hover:bg-[--brand-hover]"
+                      // className="h-10 gap-2 bg-brand px-6 text-white hover:bg-brand-hover"
                     >
                       Continue
                       <ArrowRight className="h-4 w-4" />
@@ -516,7 +515,7 @@ export default function NewProjectPage({
                               {r.recommended && (
                                 <Badge
                                   variant="secondary"
-                                  className="text-[10px] px-1.5 py-0 bg-[--brand]/10 text-[--brand] border-[--brand]/20"
+                                  className="text-[10px] px-1.5 py-0 bg-brand/10 text-[--brand] border-[--brand]/20"
                                 >
                                   Recommended
                                 </Badge>
@@ -540,7 +539,7 @@ export default function NewProjectPage({
                             className={cn(
                               "absolute right-4 top-4 flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all",
                               selected
-                                ? "border-[--brand] bg-[--brand]"
+                                ? "border-[--brand] bg-brand"
                                 : "border-border group-hover:border-foreground/30",
                             )}
                           >
@@ -557,7 +556,7 @@ export default function NewProjectPage({
                     <Button
                       type="button"
                       onClick={() => setStep(3)}
-                      // className="h-10 gap-2 bg-[--brand] px-6 text-white hover:bg-[--brand-hover]"
+                      // className="h-10 gap-2 bg-brand px-6 text-white hover:bg-brand-hover"
                     >
                       Continue
                       <ArrowRight className="h-4 w-4" />

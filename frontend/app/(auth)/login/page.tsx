@@ -20,7 +20,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="group relative flex h-9 w-full items-center justify-center gap-2 overflow-hidden rounded-lg bg-[--brand] px-4 text-sm font-semibold text-white shadow-md shadow-[--brand]/25 transition-all hover:bg-[--brand-hover] hover:shadow-[--brand]/35 disabled:opacity-60 disabled:cursor-not-allowed"
+      className="group relative flex h-9 w-full items-center justify-center gap-2 overflow-hidden rounded-lg bg-brand px-4 text-sm font-semibold text-white shadow-md shadow-[--brand]/25 transition-all hover:bg-brand-hover hover:shadow-[--brand]/35 disabled:opacity-60 disabled:cursor-not-allowed"
     >
       {pending ? (
         <>

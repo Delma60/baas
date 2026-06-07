@@ -172,8 +172,7 @@ async def run_query(
             await conn.execute(text("BEGIN"))
             # SET LOCAL scopes the search_path to this transaction
             await conn.execute(
-                text("SET LOCAL search_path TO :schema, public"),
-                {"schema": db_schema},
+                text(f'SET LOCAL search_path TO "{db_schema}", public')
             )
             result = await conn.execute(text(query_no_comments))
             rows = [dict(r._mapping) for r in result]
@@ -186,3 +185,92 @@ async def run_query(
     except Exception as e:
         logger.warning("Query error for project %s: %s", project_id, e)
         raise HTTPException(status_code=400, detail=str(e))
+
+# ─── Row CRUD ─────────────────────────────────────────────────────────────────
+
+class InsertRowRequest(BaseModel):
+    db_schema: str
+    data: dict[str, Any]
+
+
+class UpdateRowRequest(BaseModel):
+    db_schema: str
+    data: dict[str, Any]
+
+
+@router.post("/projects/{project_id}/sql/tables/{table}/rows", status_code=201, dependencies=[InternalGuard])
+async def insert_row(
+    project_id: str,
+    table: str,
+    body: InsertRowRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    _validate_identifier(body.db_schema, "schema")
+    _validate_identifier(table, "table")
+
+    data = body.data
+    if not data:
+        raise HTTPException(status_code=400, detail="No data provided")
+
+    cols = ", ".join(f'"{k}"' for k in data)
+    vals = ", ".join(f":val_{k}" for k in data)
+    params = {f"val_{k}": v for k, v in data.items()}
+
+    result = await db.execute(
+        text(f'INSERT INTO "{body.db_schema}"."{table}" ({cols}) VALUES ({vals}) RETURNING *'),
+        params,
+    )
+    row = result.mappings().first()
+    await db.commit()
+    return {"data": _serialize_rows([dict(row)])[0] if row else {}}
+
+
+@router.patch("/projects/{project_id}/sql/tables/{table}/rows/{row_id}", dependencies=[InternalGuard])
+async def update_row(
+    project_id: str,
+    table: str,
+    row_id: str,
+    body: UpdateRowRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    _validate_identifier(body.db_schema, "schema")
+    _validate_identifier(table, "table")
+
+    data = body.data
+    if not data:
+        raise HTTPException(status_code=400, detail="No data provided")
+
+    set_clause = ", ".join(f'"{k}" = :upd_{k}' for k in data)
+    params = {f"upd_{k}": v for k, v in data.items()}
+    params["row_id"] = row_id
+
+    result = await db.execute(
+        text(f'UPDATE "{body.db_schema}"."{table}" SET {set_clause} WHERE id = :row_id RETURNING *'),
+        params,
+    )
+    row = result.mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+    await db.commit()
+    return {"data": _serialize_rows([dict(row)])[0]}
+
+
+@router.delete("/projects/{project_id}/sql/tables/{table}/rows/{row_id}", dependencies=[InternalGuard])
+async def delete_row(
+    project_id: str,
+    table: str,
+    row_id: str,
+    db_schema: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    _validate_identifier(db_schema, "schema")
+    _validate_identifier(table, "table")
+
+    result = await db.execute(
+        text(f'DELETE FROM "{db_schema}"."{table}" WHERE id = :row_id RETURNING id'),
+        {"row_id": row_id},
+    )
+    if not result.first():
+        raise HTTPException(status_code=404, detail="Row not found")
+    await db.commit()
+    return {"data": {"deleted": True, "id": row_id}}

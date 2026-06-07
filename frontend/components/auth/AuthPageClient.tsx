@@ -575,7 +575,7 @@ export function AuthPageClient({
                 <Button
                   onClick={() => setAddUserOpen(true)}
                   size="sm"
-                  className="h-9 px-5 gap-1.5 bg-[--brand] text-white hover:bg-[--brand-hover] rounded-md text-[13px] font-medium"
+                  className="h-9 px-5 gap-1.5 bg-brand text-white hover:bg-brand-hover rounded-md text-[13px] font-medium"
                 >
                   Add user
                 </Button>

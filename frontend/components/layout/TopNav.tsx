@@ -72,7 +72,7 @@ export function TopNav({
       >
         <Bell className="h-4 w-4" />
         {notifCount > 0 && (
-          <span className="absolute right-1.5 top-1.5 flex h-1.5 w-1.5 items-center justify-center rounded-full bg-[--brand]" />
+          <span className="absolute right-1.5 top-1.5 flex h-1.5 w-1.5 items-center justify-center rounded-full bg-brand" />
         )}
       </button>
 
@@ -87,7 +87,7 @@ export function TopNav({
       {/* New project CTA */}
       <button
         onClick={() => router.push("/dashboard/projects/new")}
-        className="flex h-8 items-center gap-1.5 rounded-[8px] bg-[--brand] px-3 text-xs font-semibold text-white transition-colors hover:bg-[--brand-hover]"
+        className="flex h-8 items-center gap-1.5 rounded-[8px] bg-brand px-3 text-xs font-semibold text-white transition-colors hover:bg-brand-hover"
       >
         <Plus className="h-3.5 w-3.5" />
         New project

@@ -64,12 +64,16 @@ function StatCard({
   return (
     <div className="rounded-xl border border-[--border] bg-[--background] p-4 hover:border-[--border2] transition-colors">
       <div className="flex items-center gap-2 mb-3">
-        <div className={`flex h-7 w-7 items-center justify-center rounded-[8px] ${iconBg}`}>
+        <div
+          className={`flex h-7 w-7 items-center justify-center rounded-[8px] ${iconBg}`}
+        >
           <Icon className={`h-3.5 w-3.5 ${iconColor}`} />
         </div>
         <span className="text-xs text-[--text-secondary]">{label}</span>
       </div>
-      <p className="text-2xl font-medium text-[--text-primary] leading-none">{value}</p>
+      <p className="text-2xl font-medium text-[--text-primary] leading-none">
+        {value}
+      </p>
       {sub && <p className="text-xs text-[--text-muted] mt-1">{sub}</p>}
     </div>
   );
@@ -91,17 +95,43 @@ export default async function StoragePage({ params, searchParams }: Props) {
 
   // Known/default buckets — in production these come from the DB
   const buckets = [
-    { name: "uploads", label: "Uploads", icon: Upload, description: "General file uploads" },
-    { name: "avatars", label: "Avatars", icon: FileImage, description: "User profile images" },
-    { name: "documents", label: "Documents", icon: FileText, description: "PDFs and docs" },
-    { name: "media", label: "Media", icon: FileVideo, description: "Videos and audio" },
+    {
+      name: "uploads",
+      label: "Uploads",
+      icon: Upload,
+      description: "General file uploads",
+    },
+    {
+      name: "avatars",
+      label: "Avatars",
+      icon: FileImage,
+      description: "User profile images",
+    },
+    {
+      name: "documents",
+      label: "Documents",
+      icon: FileText,
+      description: "PDFs and docs",
+    },
+    {
+      name: "media",
+      label: "Media",
+      icon: FileVideo,
+      description: "Videos and audio",
+    },
   ];
 
-  const FASTAPI_BASE_URL = process.env.FASTAPI_BASE_URL ?? "http://localhost:8000";
+  const FASTAPI_BASE_URL =
+    process.env.FASTAPI_BASE_URL ?? "http://localhost:8000";
   const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET ?? "";
 
   // Fetch files for the active bucket from the backend
-  let files: Array<{ key: string; size: number; last_modified: string; etag: string }> = [];
+  let files: Array<{
+    key: string;
+    size: number;
+    last_modified: string;
+    etag: string;
+  }> = [];
   let fetchError: string | null = null;
 
   try {
@@ -120,7 +150,7 @@ export default async function StoragePage({ params, searchParams }: Props) {
           "x-internal-secret": INTERNAL_SECRET,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
 
     if (res.ok) {
@@ -164,7 +194,9 @@ export default async function StoragePage({ params, searchParams }: Props) {
             <HardDrive className="h-4.5 w-4.5 text-amber-500" />
           </div>
           <div>
-            <h1 className="text-base font-medium text-[--text-primary]">Cloud Storage</h1>
+            <h1 className="text-base font-medium text-[--text-primary]">
+              Cloud Storage
+            </h1>
             <p className="text-sm text-[--text-secondary] mt-0.5">
               MinIO-powered object storage with presigned URLs
             </p>
@@ -178,11 +210,7 @@ export default async function StoragePage({ params, searchParams }: Props) {
               Refresh
             </Button>
           </Link>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 text-xs"
-          >
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
             <Plus className="h-3.5 w-3.5" />
             New Bucket
           </Button>
@@ -215,7 +243,9 @@ export default async function StoragePage({ params, searchParams }: Props) {
                 >
                   <Icon
                     className={`h-4 w-4 shrink-0 ${
-                      isActive ? "text-amber-500" : "text-[--text-muted] group-hover:text-[--text-secondary]"
+                      isActive
+                        ? "text-amber-500"
+                        : "text-[--text-muted] group-hover:text-[--text-secondary]"
                     }`}
                   />
                   <span className="truncate">{bucket.label}</span>
@@ -234,15 +264,21 @@ export default async function StoragePage({ params, searchParams }: Props) {
             <div className="rounded-lg bg-[--surface] border border-[--border] p-3 space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-[--text-muted]">Used</span>
-                <span className="font-medium text-[--text-primary]">{formatBytes(totalSize)}</span>
+                <span className="font-medium text-[--text-primary]">
+                  {formatBytes(totalSize)}
+                </span>
               </div>
               <div className="h-1.5 w-full rounded-full bg-[--border] overflow-hidden">
                 <div
                   className="h-full rounded-full bg-amber-500 transition-all"
-                  style={{ width: `${Math.min((totalSize / (1024 * 1024 * 1024)) * 100, 100)}%` }}
+                  style={{
+                    width: `${Math.min((totalSize / (1024 * 1024 * 1024)) * 100, 100)}%`,
+                  }}
                 />
               </div>
-              <p className="text-[10px] text-[--text-muted]">of 1 GB (Free plan)</p>
+              <p className="text-[10px] text-[--text-muted]">
+                of 1 GB (Free plan)
+              </p>
             </div>
           </div>
         </aside>
@@ -314,12 +350,18 @@ export default async function StoragePage({ params, searchParams }: Props) {
 
 // ─── Upload button (client island) ───────────────────────────────────────────
 
-function StorageUploadButton({ projectId, bucket }: { projectId: string; bucket: string }) {
+function StorageUploadButton({
+  projectId,
+  bucket,
+}: {
+  projectId: string;
+  bucket: string;
+}) {
   // This renders a button that triggers the client-side uploader in StorageBrowser
   return (
     <Button
       size="sm"
-      className="h-8 gap-1.5 text-xs bg-[--brand] hover:bg-[--brand-hover] text-white border-0"
+      className="h-8 gap-1.5 text-xs bg-brand hover:bg-brand-hover text-white border-0"
       id="storage-upload-trigger"
     >
       <Upload className="h-3.5 w-3.5" />

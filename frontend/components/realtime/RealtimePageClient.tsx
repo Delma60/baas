@@ -84,12 +84,19 @@ function StatCard({
   return (
     <div className="rounded-xl border border-[--border] bg-[--background] p-4 hover:border-[--border2] transition-colors">
       <div className="flex items-center gap-2 mb-3">
-        <div className={cn("flex h-7 w-7 items-center justify-center rounded-[8px]", iconBg)}>
+        <div
+          className={cn(
+            "flex h-7 w-7 items-center justify-center rounded-[8px]",
+            iconBg,
+          )}
+        >
           <Icon className={cn("h-3.5 w-3.5", iconColor)} />
         </div>
         <span className="text-xs text-[--text-secondary]">{label}</span>
       </div>
-      <p className="text-2xl font-medium text-[--text-primary] leading-none">{value}</p>
+      <p className="text-2xl font-medium text-[--text-primary] leading-none">
+        {value}
+      </p>
     </div>
   );
 }
@@ -179,7 +186,7 @@ function CreateChannelDialog({
       <DialogTrigger asChild>
         <Button
           size="sm"
-          className="h-8 gap-1.5 text-xs bg-[--brand] hover:bg-[--brand-hover] text-white border-0"
+          className="h-8 gap-1.5 text-xs bg-brand hover:bg-brand-hover text-white border-0"
         >
           <Plus className="h-3.5 w-3.5" />
           New Channel
@@ -250,7 +257,7 @@ function CreateChannelDialog({
           </Button>
           <Button
             size="sm"
-            className="bg-[--brand] hover:bg-[--brand-hover] text-white border-0"
+            className="bg-brand hover:bg-brand-hover text-white border-0"
             onClick={handleCreate}
             disabled={loading || !name.trim()}
           >
@@ -286,7 +293,8 @@ function ChannelsTab({
   );
 
   const handleDelete = async (channelId: string) => {
-    if (!confirm("Delete this channel? Clients will stop receiving updates.")) return;
+    if (!confirm("Delete this channel? Clients will stop receiving updates."))
+      return;
     setDeletingId(channelId);
     try {
       const res = await fetch(
@@ -305,9 +313,12 @@ function ChannelsTab({
     <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-base font-medium text-[--text-primary]">Channels</h2>
+          <h2 className="text-base font-medium text-[--text-primary]">
+            Channels
+          </h2>
           <p className="text-sm text-[--text-secondary] mt-1">
-            Define which paths clients can subscribe to and receive live updates from.
+            Define which paths clients can subscribe to and receive live updates
+            from.
           </p>
         </div>
         <CreateChannelDialog
@@ -353,7 +364,9 @@ function ChannelsTab({
             <Radio className="h-5 w-5 text-[--text-muted]" />
           </div>
           <div className="text-center">
-            <p className="text-sm font-medium text-[--text-primary]">No channels yet</p>
+            <p className="text-sm font-medium text-[--text-primary]">
+              No channels yet
+            </p>
             <p className="text-xs text-[--text-muted] mt-1">
               Create a channel to start broadcasting realtime events to clients.
             </p>
@@ -366,7 +379,9 @@ function ChannelsTab({
       ) : (
         <div className="rounded-xl border border-[--border] bg-[--background] overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[--border] bg-[--surface]">
-            <span className="text-xs text-[--text-muted]">{channels.length} channels</span>
+            <span className="text-xs text-[--text-muted]">
+              {channels.length} channels
+            </span>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-[--text-muted] pointer-events-none" />
               <input
@@ -381,11 +396,21 @@ function ChannelsTab({
           <Table>
             <TableHeader>
               <TableRow className="bg-[--surface] hover:bg-[--surface] border-b border-[--border]">
-                <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[--text-muted]">Channel</TableHead>
-                <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[--text-muted]">Path</TableHead>
-                <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[--text-muted] hidden md:table-cell">Access rule</TableHead>
-                <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[--text-muted]">Presence</TableHead>
-                <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[--text-muted]">Status</TableHead>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[--text-muted]">
+                  Channel
+                </TableHead>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[--text-muted]">
+                  Path
+                </TableHead>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[--text-muted] hidden md:table-cell">
+                  Access rule
+                </TableHead>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[--text-muted]">
+                  Presence
+                </TableHead>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[--text-muted]">
+                  Status
+                </TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -397,10 +422,12 @@ function ChannelsTab({
                 >
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <div className={cn(
-                        "h-2 w-2 rounded-full shrink-0",
-                        ch.is_active ? "bg-[--success]" : "bg-[--text-muted]",
-                      )} />
+                      <div
+                        className={cn(
+                          "h-2 w-2 rounded-full shrink-0",
+                          ch.is_active ? "bg-[--success]" : "bg-[--text-muted]",
+                        )}
+                      />
                       <span className="text-[13px] font-medium text-[--text-primary]">
                         {ch.name}
                       </span>
@@ -418,22 +445,30 @@ function ChannelsTab({
                   </TableCell>
                   <TableCell>
                     {ch.enable_presence ? (
-                      <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-[--success-text] border-[--success-bg]">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] h-4 px-1.5 text-[--success-text] border-[--success-bg]"
+                      >
                         On
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] h-4 px-1.5"
+                      >
                         Off
                       </Badge>
                     )}
                   </TableCell>
                   <TableCell>
-                    <span className={cn(
-                      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
-                      ch.is_active
-                        ? "bg-[--success-bg] text-[--success-text]"
-                        : "bg-[--surface] text-[--text-muted]",
-                    )}>
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                        ch.is_active
+                          ? "bg-[--success-bg] text-[--success-text]"
+                          : "bg-[--surface] text-[--text-muted]",
+                      )}
+                    >
                       {ch.is_active && (
                         <span className="h-1.5 w-1.5 rounded-full bg-[--success] animate-pulse" />
                       )}
@@ -543,13 +578,16 @@ function RulesTab({
     }
   };
 
-  const hasPublicRead = rules.includes('"auth": null') || rules.includes('".read": true');
+  const hasPublicRead =
+    rules.includes('"auth": null') || rules.includes('".read": true');
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-8 space-y-5">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-base font-medium text-[--text-primary]">Security Rules</h2>
+          <h2 className="text-base font-medium text-[--text-primary]">
+            Security Rules
+          </h2>
           <p className="text-sm text-[--text-secondary] mt-1">
             Define who can read and write to your realtime database.
           </p>
@@ -561,7 +599,7 @@ function RulesTab({
           </Button>
           <Button
             size="sm"
-            className="h-8 text-xs gap-1.5 bg-[--brand] hover:bg-[--brand-hover] text-white border-0"
+            className="h-8 text-xs gap-1.5 bg-brand hover:bg-brand-hover text-white border-0"
             onClick={handleSave}
             disabled={saving}
           >
@@ -579,7 +617,8 @@ function RulesTab({
         <Alert className="border-[--warn-text]/20 bg-[--warn-bg]">
           <AlertTriangle className="h-4 w-4 text-[--warn-text]" />
           <AlertDescription className="text-[12.5px] text-[--warn-text]">
-            Your rules may allow public read access. Consider restricting this before going to production.
+            Your rules may allow public read access. Consider restricting this
+            before going to production.
           </AlertDescription>
         </Alert>
       )}
@@ -587,7 +626,9 @@ function RulesTab({
       {error && (
         <Alert className="border-red-200 bg-[--danger-bg]">
           <AlertTriangle className="h-4 w-4 text-[--danger-text]" />
-          <AlertDescription className="text-[12.5px] text-[--danger-text]">{error}</AlertDescription>
+          <AlertDescription className="text-[12.5px] text-[--danger-text]">
+            {error}
+          </AlertDescription>
         </Alert>
       )}
 
@@ -595,8 +636,12 @@ function RulesTab({
         <div className="flex items-center justify-between px-4 py-3 border-b border-[--border] bg-[--surface]">
           <div className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-[--text-secondary]" />
-            <span className="text-[13px] font-medium text-[--text-primary]">rules.json</span>
-            <Badge variant="outline" className="text-[10px] h-5 px-1.5">JSON</Badge>
+            <span className="text-[13px] font-medium text-[--text-primary]">
+              rules.json
+            </span>
+            <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+              JSON
+            </Badge>
           </div>
           <Button
             variant="ghost"
@@ -620,10 +665,20 @@ function RulesTab({
           Rule variables
         </p>
         <div className="grid grid-cols-2 gap-2 text-[12px] text-[--text-secondary]">
-          <div><code className="text-[--info-text]">auth</code> — authenticated user object</div>
-          <div><code className="text-[--info-text]">auth.uid</code> — user ID</div>
-          <div><code className="text-[--info-text]">auth.role</code> — user role claim</div>
-          <div><code className="text-[--info-text]">now</code> — current timestamp</div>
+          <div>
+            <code className="text-[--info-text]">auth</code> — authenticated
+            user object
+          </div>
+          <div>
+            <code className="text-[--info-text]">auth.uid</code> — user ID
+          </div>
+          <div>
+            <code className="text-[--info-text]">auth.role</code> — user role
+            claim
+          </div>
+          <div>
+            <code className="text-[--info-text]">now</code> — current timestamp
+          </div>
         </div>
       </div>
     </div>
@@ -639,7 +694,8 @@ export function RealtimePageClient({
   initialRules,
   dbUrl,
 }: RealtimePageClientProps) {
-  const [channels, setChannels] = React.useState<RealtimeChannel[]>(initialChannels);
+  const [channels, setChannels] =
+    React.useState<RealtimeChannel[]>(initialChannels);
   const [stats, setStats] = React.useState<RealtimeStats>(initialStats);
 
   return (
@@ -696,7 +752,10 @@ export function RealtimePageClient({
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="channels" className="flex flex-col flex-1 overflow-hidden">
+      <Tabs
+        defaultValue="channels"
+        className="flex flex-col flex-1 overflow-hidden"
+      >
         <div className="border-b border-[--border] bg-[--background] px-6">
           <TabsList className="h-11 bg-transparent p-0 gap-0 rounded-none">
             {[

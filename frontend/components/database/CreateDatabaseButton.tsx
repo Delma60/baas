@@ -17,7 +17,7 @@ function SubmitButton() {
       type="submit"
       disabled={pending}
       size="lg"
-      className="gap-2 bg-[--brand] hover:bg-[--brand-hover] text-white border-0 px-8"
+      className="gap-2 bg-brand hover:bg-brand-hover text-white border-0 px-8"
     >
       {pending ? (
         <>
