@@ -1,5 +1,5 @@
-// frontend/components/functions/FunctionsPageClient.tsx
 "use client";
+// frontend/components/functions/FunctionsPageClient.tsx
 
 import * as React from "react";
 import {
@@ -13,7 +13,6 @@ import {
   Copy,
   Check,
   Loader2,
-  ChevronRight,
   Clock,
   Globe,
   AlertCircle,
@@ -22,7 +21,9 @@ import {
   Code2,
   RefreshCw,
   Activity,
-  ExternalLink,
+  ScrollText,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -45,7 +46,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import type { EdgeFunction, FunctionStats } from "@/lib/api/functions-client";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import type { EdgeFunction, FunctionLog, FunctionStats } from "@/lib/api/functions-client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -68,26 +75,14 @@ interface FunctionFormData {
 const HTTP_METHODS = ["POST", "GET", "PUT", "PATCH", "DELETE"];
 
 const METHOD_COLORS: Record<string, string> = {
-  GET: "bg-[--info-bg] text-[--info-text]",
-  POST: "bg-[--success-bg] text-[--success-text]",
+  GET: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  POST: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
   PUT: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   PATCH: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-  DELETE: "bg-[--danger-bg] text-[--danger-text]",
+  DELETE: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatDate(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
-}
 
 function formatRelative(iso: string | null): string {
   if (!iso) return "Never";
@@ -97,7 +92,8 @@ function formatRelative(iso: string | null): string {
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
-  return formatDate(iso);
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
 }
 
 function formatInvocations(count: number): string {
@@ -193,9 +189,7 @@ function FunctionDialog({
         ? `/api/internal/functions/${initial!.id}`
         : "/api/internal/functions";
       const method = isEdit ? "PATCH" : "POST";
-      const body = isEdit
-        ? { projectId, description: form.description, endpoint_url: form.endpoint_url, method: form.method, timeout_ms: form.timeout_ms }
-        : { projectId, ...form };
+      const body = { projectId, ...form };
 
       const res = await fetch(url, {
         method,
@@ -204,14 +198,13 @@ function FunctionDialog({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.detail ?? data?.error ?? "Failed to save function");
+        setError(data?.detail ?? data?.data?.detail ?? "Failed to save function");
         return;
       }
-      // Rebuild the full function object for optimistic update
       const saved: EdgeFunction = isEdit
         ? { ...initial!, ...form, updated_at: new Date().toISOString() }
         : {
-            id: data.data?.id ?? data.id ?? "",
+            id: data.data?.id ?? "",
             project_id: projectId,
             ...form,
             is_active: true,
@@ -241,7 +234,7 @@ function FunctionDialog({
 
         <div className="space-y-4 py-1">
           {error && (
-            <div className="flex items-start gap-2 rounded-lg border border-[--danger-bg] bg-[--danger-bg] px-3 py-2 text-xs text-[--danger-text]">
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-xs text-red-700 dark:text-red-400">
               <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
               {error}
             </div>
@@ -250,12 +243,14 @@ function FunctionDialog({
           {!isEdit && (
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">
-                Function name <span className="text-[--danger-text]">*</span>
+                Function name <span className="text-red-500">*</span>
               </Label>
               <Input
                 placeholder="e.g. send-welcome-email"
                 value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value.replace(/[^a-zA-Z0-9_-]/g, "-") }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, name: e.target.value.replace(/[^a-zA-Z0-9_-]/g, "-") }))
+                }
                 className="h-9 font-mono text-sm"
                 autoFocus
               />
@@ -277,7 +272,7 @@ function FunctionDialog({
 
           <div className="space-y-1.5">
             <Label className="text-xs font-medium">
-              Endpoint URL <span className="text-[--danger-text]">*</span>
+              Endpoint URL <span className="text-red-500">*</span>
             </Label>
             <Input
               placeholder="https://your-service.com/api/handler"
@@ -290,10 +285,7 @@ function FunctionDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">HTTP method</Label>
-              <Select
-                value={form.method}
-                onValueChange={(v) => setForm((f) => ({ ...f, method: v }))}
-              >
+              <Select value={form.method} onValueChange={(v) => setForm((f) => ({ ...f, method: v }))}>
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue />
                 </SelectTrigger>
@@ -329,7 +321,7 @@ function FunctionDialog({
             size="sm"
             onClick={handleSave}
             disabled={loading}
-            className="bg-brand hover:bg-brand-hover text-white border-0 gap-1.5"
+            className="bg-[--brand] hover:bg-[--brand-hover] text-white border-0 gap-1.5"
           >
             {loading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -357,7 +349,7 @@ function TestDialog({
   open: boolean;
   onClose: () => void;
 }) {
-  const [payload, setPayload] = React.useState('{\n  \n}');
+  const [payload, setPayload] = React.useState("{\n  \n}");
   const [payloadError, setPayloadError] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<TestResult | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -412,28 +404,30 @@ function TestDialog({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const statusColor = result?.success
-    ? "text-[--success-text] bg-[--success-bg]"
-    : "text-[--danger-text] bg-[--danger-bg]";
-
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <Play className="h-4 w-4 text-brand" />
-            <DialogTitle>Test function</DialogTitle>
+            <Play className="h-4 w-4 text-[--brand]" />
+            <DialogTitle>Test — {fn.name}</DialogTitle>
           </div>
           <div className="flex items-center gap-2 mt-1">
-            <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold font-mono", METHOD_COLORS[fn.method])}>
+            <span
+              className={cn(
+                "rounded px-1.5 py-0.5 text-[10px] font-bold font-mono",
+                METHOD_COLORS[fn.method]
+              )}
+            >
               {fn.method}
             </span>
-            <code className="text-xs text-[--text-secondary] truncate max-w-xs">{fn.endpoint_url}</code>
+            <code className="text-xs text-[--text-secondary] truncate max-w-xs">
+              {fn.endpoint_url}
+            </code>
           </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 py-2">
-          {/* Payload editor */}
           <div className="space-y-1.5">
             <Label className="text-xs font-medium flex items-center gap-1.5">
               <Code2 className="h-3 w-3 text-[--text-muted]" />
@@ -442,61 +436,73 @@ function TestDialog({
             <Textarea
               value={payload}
               onChange={(e) => setPayload(e.target.value)}
-              className="font-mono text-xs min-h-[120px] resize-y bg-[--code-bg] text-[--code-text]"
+              className="font-mono text-xs min-h-[120px] resize-y bg-[--surface] text-[--text-primary]"
               placeholder='{ "key": "value" }'
               spellCheck={false}
             />
             {payloadError && (
-              <p className="text-[11px] text-[--danger-text] flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" />{payloadError}
+              <p className="text-[11px] text-red-600 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {payloadError}
               </p>
             )}
           </div>
 
-          {/* Result */}
           {result && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-medium">Response</Label>
                 <div className="flex items-center gap-2">
                   {result.status_code && (
-                    <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold font-mono", statusColor)}>
+                    <span
+                      className={cn(
+                        "rounded px-1.5 py-0.5 text-[10px] font-bold font-mono",
+                        result.success
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-red-100 text-red-700"
+                      )}
+                    >
                       {result.status_code}
                     </span>
                   )}
                   <span className="text-[10px] text-[--text-muted] flex items-center gap-1">
-                    <Clock className="h-3 w-3" />{result.duration_ms}ms
+                    <Clock className="h-3 w-3" />
+                    {result.duration_ms}ms
                   </span>
                   <button
                     className="flex h-6 w-6 items-center justify-center rounded border border-[--border] text-[--text-muted] hover:text-[--text-primary] transition-colors"
                     onClick={copyResponse}
                   >
-                    {copied ? <Check className="h-3 w-3 text-[--success-text]" /> : <Copy className="h-3 w-3" />}
+                    {copied ? (
+                      <Check className="h-3 w-3 text-emerald-500" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
                   </button>
                 </div>
               </div>
 
               {result.error ? (
-                <div className="rounded-lg border border-[--danger-bg] bg-[--danger-bg] p-3">
+                <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 p-3">
                   <div className="flex items-center gap-2 mb-1">
-                    <XCircle className="h-4 w-4 text-[--danger-text] shrink-0" />
-                    <span className="text-xs font-semibold text-[--danger-text]">Error</span>
+                    <XCircle className="h-4 w-4 text-red-600 shrink-0" />
+                    <span className="text-xs font-semibold text-red-700">Error</span>
                   </div>
-                  <p className="text-xs font-mono text-[--danger-text]">{result.error}</p>
+                  <p className="text-xs font-mono text-red-700">{result.error}</p>
                 </div>
               ) : (
-                <div className="rounded-lg border border-[--border] bg-[--code-bg] overflow-hidden">
-                  <div className="flex items-center gap-2 px-3 py-2 border-b border-[--border] bg-[--surface]">
+                <div className="rounded-lg border border-[--border] bg-[--surface] overflow-hidden">
+                  <div className="flex items-center gap-2 px-3 py-2 border-b border-[--border] bg-[--background]">
                     {result.success ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-[--success-text]" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                     ) : (
-                      <XCircle className="h-3.5 w-3.5 text-[--danger-text]" />
+                      <XCircle className="h-3.5 w-3.5 text-red-500" />
                     )}
                     <span className="text-[10px] text-[--text-muted]">
                       {result.success ? "Success" : "Error response"}
                     </span>
                   </div>
-                  <pre className="p-3 text-[11.5px] font-mono text-[--code-text] overflow-x-auto max-h-52">
+                  <pre className="p-3 text-[11.5px] font-mono text-[--text-primary] overflow-x-auto max-h-52">
                     {tryPrettyJson(result.response)}
                   </pre>
                 </div>
@@ -513,7 +519,7 @@ function TestDialog({
             size="sm"
             onClick={handleTest}
             disabled={loading}
-            className="gap-1.5 bg-[--success-bg] text-[--success-text] border border-[--success-text]/20 hover:bg-[--success-text]/10"
+            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
           >
             {loading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -528,22 +534,164 @@ function TestDialog({
   );
 }
 
+// ─── Logs Sheet ───────────────────────────────────────────────────────────────
+
+function LogsSheet({
+  fn,
+  projectId,
+  open,
+  onClose,
+}: {
+  fn: EdgeFunction | null;
+  projectId: string;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [logs, setLogs] = React.useState<FunctionLog[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [expanded, setExpanded] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!open || !fn) return;
+    setLoading(true);
+    fetch(`/api/internal/functions/${fn.id}/logs?projectId=${encodeURIComponent(projectId)}`)
+      .then((r) => r.json())
+      .then((d) => setLogs(d?.data?.logs ?? []))
+      .catch(() => setLogs([]))
+      .finally(() => setLoading(false));
+  }, [open, fn, projectId]);
+
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+        <SheetHeader className="mb-4">
+          <SheetTitle className="flex items-center gap-2 text-sm">
+            <ScrollText className="h-4 w-4 text-[--text-secondary]" />
+            Invocation logs — {fn?.name}
+          </SheetTitle>
+        </SheetHeader>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-5 w-5 animate-spin text-[--text-muted]" />
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+            <ScrollText className="h-8 w-8 text-[--text-muted] opacity-40" />
+            <p className="text-sm text-[--text-muted]">No invocations yet</p>
+            <p className="text-xs text-[--text-muted]">
+              Use the Test button to invoke this function
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {logs.map((log) => {
+              const isExp = expanded === log.id;
+              const ok = log.status_code ? log.status_code < 400 : !log.error;
+              return (
+                <div
+                  key={log.id}
+                  className="rounded-lg border border-[--border] bg-[--background] overflow-hidden"
+                >
+                  <button
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                    onClick={() => setExpanded(isExp ? null : log.id)}
+                  >
+                    {ok ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        {log.status_code && (
+                          <span
+                            className={cn(
+                              "rounded px-1.5 py-0.5 text-[10px] font-bold font-mono",
+                              ok
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-red-100 text-red-700"
+                            )}
+                          >
+                            {log.status_code}
+                          </span>
+                        )}
+                        {log.duration_ms && (
+                          <span className="text-[11px] text-[--text-muted]">
+                            {log.duration_ms}ms
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-[--text-muted] mt-0.5">
+                        {formatRelative(log.created_at)}
+                      </p>
+                    </div>
+                    {isExp ? (
+                      <ChevronDown className="h-3.5 w-3.5 text-[--text-muted] shrink-0" />
+                    ) : (
+                      <ChevronRight className="h-3.5 w-3.5 text-[--text-muted] shrink-0" />
+                    )}
+                  </button>
+                  {isExp && (
+                    <div className="border-t border-[--border] bg-[--surface] p-4 space-y-3">
+                      {log.error && (
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-red-600 mb-1">
+                            Error
+                          </p>
+                          <pre className="text-xs font-mono text-red-700 bg-red-50 dark:bg-red-900/20 p-2 rounded">
+                            {log.error}
+                          </pre>
+                        </div>
+                      )}
+                      {log.request_payload && (
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-[--text-muted] mb-1">
+                            Request payload
+                          </p>
+                          <pre className="text-xs font-mono text-[--text-primary] bg-[--code-bg] p-2 rounded overflow-x-auto">
+                            {tryPrettyJson(JSON.parse(log.request_payload || "{}"))}
+                          </pre>
+                        </div>
+                      )}
+                      {log.response_body && (
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-[--text-muted] mb-1">
+                            Response
+                          </p>
+                          <pre className="text-xs font-mono text-[--text-primary] bg-[--code-bg] p-2 rounded overflow-x-auto max-h-40">
+                            {tryPrettyJson(JSON.parse(log.response_body || "null"))}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 // ─── Function Card ────────────────────────────────────────────────────────────
 
 function FunctionCard({
   fn,
-  projectId,
   onEdit,
   onDelete,
   onTest,
   onToggle,
+  onLogs,
 }: {
   fn: EdgeFunction;
-  projectId: string;
   onEdit: () => void;
   onDelete: () => void;
   onTest: () => void;
   onToggle: () => void;
+  onLogs: () => void;
 }) {
   const [copiedUrl, setCopiedUrl] = React.useState(false);
 
@@ -556,7 +704,7 @@ function FunctionCard({
   return (
     <div
       className={cn(
-        "group rounded-xl border bg-[--background] p-5 transition-all hover:shadow-sm",
+        "rounded-xl border bg-[--background] p-5 transition-all hover:shadow-sm",
         fn.is_active ? "border-[--border]" : "border-[--border] opacity-60"
       )}
     >
@@ -566,32 +714,44 @@ function FunctionCard({
           <div
             className={cn(
               "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-              fn.is_active ? "bg-brand/10" : "bg-[--surface]"
+              fn.is_active ? "bg-[--brand]/10" : "bg-[--surface]"
             )}
           >
-            <Zap className={cn("h-4 w-4", fn.is_active ? "text-brand" : "text-[--text-muted]")} />
+            <Zap
+              className={cn(
+                "h-4 w-4",
+                fn.is_active ? "text-[--brand]" : "text-[--text-muted]"
+              )}
+            />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <p className="text-[13px] font-semibold text-[--text-primary] font-mono">{fn.name}</p>
-              <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold font-mono shrink-0", METHOD_COLORS[fn.method])}>
+              <p className="text-[13px] font-semibold text-[--text-primary] font-mono truncate">
+                {fn.name}
+              </p>
+              <span
+                className={cn(
+                  "rounded px-1.5 py-0.5 text-[10px] font-bold font-mono shrink-0",
+                  METHOD_COLORS[fn.method]
+                )}
+              >
                 {fn.method}
               </span>
             </div>
             {fn.description && (
-              <p className="text-xs text-[--text-secondary] mt-0.5 truncate">{fn.description}</p>
+              <p className="text-xs text-[--text-secondary] mt-0.5 truncate">
+                {fn.description}
+              </p>
             )}
           </div>
         </div>
-
-        {/* Status toggle */}
         <button
           onClick={onToggle}
           className="shrink-0 text-[--text-muted] hover:text-[--text-primary] transition-colors"
           title={fn.is_active ? "Disable function" : "Enable function"}
         >
           {fn.is_active ? (
-            <ToggleRight className="h-5 w-5 text-[--success-text]" />
+            <ToggleRight className="h-5 w-5 text-emerald-500" />
           ) : (
             <ToggleLeft className="h-5 w-5" />
           )}
@@ -609,7 +769,7 @@ function FunctionCard({
           className="shrink-0 text-[--text-muted] hover:text-[--text-primary] transition-colors"
         >
           {copiedUrl ? (
-            <Check className="h-3 w-3 text-[--success-text]" />
+            <Check className="h-3 w-3 text-emerald-500" />
           ) : (
             <Copy className="h-3 w-3" />
           )}
@@ -620,14 +780,14 @@ function FunctionCard({
       <div className="flex items-center gap-3 mb-4 text-[11px] text-[--text-muted]">
         <span className="flex items-center gap-1">
           <Activity className="h-3 w-3" />
-          {formatInvocations(fn.invoke_count)} invocations
+          {formatInvocations(fn.invoke_count)} calls
         </span>
-        <span className="text-[--border2]">·</span>
+        <span>·</span>
         <span className="flex items-center gap-1">
           <Clock className="h-3 w-3" />
           {formatRelative(fn.last_invoked_at)}
         </span>
-        <span className="text-[--border2]">·</span>
+        <span>·</span>
         <span>{fn.timeout_ms / 1000}s timeout</span>
       </div>
 
@@ -647,15 +807,23 @@ function FunctionCard({
           size="sm"
           variant="outline"
           className="h-7 gap-1.5 text-xs px-3"
-          onClick={onEdit}
+          onClick={onLogs}
         >
-          <Pencil className="h-3 w-3" />
-          Edit
+          <ScrollText className="h-3 w-3" />
+          Logs
         </Button>
         <Button
           size="sm"
           variant="outline"
-          className="h-7 w-7 p-0 text-[--danger-text] border-[--danger-text]/20 hover:bg-[--danger-bg]"
+          className="h-7 gap-1.5 text-xs px-3"
+          onClick={onEdit}
+        >
+          <Pencil className="h-3 w-3" />
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 w-7 p-0 text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20"
           onClick={onDelete}
         >
           <Trash2 className="h-3 w-3" />
@@ -670,26 +838,24 @@ function FunctionCard({
 function EmptyFunctions({ onNew }: { onNew: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-20 px-6">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-dashed border-[--border2] bg-[--surface]">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-dashed border-[--border] bg-[--surface]">
         <Zap className="h-7 w-7 text-[--text-muted]" />
       </div>
       <div className="text-center max-w-sm">
         <p className="text-sm font-medium text-[--text-primary]">No edge functions yet</p>
         <p className="text-xs text-[--text-muted] mt-1 leading-relaxed">
-          Edge functions proxy requests to your external HTTP endpoints. Register an
-          endpoint to invoke it via the SDK or dashboard.
+          Register an external HTTP endpoint to invoke it via the SDK or dashboard test panel.
         </p>
       </div>
       <Button
         size="sm"
-        className="h-8 gap-1.5 text-xs bg-brand hover:bg-brand-hover text-white border-0"
+        className="h-8 gap-1.5 text-xs bg-[--brand] hover:bg-[--brand-hover] text-white border-0"
         onClick={onNew}
       >
         <Plus className="h-3.5 w-3.5" />
         Create your first function
       </Button>
 
-      {/* SDK snippet */}
       <div className="mt-2 w-full max-w-sm rounded-xl border border-[--border] bg-[--surface] p-4">
         <p className="text-[10.5px] font-semibold uppercase tracking-wider text-[--text-muted] mb-2">
           Invoke via SDK
@@ -712,12 +878,7 @@ interface FunctionsPageClientProps {
   projectId: string;
   userId: string;
   initialFunctions: EdgeFunction[];
-  initialStats: {
-    total: number;
-    active: number;
-    inactive: number;
-    total_invocations: number;
-  };
+  initialStats: FunctionStats;
 }
 
 export function FunctionsPageClient({
@@ -727,24 +888,23 @@ export function FunctionsPageClient({
   initialStats,
 }: FunctionsPageClientProps) {
   const [functions, setFunctions] = React.useState<EdgeFunction[]>(initialFunctions);
-  const [stats, setStats] = React.useState(initialStats);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
 
-  // Dialogs
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editTarget, setEditTarget] = React.useState<EdgeFunction | null>(null);
   const [testTarget, setTestTarget] = React.useState<EdgeFunction | null>(null);
+  const [logsTarget, setLogsTarget] = React.useState<EdgeFunction | null>(null);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
-  // Recompute stats from local state
-  const computedStats = React.useMemo(() => ({
-    total: functions.length,
-    active: functions.filter((f) => f.is_active).length,
-    inactive: functions.filter((f) => !f.is_active).length,
-    total_invocations: functions.reduce((acc, f) => acc + f.invoke_count, 0),
-  }), [functions]);
-
-  // ── CRUD handlers ────────────────────────────────────────────────────────
+  const computedStats = React.useMemo(
+    () => ({
+      total: functions.length,
+      active: functions.filter((f) => f.is_active).length,
+      inactive: functions.filter((f) => !f.is_active).length,
+      total_invocations: functions.reduce((acc, f) => acc + f.invoke_count, 0),
+    }),
+    [functions]
+  );
 
   const handleSaved = (fn: EdgeFunction) => {
     setFunctions((prev) => {
@@ -766,9 +926,7 @@ export function FunctionsPageClient({
         `/api/internal/functions/${fn.id}?projectId=${encodeURIComponent(projectId)}`,
         { method: "DELETE" }
       );
-      if (res.ok) {
-        setFunctions((prev) => prev.filter((f) => f.id !== fn.id));
-      }
+      if (res.ok) setFunctions((prev) => prev.filter((f) => f.id !== fn.id));
     } finally {
       setDeletingId(null);
     }
@@ -776,7 +934,6 @@ export function FunctionsPageClient({
 
   const handleToggle = async (fn: EdgeFunction) => {
     const next = !fn.is_active;
-    // Optimistic
     setFunctions((prev) =>
       prev.map((f) => (f.id === fn.id ? { ...f, is_active: next } : f))
     );
@@ -787,7 +944,6 @@ export function FunctionsPageClient({
         body: JSON.stringify({ projectId, is_active: next }),
       });
       if (!res.ok) {
-        // Revert
         setFunctions((prev) =>
           prev.map((f) => (f.id === fn.id ? { ...f, is_active: !next } : f))
         );
@@ -803,17 +959,12 @@ export function FunctionsPageClient({
     setIsRefreshing(true);
     try {
       const res = await fetch(
-        `/api/nosql-proxy/projects/${projectId}/functions?projectId=${projectId}`,
+        `/api/internal/functions?projectId=${encodeURIComponent(projectId)}`,
         { cache: "no-store" }
       );
-      // Use the dedicated functions endpoint instead
-      const r2 = await fetch(
-        `/api/internal/functions?projectId=${projectId}`,
-        { cache: "no-store" }
-      );
-      if (r2.ok) {
-        const data = await r2.json();
-        setFunctions(data.data?.functions ?? data.functions ?? []);
+      if (res.ok) {
+        const data = await res.json();
+        setFunctions(data.data?.functions ?? []);
       }
     } catch {
       // non-fatal
@@ -827,8 +978,8 @@ export function FunctionsPageClient({
       {/* Header */}
       <div className="flex items-center justify-between gap-4 border-b border-[--border] px-4 sm:px-6 py-4 sm:py-5 bg-[--background] shrink-0">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand/10">
-            <Zap className="h-4 w-4 text-brand" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[--brand]/10">
+            <Zap className="h-4 w-4 text-[--brand]" />
           </div>
           <div>
             <h1 className="text-base font-medium text-[--text-primary]">Edge Functions</h1>
@@ -849,7 +1000,7 @@ export function FunctionsPageClient({
           </Button>
           <Button
             size="sm"
-            className="h-8 gap-1.5 text-xs bg-brand hover:bg-brand-hover text-white border-0"
+            className="h-8 gap-1.5 text-xs bg-[--brand] hover:bg-[--brand-hover] text-white border-0"
             onClick={() => setCreateOpen(true)}
           >
             <Plus className="h-3.5 w-3.5" />
@@ -858,19 +1009,19 @@ export function FunctionsPageClient({
         </div>
       </div>
 
-      {/* Stats row */}
+      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 sm:px-6 py-4 border-b border-[--border] bg-[--background] shrink-0">
         <StatCard
           label="Total functions"
           value={computedStats.total}
           icon={Zap}
-          color="bg-brand/10 text-brand"
+          color="bg-[--brand]/10 text-[--brand]"
         />
         <StatCard
           label="Active"
           value={computedStats.active}
           icon={CheckCircle2}
-          color="bg-[--success-bg] text-[--success-text]"
+          color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
         />
         <StatCard
           label="Inactive"
@@ -882,17 +1033,17 @@ export function FunctionsPageClient({
           label="Total invocations"
           value={formatInvocations(computedStats.total_invocations)}
           icon={Activity}
-          color="bg-[--info-bg] text-[--info-text]"
+          color="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
         />
       </div>
 
-      {/* SDK endpoint hint */}
+      {/* SDK hint */}
       {functions.length > 0 && (
         <div className="px-4 sm:px-6 py-3 border-b border-[--border] bg-[--surface] shrink-0">
           <div className="flex items-center gap-2 text-[11.5px] text-[--text-muted]">
             <Code2 className="h-3.5 w-3.5 shrink-0" />
             <span>Invoke via API:</span>
-            <code className="font-mono bg-[--code-bg] border border-[--border] rounded px-1.5 py-0.5 text-[--code-text]">
+            <code className="font-mono bg-[--code-bg] border border-[--border] rounded px-1.5 py-0.5 text-[--text-secondary]">
               POST /v1/functions/{"{projectId}"}/invoke/{"{functionName}"}
             </code>
           </div>
@@ -914,11 +1065,11 @@ export function FunctionsPageClient({
                 )}
                 <FunctionCard
                   fn={fn}
-                  projectId={projectId}
                   onEdit={() => setEditTarget(fn)}
                   onDelete={() => handleDelete(fn)}
                   onTest={() => setTestTarget(fn)}
                   onToggle={() => handleToggle(fn)}
+                  onLogs={() => setLogsTarget(fn)}
                 />
               </div>
             ))}
@@ -933,7 +1084,6 @@ export function FunctionsPageClient({
         onSave={handleSaved}
         projectId={projectId}
       />
-
       <FunctionDialog
         open={!!editTarget}
         onClose={() => setEditTarget(null)}
@@ -941,7 +1091,6 @@ export function FunctionsPageClient({
         initial={editTarget}
         projectId={projectId}
       />
-
       {testTarget && (
         <TestDialog
           fn={testTarget}
@@ -950,6 +1099,12 @@ export function FunctionsPageClient({
           onClose={() => setTestTarget(null)}
         />
       )}
+      <LogsSheet
+        fn={logsTarget}
+        projectId={projectId}
+        open={!!logsTarget}
+        onClose={() => setLogsTarget(null)}
+      />
     </div>
   );
 }

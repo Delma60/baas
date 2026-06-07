@@ -1,60 +1,52 @@
-// frontend/app/api/internal/functions/[id]/route.ts
-import { NextRequest, NextResponse } from "next/server";
+// frontend/app/api/internal/functions/[functionId]/route.ts
 import { auth } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
 
 const FASTAPI_BASE_URL = process.env.FASTAPI_BASE_URL ?? "http://localhost:8000";
 const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET ?? "";
 
-const headers = () => ({
-  "Content-Type": "application/json",
-  "x-internal-secret": INTERNAL_SECRET,
-});
-
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { id } = await params;
-  const { projectId, ...body } = await req.json();
-
-  if (!projectId) return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
-
-  try {
-    const res = await fetch(
-      `${FASTAPI_BASE_URL}/internal/projects/${projectId}/functions/${id}`,
-      { method: "PATCH", headers: headers(), body: JSON.stringify(body), cache: "no-store" }
-    );
-    const data = await res.json().catch(() => ({}));
-    return NextResponse.json(data, { status: res.status });
-  } catch {
-    return NextResponse.json({ error: "Backend unreachable" }, { status: 503 });
-  }
+async function proxyToFastAPI(path: string, init: RequestInit) {
+  const res = await fetch(`${FASTAPI_BASE_URL}/internal${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      "x-internal-secret": INTERNAL_SECRET,
+      ...(init.headers ?? {}),
+    },
+    cache: "no-store",
+  });
+  const json = await res.json().catch(() => ({}));
+  return NextResponse.json(json, { status: res.status });
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+interface Params {
+  params: Promise<{ functionId: string }>;
+}
+
+export async function PATCH(req: NextRequest, { params }: Params) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id } = await params;
-  const { searchParams } = req.nextUrl;
-  const projectId = searchParams.get("projectId");
-
+  const { functionId } = await params;
+  const body = await req.json();
+  const projectId = body.projectId;
   if (!projectId) return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
 
-  try {
-    const res = await fetch(
-      `${FASTAPI_BASE_URL}/internal/projects/${projectId}/functions/${id}`,
-      { method: "DELETE", headers: headers(), cache: "no-store" }
-    );
-    const data = await res.json().catch(() => ({}));
-    return NextResponse.json(data, { status: res.status });
-  } catch {
-    return NextResponse.json({ error: "Backend unreachable" }, { status: 503 });
-  }
+  return proxyToFastAPI(`/projects/${projectId}/functions/${functionId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function DELETE(req: NextRequest, { params }: Params) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { functionId } = await params;
+  const projectId = req.nextUrl.searchParams.get("projectId");
+  if (!projectId) return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
+
+  return proxyToFastAPI(`/projects/${projectId}/functions/${functionId}`, {
+    method: "DELETE",
+  });
 }

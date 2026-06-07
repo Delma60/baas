@@ -1,4 +1,4 @@
-// frontend/app/api/internal/functions/[functionId]/test/route.ts
+// frontend/app/api/internal/functions/[functionId]/logs/route.ts
 import { auth } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -9,24 +9,18 @@ interface Params {
   params: Promise<{ functionId: string }>;
 }
 
-export async function POST(req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { functionId } = await params;
-  const body = await req.json();
-  const projectId = body.projectId;
+  const projectId = req.nextUrl.searchParams.get("projectId");
   if (!projectId) return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
 
   const res = await fetch(
-    `${FASTAPI_BASE_URL}/internal/projects/${projectId}/functions/${functionId}/test`,
+    `${FASTAPI_BASE_URL}/internal/projects/${projectId}/functions/${functionId}/logs`,
     {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-internal-secret": INTERNAL_SECRET,
-      },
-      body: JSON.stringify(body),
+      headers: { "x-internal-secret": INTERNAL_SECRET },
       cache: "no-store",
     }
   );
