@@ -911,14 +911,25 @@ export function DatabaseClient({
 
   const canCRUD = !!activeTable;
   const rows = result?.rows ?? [];
-  const cols =
-    rows.length > 0
-      ? Object.keys(rows[0])
-      : columns.length > 0
-        ? columns.map((c) => c.column_name)
-        : [];
-
   const SYSTEM_COLS = ["id", "created_at", "updated_at"];
+
+  const cols = (() => {
+    const schemaNames = columns.map((c) => c.column_name);
+    const rowKeys = rows.length > 0 ? Object.keys(rows[0]) : schemaNames;
+
+    // All keys present in this result set
+    const allKeys = new Set(rowKeys);
+
+    const id = allKeys.has("id") ? ["id"] : [];
+    const timestamps = SYSTEM_COLS.filter((c) => c !== "id" && allKeys.has(c));
+    const userCols =
+      schemaNames.length > 0
+        ? schemaNames.filter((c) => !SYSTEM_COLS.includes(c) && allKeys.has(c))
+        : rowKeys.filter((c) => !SYSTEM_COLS.includes(c));
+
+    return [...id, ...userCols, ...timestamps];
+  })();
+
 
   return (
     <TooltipProvider>
@@ -976,7 +987,7 @@ export function DatabaseClient({
               <>
                 {/* Columns manager */}
                 <DropdownMenu open={columnsOpen} onOpenChange={setColumnsOpen}>
-                  <DropdownMenuTrigger>
+                  <DropdownMenuTrigger aschild>
                     <Button
                       size="sm"
                       variant="outline"

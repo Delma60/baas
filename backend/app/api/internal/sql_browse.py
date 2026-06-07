@@ -50,6 +50,30 @@ def _serialize_rows(rows: list[dict]) -> list[dict]:
     return serialized
 
 
+def _is_cached_statement_error(exc: Exception) -> bool:
+    """Check if the exception is an asyncpg InvalidCachedStatementError."""
+    return "InvalidCachedStatementError" in type(exc).__name__ or (
+        hasattr(exc, "orig") and "InvalidCachedStatementError" in type(exc.orig).__name__
+    ) or "cached statement plan is invalid" in str(exc)
+
+
+async def _execute_with_retry(db: AsyncSession, stmt: text, params: dict | None = None):
+    """
+    Execute a statement, retrying once if asyncpg invalidates its prepared
+    statement cache after a schema change (ADD/DROP COLUMN, etc.).
+    asyncpg automatically clears the cache on this error, so the retry succeeds.
+    """
+    try:
+        return await db.execute(stmt, params or {})
+    except Exception as exc:
+        if _is_cached_statement_error(exc):
+            logger.info("Retrying after cached statement invalidation")
+            # Roll back the failed statement so the session is clean
+            await db.rollback()
+            return await db.execute(stmt, params or {})
+        raise
+
+
 @router.get("/projects/{project_id}/sql/tables", dependencies=[InternalGuard])
 async def list_tables(
     project_id: str,
@@ -57,8 +81,7 @@ async def list_tables(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     _validate_identifier(db_schema, "schema")
-    result = await db.execute(
-        text("""
+    result = await _execute_with_retry(db, text("""
             SELECT
                 t.table_name,
                 COALESCE(s.n_live_tup, 0)::bigint AS row_count
@@ -70,9 +93,7 @@ async def list_tables(
               AND t.table_type = 'BASE TABLE'
               AND t.table_name NOT LIKE '\_%'
             ORDER BY t.table_name
-        """),
-        {"schema": db_schema},
-    )
+        """), {"schema": db_schema})
     tables = [{"name": row["table_name"], "rows": row["row_count"]} for row in result.mappings()]
     return {"data": {"tables": tables}}
 
@@ -87,15 +108,12 @@ async def list_columns(
     _validate_identifier(db_schema, "schema")
     _validate_identifier(table, "table")
 
-    result = await db.execute(
-        text("""
+    result = await _execute_with_retry(db, text("""
             SELECT column_name, data_type, is_nullable, column_default
             FROM information_schema.columns
             WHERE table_schema = :schema AND table_name = :table
             ORDER BY ordinal_position
-        """),
-        {"schema": db_schema, "table": table},
-    )
+        """), {"schema": db_schema, "table": table})
     columns = [dict(row) for row in result.mappings()]
     return {"data": {"columns": columns}}
 
@@ -122,11 +140,13 @@ async def list_rows(
         else "ORDER BY created_at DESC NULLS LAST"
     )
 
-    rows_result = await db.execute(
+    rows_result = await _execute_with_retry(
+        db,
         text(f'SELECT * FROM "{db_schema}"."{table}" {order_clause} LIMIT :limit OFFSET :offset'),
         {"limit": limit, "offset": offset},
     )
-    count_result = await db.execute(
+    count_result = await _execute_with_retry(
+        db,
         text(f'SELECT COUNT(*) FROM "{db_schema}"."{table}"'),
     )
 
@@ -165,26 +185,33 @@ async def run_query(
     db_schema = body.db_schema
     _validate_identifier(db_schema, "schema")
 
-    try:
-        # Acquire a raw connection from the pool so we can run SET LOCAL and the
-        # user query in the same transaction without the session layer interfering.
+    async def _run():
         async with engine.connect() as conn:
             await conn.execute(text("BEGIN"))
-            # SET LOCAL scopes the search_path to this transaction
             await conn.execute(
                 text(f'SET LOCAL search_path TO "{db_schema}", public')
             )
             result = await conn.execute(text(query_no_comments))
             rows = [dict(r._mapping) for r in result]
-            await conn.execute(text("ROLLBACK"))  # read-only; always roll back
+            await conn.execute(text("ROLLBACK"))
+        return rows
 
-        return {"data": {"rows": _serialize_rows(rows), "total": len(rows)}}
+    try:
+        rows = await _run()
+    except Exception as exc:
+        if _is_cached_statement_error(exc):
+            logger.info("Retrying query after cached statement invalidation")
+            try:
+                rows = await _run()
+            except Exception as exc2:
+                logger.warning("Query error for project %s: %s", project_id, exc2)
+                raise HTTPException(status_code=400, detail=str(exc2))
+        else:
+            logger.warning("Query error for project %s: %s", project_id, exc)
+            raise HTTPException(status_code=400, detail=str(exc))
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.warning("Query error for project %s: %s", project_id, e)
-        raise HTTPException(status_code=400, detail=str(e))
+    return {"data": {"rows": _serialize_rows(rows), "total": len(rows)}}
+
 
 # ─── Row CRUD ─────────────────────────────────────────────────────────────────
 
@@ -216,7 +243,8 @@ async def insert_row(
     vals = ", ".join(f":val_{k}" for k in data)
     params = {f"val_{k}": v for k, v in data.items()}
 
-    result = await db.execute(
+    result = await _execute_with_retry(
+        db,
         text(f'INSERT INTO "{body.db_schema}"."{table}" ({cols}) VALUES ({vals}) RETURNING *'),
         params,
     )
@@ -244,7 +272,8 @@ async def update_row(
     params = {f"upd_{k}": v for k, v in data.items()}
     params["row_id"] = row_id
 
-    result = await db.execute(
+    result = await _execute_with_retry(
+        db,
         text(f'UPDATE "{body.db_schema}"."{table}" SET {set_clause} WHERE id = :row_id RETURNING *'),
         params,
     )
@@ -266,7 +295,8 @@ async def delete_row(
     _validate_identifier(db_schema, "schema")
     _validate_identifier(table, "table")
 
-    result = await db.execute(
+    result = await _execute_with_retry(
+        db,
         text(f'DELETE FROM "{db_schema}"."{table}" WHERE id = :row_id RETURNING id'),
         {"row_id": row_id},
     )
@@ -275,7 +305,8 @@ async def delete_row(
     await db.commit()
     return {"data": {"deleted": True, "id": row_id}}
 
-# ─── Truncate table (empty all rows) ─────────────────────────────────────────
+
+# ─── Truncate table ───────────────────────────────────────────────────────────
 
 @router.post("/projects/{project_id}/tables/{table}/truncate", dependencies=[InternalGuard])
 async def truncate_table(
@@ -284,14 +315,9 @@ async def truncate_table(
     db_schema: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """
-    TRUNCATE a table — removes all rows but preserves structure.
-    Dashboard-internal only; never exposed via /v1/.
-    """
     _validate_identifier(db_schema, "schema")
     _validate_identifier(table, "table")
 
-    # Safety: never truncate system tables
     if table.startswith("_"):
         raise HTTPException(status_code=400, detail="Cannot truncate reserved tables")
 
@@ -314,10 +340,6 @@ async def drop_column_endpoint(
     db_schema: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """
-    DROP COLUMN from a table.
-    Refuses to drop system columns (id, created_at, updated_at).
-    """
     _validate_identifier(db_schema, "schema")
     _validate_identifier(table, "table")
     _validate_identifier(column, "column")
@@ -335,3 +357,19 @@ async def drop_column_endpoint(
     await db.commit()
     logger.info("Dropped column %s from %s.%s (project: %s)", column, db_schema, table, project_id)
     return {"data": {"column": column, "dropped": True}}
+
+ 
+# ─── Foreign keys ─────────────────────────────────────────────────────────────
+ 
+@router.get("/projects/{project_id}/sql/relationships", dependencies=[InternalGuard])
+async def list_relationships(
+    project_id: str,
+    db_schema: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Return all FK relationships in the project schema."""
+    _validate_identifier(db_schema, "schema")
+    from app.provisioner.sql_provisioner import get_foreign_keys
+    fks = await get_foreign_keys(db, db_schema)
+    return {"data": {"relationships": fks}}
+ 
