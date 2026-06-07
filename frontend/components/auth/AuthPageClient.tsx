@@ -580,7 +580,7 @@ export function AuthPageClient({
                   Add user
                 </Button>
                 <Tooltip>
-                  <TooltipTrigger>
+                  <TooltipTrigger render={<span />}>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -700,7 +700,7 @@ export function AuthPageClient({
                       {/* Actions */}
                       <div className="px-3 py-3 flex items-center justify-end">
                         <DropdownMenu>
-                          <DropdownMenuTrigger>
+                          <DropdownMenuTrigger render={<span />}>
                             <Button
                               variant="ghost"
                               size="icon"

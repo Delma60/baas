@@ -300,7 +300,7 @@ function SidebarContent({
       >
         {collapsed ? (
           <Tooltip>
-            <TooltipTrigger>
+            <TooltipTrigger render={<span />}>
               <button
                 className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
                 aria-label="Search"
@@ -407,7 +407,7 @@ function SidebarContent({
       {/* ── Desktop collapse toggle ── */}
       {onCollapse && (
         <Tooltip>
-          <TooltipTrigger>
+          <TooltipTrigger render={<span />}>
             <div
               onClick={onCollapse}
               className="absolute -right-[13px] top-[54px] z-20 hidden md:flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-all hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -640,7 +640,7 @@ function SidebarNavItem({
   if (collapsed) {
     return (
       <Tooltip>
-        <TooltipTrigger>{linkEl}</TooltipTrigger>
+        <TooltipTrigger render={<span />}>{linkEl}</TooltipTrigger>
         <TooltipContent side="right" className="flex items-center gap-1.5">
           {item.label}
           {item.badge && (
@@ -687,7 +687,7 @@ function UserRow({
   if (collapsed) {
     return (
       <Tooltip>
-        <TooltipTrigger>
+        <TooltipTrigger render={<span />}>
           <button
             className="flex h-12 w-full items-center justify-center transition-colors hover:bg-accent"
             aria-label="User menu"
@@ -705,7 +705,7 @@ function UserRow({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger>
+      <DropdownMenuTrigger render={<span />}>
         <div className="flex h-12 w-full items-center gap-2.5 px-3 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
           {avatarEl}
           <div className="flex-1 min-w-0 text-left">

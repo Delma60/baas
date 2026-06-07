@@ -320,7 +320,7 @@ function DocumentDetailPanel({
         </div>
         <div className="flex items-center gap-1">
           <Tooltip>
-            <TooltipTrigger>
+            <TooltipTrigger render={<span />}>
               <Button
                 variant="ghost"
                 size="icon"
@@ -1026,7 +1026,7 @@ function CollectionsTab({
               </div>
               <div className="flex items-center gap-2">
                 <Tooltip>
-                  <TooltipTrigger>
+                  <TooltipTrigger render={<span />}>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -1265,7 +1265,7 @@ function KVTab({
         </div>
         <div className="flex items-center gap-2">
           <Tooltip>
-            <TooltipTrigger>
+            <TooltipTrigger render={<span />}>
               <Button
                 variant="ghost"
                 size="icon"

@@ -375,7 +375,7 @@ function UploadZone({
               )}
               {item.status === "error" && (
                 <Tooltip>
-                  <TooltipTrigger>
+                  <TooltipTrigger render={<span />}>
                     <AlertCircle className="h-4 w-4 text-[--danger] shrink-0" />
                   </TooltipTrigger>
                   <TooltipContent>{item.error}</TooltipContent>
@@ -445,7 +445,7 @@ function FileRow({
       </div>
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
         <Tooltip>
-          <TooltipTrigger>
+          <TooltipTrigger render={<span />}>
             <Button
               variant="ghost"
               size="icon"
@@ -462,7 +462,7 @@ function FileRow({
           <TooltipContent>Copy presigned URL</TooltipContent>
         </Tooltip>
         <DropdownMenu>
-          <DropdownMenuTrigger>
+          <DropdownMenuTrigger render={<span />}>
             <Button variant="ghost" size="icon" className="h-7 w-7">
               <MoreHorizontal className="h-3.5 w-3.5" />
             </Button>
@@ -541,7 +541,7 @@ function FileCard({
       {/* Actions overlay */}
       <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <Tooltip>
-          <TooltipTrigger>
+          <TooltipTrigger render={<span />}>
             <button
               className="flex h-6 w-6 items-center justify-center rounded border border-[--border] bg-[--background] text-[--text-muted] hover:text-[--text-primary] transition-colors"
               onClick={() => onCopyUrl(file.key)}
@@ -556,7 +556,7 @@ function FileCard({
           <TooltipContent side="top">Copy URL</TooltipContent>
         </Tooltip>
         <DropdownMenu>
-          <DropdownMenuTrigger>
+          <DropdownMenuTrigger render={<span />}>
             <button className="flex h-6 w-6 items-center justify-center rounded border border-[--border] bg-[--background] text-[--text-muted] hover:text-[--text-primary] transition-colors">
               <MoreHorizontal className="h-3 w-3" />
             </button>

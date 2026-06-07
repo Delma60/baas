@@ -1,7 +1,7 @@
 // frontend/components/database/DatabaseClient.tsx
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Database,
   Terminal,
@@ -27,6 +27,7 @@ import {
   Check,
   Columns,
   ChevronDown,
+  Link2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -111,6 +112,7 @@ function RowFormDialog({
   dbSchema,
   table,
   columns,
+  foreignKeys = [],
   existingRow,
   onSaved,
 }: {
@@ -121,6 +123,13 @@ function RowFormDialog({
   dbSchema: string;
   table: string;
   columns: SqlColumn[];
+  foreignKeys?: Array<{
+    from_table: string;
+    from_column: string;
+    to_table: string;
+    to_column: string;
+    on_delete: string;
+  }>;
   existingRow?: Record<string, unknown>;
   onSaved: (row: Record<string, unknown>, isNew: boolean) => void;
 }) {
@@ -139,8 +148,58 @@ function RowFormDialog({
     return init;
   });
 
+  // FK reference data: { colName -> [{ id, label }] }
+  const [fkOptions, setFkOptions] = useState<
+    Record<string, Array<{ value: string; label: string }>>
+  >({});
+  const [fkLoading, setFkLoading] = useState<Record<string, boolean>>({});
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch rows from referenced tables for FK columns
+  useEffect(() => {
+    if (!open || foreignKeys.length === 0) return;
+    for (const fk of foreignKeys) {
+      const colName = fk.from_column;
+      if (fkOptions[colName] !== undefined) continue; // already fetched
+      setFkLoading((prev) => ({ ...prev, [colName]: true }));
+      fetch(`/api/internal/sql/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          dbSchema,
+          query: `SELECT * FROM "${fk.to_table}" ORDER BY created_at DESC NULLS LAST LIMIT 100`,
+        }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          const rows: Record<string, unknown>[] = data.data?.rows ?? [];
+          // Build label: prefer name/title/email/slug columns, fallback to id
+          const labelCol = rows[0]
+            ? (["name", "title", "email", "slug", "label"].find(
+                (k) => k in rows[0],
+              ) ?? fk.to_column)
+            : fk.to_column;
+          setFkOptions((prev) => ({
+            ...prev,
+            [colName]: rows.map((r) => ({
+              value: String(r[fk.to_column] ?? ""),
+              label:
+                r[labelCol] != null
+                  ? `${r[labelCol]} (${r[fk.to_column]})`
+                  : String(r[fk.to_column] ?? ""),
+            })),
+          }));
+        })
+        .catch(() => setFkOptions((prev) => ({ ...prev, [colName]: [] })))
+        .finally(() => setFkLoading((prev) => ({ ...prev, [colName]: false })));
+    }
+  }, [open, foreignKeys, projectId, dbSchema, fkOptions]);
+
+  const getFkForColumn = (colName: string) =>
+    foreignKeys.find((fk) => fk.from_column === colName);
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -174,11 +233,9 @@ function RowFormDialog({
         ? { projectId, table, dbSchema, data }
         : { projectId, table, dbSchema, rowId: existingRow?.id, data };
 
-    const method = mode === "insert" ? "POST" : "PATCH";
-
     try {
       const res = await fetch("/api/internal/sql/rows", {
-        method,
+        method: mode === "insert" ? "POST" : "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
@@ -223,58 +280,124 @@ function RowFormDialog({
                 No editable columns (only auto-managed system columns exist).
               </p>
             )}
-            {editableCols.map((col) => (
-              <div key={col.column_name} className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs font-medium">
-                    {col.column_name}
-                  </Label>
-                  <Badge
-                    variant="outline"
-                    className="text-[10px] h-4 px-1.5 font-mono"
-                  >
-                    {col.data_type}
-                  </Badge>
-                  {col.is_nullable === "YES" && (
-                    <span className="text-[10px] text-muted-foreground">
-                      nullable
-                    </span>
+            {editableCols.map((col) => {
+              const fk = getFkForColumn(col.column_name);
+              const options = fk ? (fkOptions[col.column_name] ?? []) : [];
+              const isLoadingFk = fk
+                ? (fkLoading[col.column_name] ?? false)
+                : false;
+
+              return (
+                <div key={col.column_name} className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs font-medium">
+                      {col.column_name}
+                    </Label>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] h-4 px-1.5 font-mono"
+                    >
+                      {col.data_type}
+                    </Badge>
+                    {fk && (
+                      <span className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                        <Link2 className="h-3 w-3" />→ {fk.to_table}.
+                        {fk.to_column}
+                      </span>
+                    )}
+                    {col.is_nullable === "YES" && (
+                      <span className="text-[10px] text-muted-foreground">
+                        nullable
+                      </span>
+                    )}
+                  </div>
+
+                  {/* FK column — show dropdown of referenced rows */}
+                  {fk ? (
+                    <div className="space-y-1">
+                      <Select
+                        value={fields[col.column_name]}
+                        onValueChange={(v) =>
+                          setFields((f) => ({ ...f, [col.column_name]: v }))
+                        }
+                        disabled={isLoadingFk}
+                      >
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue
+                            placeholder={
+                              isLoadingFk
+                                ? "Loading…"
+                                : `Select ${fk.to_table}…`
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {col.is_nullable === "YES" && (
+                            <SelectItem
+                              value=""
+                              className="text-xs text-muted-foreground italic"
+                            >
+                              — null —
+                            </SelectItem>
+                          )}
+                          {options.length === 0 && !isLoadingFk && (
+                            <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                              No records in {fk.to_table} yet
+                            </div>
+                          )}
+                          {options.map((opt) => (
+                            <SelectItem
+                              key={opt.value}
+                              value={opt.value}
+                              className="text-xs font-mono"
+                            >
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {options.length === 0 && !isLoadingFk && (
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                          Insert a row into &quot;{fk.to_table}&quot; first to
+                          populate this selector.
+                        </p>
+                      )}
+                    </div>
+                  ) : col.data_type.includes("bool") ? (
+                    <select
+                      value={fields[col.column_name]}
+                      onChange={(e) =>
+                        setFields((f) => ({
+                          ...f,
+                          [col.column_name]: e.target.value,
+                        }))
+                      }
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">— null —</option>
+                      <option value="true">true</option>
+                      <option value="false">false</option>
+                    </select>
+                  ) : (
+                    <Input
+                      value={fields[col.column_name]}
+                      onChange={(e) =>
+                        setFields((f) => ({
+                          ...f,
+                          [col.column_name]: e.target.value,
+                        }))
+                      }
+                      placeholder={
+                        col.column_default
+                          ? `default: ${col.column_default}`
+                          : col.column_name
+                      }
+                      className="h-9 text-sm font-mono"
+                    />
                   )}
                 </div>
-                {col.data_type.includes("bool") ? (
-                  <select
-                    value={fields[col.column_name]}
-                    onChange={(e) =>
-                      setFields((f) => ({
-                        ...f,
-                        [col.column_name]: e.target.value,
-                      }))
-                    }
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <option value="">— null —</option>
-                    <option value="true">true</option>
-                    <option value="false">false</option>
-                  </select>
-                ) : (
-                  <Input
-                    value={fields[col.column_name]}
-                    onChange={(e) =>
-                      setFields((f) => ({
-                        ...f,
-                        [col.column_name]: e.target.value,
-                      }))
-                    }
-                    placeholder={
-                      col.column_default
-                        ? `default: ${col.column_default}`
-                        : col.column_name
-                    }
-                    className="h-9 text-sm font-mono"
-                  />
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </ScrollArea>
 
@@ -314,6 +437,7 @@ function AddColumnDialog({
   projectId,
   dbSchema,
   table,
+  existingTables = [],
   onAdded,
 }: {
   open: boolean;
@@ -321,12 +445,17 @@ function AddColumnDialog({
   projectId: string;
   dbSchema: string;
   table: string;
+  existingTables?: string[];
   onAdded: (col: SqlColumn) => void;
 }) {
   const [name, setName] = useState("");
   const [type, setType] = useState("text");
   const [nullable, setNullable] = useState(true);
   const [defaultVal, setDefaultVal] = useState("");
+  const [fkEnabled, setFkEnabled] = useState(false);
+  const [fkTable, setFkTable] = useState("");
+  const [fkColumn, setFkColumn] = useState("id");
+  const [fkOnDelete, setFkOnDelete] = useState("NO ACTION");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -335,12 +464,20 @@ function AddColumnDialog({
     setType("text");
     setNullable(true);
     setDefaultVal("");
+    setFkEnabled(false);
+    setFkTable("");
+    setFkColumn("id");
+    setFkOnDelete("NO ACTION");
     setError(null);
   };
 
   const handleAdd = async () => {
     if (!name.trim()) {
       setError("Column name is required");
+      return;
+    }
+    if (fkEnabled && !fkTable) {
+      setError("Select a referenced table");
       return;
     }
     setLoading(true);
@@ -358,6 +495,9 @@ function AddColumnDialog({
             type,
             nullable,
             default: defaultVal || null,
+            foreign_key: fkEnabled
+              ? { table: fkTable, column: fkColumn, on_delete: fkOnDelete }
+              : null,
           },
         }),
       });
@@ -380,6 +520,13 @@ function AddColumnDialog({
       setLoading(false);
     }
   };
+
+  const ON_DELETE_OPTIONS = [
+    { value: "NO ACTION", label: "No action" },
+    { value: "CASCADE", label: "Cascade delete" },
+    { value: "SET NULL", label: "Set null" },
+    { value: "RESTRICT", label: "Restrict" },
+  ];
 
   return (
     <Dialog
@@ -446,6 +593,81 @@ function AddColumnDialog({
             <span className="text-sm font-medium">Allow NULL</span>
             <Switch checked={nullable} onCheckedChange={setNullable} />
           </div>
+
+          {/* FK toggle */}
+          <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-sm font-medium">Foreign key</span>
+            </div>
+            <Switch checked={fkEnabled} onCheckedChange={setFkEnabled} />
+          </div>
+
+          {fkEnabled && (
+            <div className="space-y-2 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 p-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">References table</Label>
+                <Select value={fkTable} onValueChange={setFkTable}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Select table…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {existingTables
+                      .filter((t) => !t.startsWith("_") && t !== table)
+                      .map((t) => (
+                        <SelectItem
+                          key={t}
+                          value={t}
+                          className="text-xs font-mono"
+                        >
+                          {t}
+                        </SelectItem>
+                      ))}
+                    {existingTables.filter(
+                      (t) => !t.startsWith("_") && t !== table,
+                    ).length === 0 && (
+                      <div className="px-2 py-2 text-xs text-muted-foreground">
+                        No other tables yet
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Column</Label>
+                  <Input
+                    value={fkColumn}
+                    onChange={(e) => setFkColumn(e.target.value)}
+                    className="h-8 text-xs font-mono"
+                    placeholder="id"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">On delete</Label>
+                  <Select
+                    value={fkOnDelete}
+                    onValueChange={setFkOnDelete as any}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ON_DELETE_OPTIONS.map((o) => (
+                        <SelectItem
+                          key={o.value}
+                          value={o.value}
+                          className="text-xs"
+                        >
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         <DialogFooter className="pt-2 border-t">
           <Button
@@ -477,7 +699,6 @@ function AddColumnDialog({
     </Dialog>
   );
 }
-
 // ─── Confirm Dialog ───────────────────────────────────────────────────────────
 
 function ConfirmDialog({
@@ -572,6 +793,15 @@ export function DatabaseClient({
   const [tables, setTables] = useState<SqlTable[]>(initialTables);
   const [activeTable, setActiveTable] = useState<string | null>(initialTable);
   const [columns, setColumns] = useState<SqlColumn[]>([]);
+  const [foreignKeys, setForeignKeys] = useState<
+    Array<{
+      from_table: string;
+      from_column: string;
+      to_table: string;
+      to_column: string;
+      on_delete: string;
+    }>
+  >([]);
   const [query, setQuery] = useState(
     initialTable
       ? `SELECT *\nFROM "${initialTable}"\nLIMIT 50;`
@@ -637,20 +867,38 @@ export function DatabaseClient({
   const fetchColumns = useCallback(
     async (tableName: string) => {
       try {
-        const res = await fetch(`/api/internal/sql/query`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            projectId,
-            dbSchema,
-            query: `SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = '${dbSchema}' AND table_name = '${tableName}' ORDER BY ordinal_position`,
+        const [colRes, fkRes] = await Promise.all([
+          fetch(`/api/internal/sql/query`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              dbSchema,
+              query: `SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = '${dbSchema}' AND table_name = '${tableName}' ORDER BY ordinal_position`,
+            }),
           }),
-        });
-        const data = await res.json();
-        if (res.ok && data.data?.rows)
-          setColumns(data.data.rows as SqlColumn[]);
+          fetch(
+            `/api/internal/sql/relationships?projectId=${projectId}&db_schema=${encodeURIComponent(dbSchema)}`,
+            {
+              method: "GET",
+              headers: { "Content-Type": "application/json" },
+            },
+          ).catch(() => null),
+        ]);
+        const colData = await colRes.json();
+        if (colRes.ok && colData.data?.rows)
+          setColumns(colData.data.rows as SqlColumn[]);
+
+        if (fkRes && fkRes.ok) {
+          const fkData = await fkRes.json();
+          const allFks = fkData.data?.relationships ?? [];
+          setForeignKeys(
+            allFks.filter((fk: any) => fk.from_table === tableName),
+          );
+        }
       } catch {
         setColumns([]);
+        setForeignKeys([]);
       }
     },
     [projectId, dbSchema],
@@ -930,7 +1178,6 @@ export function DatabaseClient({
     return [...id, ...userCols, ...timestamps];
   })();
 
-
   return (
     <TooltipProvider>
       <div className="flex flex-col h-screen bg-background text-foreground">
@@ -938,7 +1185,7 @@ export function DatabaseClient({
         <header className="flex items-center justify-between px-4 sm:px-6 h-14 border-b shrink-0 gap-3">
           <div className="flex items-center gap-3">
             <Tooltip>
-              <TooltipTrigger>
+              <TooltipTrigger render={<span />}>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -987,7 +1234,7 @@ export function DatabaseClient({
               <>
                 {/* Columns manager */}
                 <DropdownMenu open={columnsOpen} onOpenChange={setColumnsOpen}>
-                  <DropdownMenuTrigger aschild>
+                  <DropdownMenuTrigger render={<span />}>
                     <Button
                       size="sm"
                       variant="outline"
@@ -1064,7 +1311,7 @@ export function DatabaseClient({
             )}
 
             <Tooltip>
-              <TooltipTrigger>
+              <TooltipTrigger render={<span />}>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -1079,7 +1326,7 @@ export function DatabaseClient({
             </Tooltip>
 
             <Tooltip>
-              <TooltipTrigger>
+              <TooltipTrigger render={<span />}>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -1136,7 +1383,7 @@ export function DatabaseClient({
                   {filteredTables.length}
                 </Badge>
                 <Tooltip>
-                  <TooltipTrigger>
+                  <TooltipTrigger render={<span />}>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -1201,7 +1448,7 @@ export function DatabaseClient({
                         </span>
                       </button>
                       <DropdownMenu>
-                        <DropdownMenuTrigger>
+                        <DropdownMenuTrigger render={<span />}>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -1274,7 +1521,7 @@ export function DatabaseClient({
                       </span>
                     </div>
                     <Tooltip>
-                      <TooltipTrigger>
+                      <TooltipTrigger render={<span />}>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1374,7 +1621,7 @@ export function DatabaseClient({
                       result.total > 0 &&
                       selectedRows.size === 0 && (
                         <Tooltip>
-                          <TooltipTrigger>
+                          <TooltipTrigger render={<span />}>
                             <Button
                               size="sm"
                               variant="ghost"
@@ -1531,7 +1778,7 @@ export function DatabaseClient({
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     <DropdownMenu>
-                                      <DropdownMenuTrigger>
+                                      <DropdownMenuTrigger render={<span />}>
                                         <Button
                                           variant="ghost"
                                           size="icon"
@@ -1617,6 +1864,7 @@ export function DatabaseClient({
           projectId={projectId}
           dbSchema={dbSchema}
           onCreated={handleTableCreated}
+          existingTables={tables.map((t) => t.name)}
         />
 
         {addColumnOpen && activeTable && (
@@ -1627,6 +1875,7 @@ export function DatabaseClient({
             dbSchema={dbSchema}
             table={activeTable}
             onAdded={(col) => setColumns((prev) => [...prev, col])}
+            existingTables={tables.map((t) => t.name)}
           />
         )}
 
@@ -1640,6 +1889,7 @@ export function DatabaseClient({
             table={activeTable}
             columns={columns}
             onSaved={(row) => handleRowSaved(row, true)}
+            foreignKeys={foreignKeys}
           />
         )}
 
@@ -1652,6 +1902,7 @@ export function DatabaseClient({
             dbSchema={dbSchema}
             table={activeTable}
             columns={columns}
+            foreignKeys={foreignKeys}
             existingRow={editRow}
             onSaved={(row) => handleRowSaved(row, false)}
           />
