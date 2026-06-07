@@ -58,7 +58,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -70,7 +69,6 @@ export interface SidebarProps {
   projectName?: string;
   orgPlan?: "free" | "starter" | "pro";
   className?: string;
-  /** Controlled open state for mobile sheet — provided by layout */
   mobileOpen?: boolean;
   onMobileOpenChange?: (open: boolean) => void;
 }
@@ -80,9 +78,10 @@ interface NavItem {
   href: string;
   icon: React.ElementType;
   badge?: string;
-  badgeVariant?: "new" | "beta";
+  badgeVariant?: "new" | "beta" | "soon";
   matchExact?: boolean;
   external?: boolean;
+  disabled?: boolean;
 }
 
 interface NavGroup {
@@ -137,8 +136,9 @@ function getDashboardGroups(userId: string, projectId?: string): NavGroup[] {
           label: "AI / Vectors",
           href: `${base}/ai`,
           icon: Sparkles,
-          badge: "new",
-          badgeVariant: "new",
+          badge: "soon",
+          badgeVariant: "soon",
+          disabled: true,
         },
         { label: "Edge Functions", href: `${base}/functions`, icon: Zap },
       ],
@@ -202,8 +202,8 @@ const PLAN_CONFIG = {
   free: {
     label: "Free",
     price: "$0/mo",
-    className: "text-muted-foreground",
-    accent: "bg-muted text-muted-foreground",
+    className: "text-[--text-muted]",
+    accent: "bg-[--surface] text-[--text-muted]",
   },
   starter: {
     label: "Starter",
@@ -214,9 +214,8 @@ const PLAN_CONFIG = {
   pro: {
     label: "Pro",
     price: "₦45,000/mo",
-    className: "text-violet-600 dark:text-violet-400",
-    accent:
-      "bg-violet-50 text-violet-600 dark:bg-violet-950/50 dark:text-violet-400",
+    className: "text-brand",
+    accent: "bg-[--sidebar-active] text-[--sidebar-active-text]",
   },
 } as const;
 
@@ -230,7 +229,7 @@ interface SidebarContentProps {
   orgPlan?: "free" | "starter" | "pro";
   collapsed?: boolean;
   onCollapse?: () => void;
-  onNavigate?: () => void; // called on mobile to close the sheet
+  onNavigate?: () => void;
 }
 
 function SidebarContent({
@@ -254,14 +253,14 @@ function SidebarContent({
   return (
     <div
       className={cn(
-        "flex h-full flex-col bg-sidebar select-none overflow-hidden",
+        "flex h-full flex-col bg-[--sidebar-bg] select-none overflow-hidden",
         !collapsed && "w-full",
       )}
     >
       {/* ── Logo / Header ── */}
       <div
         className={cn(
-          "flex h-14 shrink-0 items-center border-b border-border px-3 gap-2.5",
+          "flex h-14 shrink-0 items-center border-b border-[--border] px-3 gap-2.5",
           collapsed && "justify-center px-0",
         )}
       >
@@ -273,22 +272,20 @@ function SidebarContent({
           <div
             className={cn(
               "flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px]",
-              isAdmin
-                ? "bg-rose-600 dark:bg-rose-500"
-                : "bg-violet-600 dark:bg-violet-500",
+              isAdmin ? "bg-[--admin-brand]" : "bg-brand",
             )}
           >
             <Database className="h-3.5 w-3.5 text-white" />
           </div>
           {!collapsed && (
-            <span className="truncate text-[13.5px] font-semibold tracking-tight text-foreground">
+            <span className="truncate text-[13.5px] font-semibold tracking-tight text-[--text-primary]">
               {isAdmin ? "Superadmin" : "YourBaaS"}
             </span>
           )}
         </Link>
 
         {!collapsed && isAdmin && (
-          <span className="ml-auto rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-600 dark:bg-rose-950/60 dark:text-rose-400">
+          <span className="ml-auto rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-600 dark:bg-red-950/60 dark:text-red-400">
             Admin
           </span>
         )}
@@ -300,9 +297,9 @@ function SidebarContent({
       >
         {collapsed ? (
           <Tooltip>
-            <TooltipTrigger render={<span />}>
+            <TooltipTrigger asChild>
               <button
-                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-md text-[--text-muted] hover:bg-[--surface-hover] hover:text-[--text-primary] transition-colors"
                 aria-label="Search"
               >
                 <Search className="h-4 w-4" />
@@ -311,10 +308,10 @@ function SidebarContent({
             <TooltipContent side="right">Search</TooltipContent>
           </Tooltip>
         ) : (
-          <button className="flex w-full items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <button className="flex w-full items-center gap-2 rounded-md border border-[--border] bg-[--background] px-2.5 py-1.5 text-[12.5px] text-[--text-muted] transition-colors hover:bg-[--surface] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
             <Search className="h-3.5 w-3.5 shrink-0" />
             <span>Search…</span>
-            <kbd className="ml-auto hidden sm:block rounded border border-border bg-muted px-1 py-0.5 text-[10px] leading-none text-muted-foreground">
+            <kbd className="ml-auto hidden sm:block rounded border border-[--border] bg-[--bg3] px-1 py-0.5 text-[10px] leading-none text-[--text-muted]">
               ⌘K
             </kbd>
           </button>
@@ -324,14 +321,14 @@ function SidebarContent({
       {/* ── Project switcher ── */}
       {!collapsed && !isAdmin && projectId && (
         <div className="mx-2 mb-1 shrink-0">
-          <button className="flex w-full items-center gap-2 rounded-md border border-border bg-background px-2.5 py-2 text-left transition-colors hover:bg-accent group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[4px] bg-violet-600 dark:bg-violet-500 text-[10px] font-bold text-white">
+          <button className="flex w-full items-center gap-2 rounded-md border border-[--border] bg-[--background] px-2.5 py-2 text-left transition-colors hover:bg-[--surface] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40">
+            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[4px] bg-brand text-[10px] font-bold text-white">
               {(projectName ?? "P")[0].toUpperCase()}
             </div>
-            <span className="flex-1 truncate text-[12.5px] font-medium text-foreground">
+            <span className="flex-1 truncate text-[12.5px] font-medium text-[--text-primary]">
               {projectName ?? projectId}
             </span>
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[--text-muted]" />
           </button>
         </div>
       )}
@@ -356,9 +353,9 @@ function SidebarContent({
       {/* ── Plan badge ── */}
       {!collapsed && !isAdmin && (
         <>
-          <Separator />
+          <Separator className="bg-[--border]" />
           <div className="px-3 py-3 shrink-0">
-            <div className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2.5 gap-2">
+            <div className="flex items-center justify-between rounded-lg border border-[--border] bg-[--background] px-3 py-2.5 gap-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span
@@ -369,12 +366,12 @@ function SidebarContent({
                   >
                     {plan.label}
                   </span>
-                  <span className="text-[11px] text-muted-foreground">
+                  <span className="text-[11px] text-[--text-muted]">
                     {plan.price}
                   </span>
                 </div>
                 {orgPlan === "free" && (
-                  <p className="text-[10.5px] text-muted-foreground mt-0.5">
+                  <p className="text-[10.5px] text-[--text-muted] mt-0.5">
                     Limited to 3 projects
                   </p>
                 )}
@@ -383,7 +380,7 @@ function SidebarContent({
                 <Link
                   href="/overview/billing"
                   onClick={onNavigate}
-                  className="flex shrink-0 items-center gap-0.5 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 transition-colors hover:bg-violet-100 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-400 dark:hover:bg-violet-950"
+                  className="flex shrink-0 items-center gap-0.5 rounded-full border border-brand/30 bg-[--sidebar-active] px-2.5 py-1 text-[11px] font-semibold text-[--sidebar-active-text] transition-colors hover:bg-brand hover:text-white hover:border-brand"
                 >
                   Upgrade
                   <ArrowUpRight className="h-3 w-3" />
@@ -395,7 +392,7 @@ function SidebarContent({
       )}
 
       {/* ── User row ── */}
-      <Separator />
+      <Separator className="bg-[--border]" />
       <UserRow
         user={user}
         initials={initials}
@@ -407,10 +404,10 @@ function SidebarContent({
       {/* ── Desktop collapse toggle ── */}
       {onCollapse && (
         <Tooltip>
-          <TooltipTrigger render={<span />}>
-            <div
+          <TooltipTrigger asChild>
+            <button
               onClick={onCollapse}
-              className="absolute -right-[13px] top-[54px] z-20 hidden md:flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-all hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute -right-[13px] top-[54px] z-20 hidden md:flex h-6 w-6 items-center justify-center rounded-full border border-[--border] bg-[--background] text-[--text-muted] shadow-sm transition-all hover:text-[--text-primary] hover:border-brand/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
               {collapsed ? (
@@ -418,7 +415,7 @@ function SidebarContent({
               ) : (
                 <ChevronLeft className="h-3 w-3" />
               )}
-            </div>
+            </button>
           </TooltipTrigger>
           <TooltipContent side="right">
             {collapsed ? "Expand" : "Collapse"}
@@ -464,15 +461,14 @@ export function Sidebar({
         <SheetContent
           side="left"
           showCloseButton={false}
-          className="w-[260px] p-0 border-r"
+          className="w-[260px] p-0 border-r border-[--border] bg-[--sidebar-bg]"
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation</SheetTitle>
           </SheetHeader>
-          {/* Close button inside the sheet */}
           <button
             onClick={() => onMobileOpenChange?.(false)}
-            className="absolute right-3 top-3.5 z-10 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            className="absolute right-3 top-3.5 z-10 flex h-7 w-7 items-center justify-center rounded-md text-[--text-muted] hover:bg-[--surface] hover:text-[--text-primary] transition-colors"
             aria-label="Close sidebar"
           >
             <X className="h-4 w-4" />
@@ -488,7 +484,7 @@ export function Sidebar({
       {/* ── Desktop: fixed sidebar ── */}
       <aside
         className={cn(
-          "relative hidden md:flex h-full flex-col bg-sidebar border-r border-border transition-[width] duration-200 ease-in-out overflow-hidden",
+          "relative hidden md:flex h-full flex-col bg-[--sidebar-bg] border-r border-[--border] transition-[width] duration-200 ease-in-out overflow-hidden",
           collapsed ? "w-[60px]" : "w-[240px]",
           className,
         )}
@@ -527,13 +523,13 @@ function NavGroupSection({
       className={cn("flex flex-col gap-0.5", !isFirst && hasLabel && "mt-2")}
     >
       {hasLabel && !collapsed && (
-        <p className="px-2 pb-0.5 pt-1 text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+        <p className="px-2 pb-0.5 pt-1 text-[10.5px] font-semibold uppercase tracking-widest text-[--text-muted]">
           {group.label}
         </p>
       )}
       {hasLabel && collapsed && !isFirst && (
         <div className="flex justify-center py-1">
-          <div className="h-px w-5 bg-border" />
+          <div className="h-px w-5 bg-[--border]" />
         </div>
       )}
       {group.items.map((item) => (
@@ -565,21 +561,25 @@ function SidebarNavItem({
   isAdmin: boolean;
   onNavigate?: () => void;
 }) {
-  const isActive = item.matchExact
-    ? pathname === item.href
-    : pathname.startsWith(item.href) &&
-      item.href !== "/overview" &&
-      item.href !== "/superadmin";
+  const isActive = !item.disabled && (
+    item.matchExact
+      ? pathname === item.href
+      : pathname.startsWith(item.href) &&
+        item.href !== "/overview" &&
+        item.href !== "/superadmin"
+  );
 
   const Icon = item.icon;
 
   const linkClass = cn(
-    "group relative flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    "group relative flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2",
     isActive
       ? isAdmin
-        ? "bg-rose-50 text-rose-700 font-medium dark:bg-rose-950/40 dark:text-rose-400"
-        : "bg-violet-50 text-violet-700 font-medium dark:bg-violet-950/40 dark:text-violet-400"
-      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+        ? "bg-[--admin-sidebar-active] text-[--admin-sidebar-active-text] font-medium focus-visible:ring-[--admin-brand]/40"
+        : "bg-[--sidebar-active] text-[--sidebar-active-text] font-medium focus-visible:ring-brand/40"
+      : item.disabled
+        ? "text-[--text-muted] cursor-not-allowed opacity-60 focus-visible:ring-transparent"
+        : "text-[--sidebar-text] hover:bg-[--surface-hover] hover:text-[--text-primary] focus-visible:ring-brand/40",
     collapsed && "justify-center px-0 w-8 mx-auto",
   );
 
@@ -587,9 +587,11 @@ function SidebarNavItem({
     "h-4 w-4 shrink-0 transition-colors",
     isActive
       ? isAdmin
-        ? "text-rose-600 dark:text-rose-400"
-        : "text-violet-600 dark:text-violet-400"
-      : "text-muted-foreground group-hover:text-foreground",
+        ? "text-[--admin-brand]"
+        : "text-brand"
+      : item.disabled
+        ? "text-[--text-muted]"
+        : "text-[--sidebar-icon] group-hover:text-[--text-primary]",
   );
 
   const inner = (
@@ -602,9 +604,11 @@ function SidebarNavItem({
             <span
               className={cn(
                 "rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wider leading-none",
-                item.badgeVariant === "new"
-                  ? "bg-sky-100 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400"
-                  : "bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400",
+                item.badgeVariant === "soon"
+                  ? "bg-[--surface] text-[--text-muted] border border-[--border2]"
+                  : item.badgeVariant === "new"
+                    ? "bg-[--info-bg] text-[--info-text]"
+                    : "bg-[--warn-bg] text-[--warn-text]",
               )}
             >
               {item.badge}
@@ -612,7 +616,7 @@ function SidebarNavItem({
           )}
           {item.external && (
             <ExternalLink
-              className="h-3 w-3 text-muted-foreground/50"
+              className="h-3 w-3 text-[--text-muted]"
               aria-hidden="true"
             />
           )}
@@ -621,17 +625,58 @@ function SidebarNavItem({
     </>
   );
 
-  const linkEl = item.external ? (
-    <a
-      href={item.href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={linkClass}
-      onClick={onNavigate}
-    >
-      {inner}
-    </a>
-  ) : (
+  // Disabled items render as a non-interactive div
+  if (item.disabled) {
+    const el = (
+      <div className={linkClass} aria-disabled="true" role="presentation">
+        {inner}
+      </div>
+    );
+
+    if (collapsed) {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>{el}</span>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="flex items-center gap-1.5">
+            {item.label}
+            <span className="rounded-full bg-[--surface] border border-[--border2] px-1.5 py-0.5 text-[9px] font-bold uppercase text-[--text-muted]">
+              soon
+            </span>
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+    return el;
+  }
+
+  // External link
+  if (item.external) {
+    const el = (
+      <a
+        href={item.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={linkClass}
+        onClick={onNavigate}
+      >
+        {inner}
+      </a>
+    );
+    if (collapsed) {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild><span>{el}</span></TooltipTrigger>
+          <TooltipContent side="right">{item.label}</TooltipContent>
+        </Tooltip>
+      );
+    }
+    return el;
+  }
+
+  // Normal link
+  const el = (
     <Link href={item.href} className={linkClass} onClick={onNavigate}>
       {inner}
     </Link>
@@ -640,11 +685,16 @@ function SidebarNavItem({
   if (collapsed) {
     return (
       <Tooltip>
-        <TooltipTrigger render={<span />}>{linkEl}</TooltipTrigger>
+        <TooltipTrigger asChild><span>{el}</span></TooltipTrigger>
         <TooltipContent side="right" className="flex items-center gap-1.5">
           {item.label}
           {item.badge && (
-            <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-sky-600 dark:bg-sky-950 dark:text-sky-400">
+            <span className={cn(
+              "rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase",
+              item.badgeVariant === "soon"
+                ? "bg-[--surface] border border-[--border2] text-[--text-muted]"
+                : "bg-[--info-bg] text-[--info-text]"
+            )}>
               {item.badge}
             </span>
           )}
@@ -653,7 +703,7 @@ function SidebarNavItem({
     );
   }
 
-  return linkEl;
+  return el;
 }
 
 // ─── UserRow ──────────────────────────────────────────────────────────────────
@@ -676,8 +726,8 @@ function UserRow({
       className={cn(
         "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
         isAdmin
-          ? "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400"
-          : "bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-400",
+          ? "bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400"
+          : "bg-[--sidebar-active] text-[--sidebar-active-text]",
       )}
     >
       {initials}
@@ -687,9 +737,9 @@ function UserRow({
   if (collapsed) {
     return (
       <Tooltip>
-        <TooltipTrigger render={<span />}>
+        <TooltipTrigger asChild>
           <button
-            className="flex h-12 w-full items-center justify-center transition-colors hover:bg-accent"
+            className="flex h-12 w-full items-center justify-center transition-colors hover:bg-[--surface]"
             aria-label="User menu"
           >
             {avatarEl}
@@ -697,7 +747,7 @@ function UserRow({
         </TooltipTrigger>
         <TooltipContent side="right">
           <p className="font-medium">{user.name ?? "User"}</p>
-          <p className="text-[11px] text-muted-foreground">{user.email}</p>
+          <p className="text-[11px] text-[--text-muted]">{user.email}</p>
         </TooltipContent>
       </Tooltip>
     );
@@ -705,19 +755,17 @@ function UserRow({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex h-12 w-full items-center gap-2.5 px-3 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-        <div >
-          {avatarEl}
-          <div className="flex-1 min-w-0 text-left">
-            <p className="truncate text-[12.5px] font-medium text-foreground leading-tight">
-              {user.name ?? "User"}
-            </p>
-            <p className="truncate text-[11px] text-muted-foreground leading-tight">
-              {user.email}
-            </p>
-          </div>
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      <DropdownMenuTrigger className="flex h-12 w-full items-center gap-2.5 px-3 transition-colors hover:bg-[--surface] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-inset">
+        {avatarEl}
+        <div className="flex-1 min-w-0 text-left">
+          <p className="truncate text-[12.5px] font-medium text-[--text-primary] leading-tight">
+            {user.name ?? "User"}
+          </p>
+          <p className="truncate text-[11px] text-[--text-muted] leading-tight">
+            {user.email}
+          </p>
         </div>
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[--text-muted]" />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
@@ -727,18 +775,18 @@ function UserRow({
         className="w-52"
       >
         <div className="px-2 py-1.5">
-          <p className="text-[12.5px] font-medium text-foreground">
+          <p className="text-[12.5px] font-medium text-[--text-primary]">
             {user.name ?? "User"}
           </p>
-          <p className="text-[11px] text-muted-foreground truncate">
+          <p className="text-[11px] text-[--text-muted] truncate">
             {user.email}
           </p>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem asChild>
           <Link
             href="/overview/settings/profile"
-            className="text-[13px] gap-2"
+            className="flex items-center gap-2 text-[13px] cursor-pointer"
             onClick={onNavigate}
           >
             <Settings className="h-3.5 w-3.5" />
@@ -746,10 +794,10 @@ function UserRow({
           </Link>
         </DropdownMenuItem>
         {!isAdmin && (
-          <DropdownMenuItem>
+          <DropdownMenuItem asChild>
             <Link
               href="/overview/billing"
-              className="text-[13px] gap-2"
+              className="flex items-center gap-2 text-[13px] cursor-pointer"
               onClick={onNavigate}
             >
               <CreditCard className="h-3.5 w-3.5" />
@@ -758,7 +806,7 @@ function UserRow({
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem asChild>
           <form action={signOutAction} className="w-full">
             <button
               type="submit"

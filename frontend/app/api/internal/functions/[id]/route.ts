@@ -1,4 +1,4 @@
-// frontend/app/api/internal/functions/[functionId]/route.ts
+// frontend/app/api/internal/functions/[id]/route.ts
 import { auth } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -20,14 +20,14 @@ async function proxyToFastAPI(path: string, init: RequestInit) {
 }
 
 interface Params {
-  params: Promise<{ functionId: string }>;
+  params: Promise<{ id: string }>;
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { functionId } = await params;
+  const { id: functionId } = await params;
   const body = await req.json();
   const projectId = body.projectId;
   if (!projectId) return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
@@ -42,7 +42,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { functionId } = await params;
+  const { id: functionId } = await params;
   const projectId = req.nextUrl.searchParams.get("projectId");
   if (!projectId) return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
 

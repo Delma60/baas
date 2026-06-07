@@ -86,7 +86,7 @@ export function TopNav({
 
       {/* New project CTA */}
       <button
-        onClick={() => router.push("/dashboard/projects/new")}
+        onClick={() => router.push(`/u/${_user?.id}/projects/new`)}
         className="flex h-8 items-center gap-1.5 rounded-[8px] bg-brand px-3 text-xs font-semibold text-white transition-colors hover:bg-brand-hover"
       >
         <Plus className="h-3.5 w-3.5" />
