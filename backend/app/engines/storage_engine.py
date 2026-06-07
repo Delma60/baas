@@ -1,5 +1,5 @@
+# backend/app/engines/storage_engine.py
 import logging
-from datetime import datetime
 from typing import Any
 import asyncio
 from botocore.exceptions import ClientError
@@ -52,8 +52,7 @@ async def get_download_url(project_id: str, bucket: str, path: str) -> str:
 
 def _verify_bucket_ownership(project_id: str, bucket: str) -> str:
     """Construct and verify the full bucket name belongs to the project."""
-    full_name = get_bucket_name(project_id, bucket)
-    return full_name
+    return get_bucket_name(project_id, bucket)
 
 
 async def get_presigned_upload_url(
@@ -66,7 +65,6 @@ async def get_presigned_upload_url(
     full_bucket = _verify_bucket_ownership(project_id, bucket)
     s3 = get_s3_client()
 
-    # Ensure bucket exists
     try:
         s3.head_bucket(Bucket=full_bucket)
     except ClientError as e:
@@ -76,7 +74,6 @@ async def get_presigned_upload_url(
         else:
             raise
 
-    # Generate a unique key
     import uuid
     key = f"{uuid.uuid4().hex}/{filename}"
 
@@ -90,7 +87,6 @@ async def get_presigned_upload_url(
         ExpiresIn=expires_in,
     )
 
-    # Replace internal endpoint with public endpoint in the URL
     if settings.minio_endpoint in upload_url:
         public_endpoint = settings.minio_public_endpoint.rstrip("/")
         internal = f"http://{settings.minio_endpoint}"
@@ -105,30 +101,41 @@ async def get_presigned_upload_url(
         "expires_in": str(expires_in),
     }
 
-async def list_files(project_id: str, bucket: str, prefix: str = "") -> list[dict[str, Any]]:
+
+async def list_files(
+    project_id: str,
+    bucket: str,
+    prefix: str = "",
+    limit: int = 200,
+) -> list[dict[str, Any]]:
     """List all files in a project's bucket, optionally filtered by prefix."""
     safe_bucket = get_bucket_name(project_id, bucket)
     s3 = get_s3_client()
 
     def _list() -> list[dict[str, Any]]:
         try:
-            response = s3.list_objects_v2(Bucket=safe_bucket, Prefix=prefix)
+            kwargs: dict[str, Any] = {"Bucket": safe_bucket, "MaxKeys": min(limit, 1000)}
+            if prefix:
+                kwargs["Prefix"] = prefix
+
+            response = s3.list_objects_v2(**kwargs)
             if "Contents" not in response:
                 return []
-            
+
             return [
                 {
                     "key": item["Key"],
                     "size": item["Size"],
                     "last_modified": item["LastModified"].isoformat(),
                     "etag": item["ETag"].strip('"'),
+                    "content_type": item.get("ContentType", ""),
                 }
                 for item in response["Contents"]
             ]
         except ClientError as e:
-            error_code = int(e.response["Error"]["Code"])
-            if error_code == 404:
-                return []  # Bucket doesn't exist yet
+            error_code = e.response["Error"]["Code"]
+            if error_code in ("404", "NoSuchBucket"):
+                return []
             raise
 
     return await asyncio.to_thread(_list)
@@ -149,6 +156,7 @@ async def delete_file(project_id: str, bucket: str, path: str) -> bool:
 
     return await asyncio.to_thread(_delete)
 
+
 async def get_presigned_download_url(
     project_id: str,
     bucket: str,
@@ -164,10 +172,20 @@ async def get_presigned_download_url(
         ExpiresIn=expires_in,
     )
 
-    # Replace internal endpoint with public
     if settings.minio_endpoint in url:
         public_endpoint = settings.minio_public_endpoint.rstrip("/")
         internal = f"http://{settings.minio_endpoint}"
         url = url.replace(internal, public_endpoint)
 
     return url
+
+
+async def get_bucket_stats(project_id: str, bucket: str) -> dict[str, Any]:
+    """Return aggregate stats (total files, total size) for a bucket."""
+    files = await list_files(project_id, bucket, limit=1000)
+    total_size = sum(f["size"] for f in files)
+    return {
+        "file_count": len(files),
+        "total_size": total_size,
+        "bucket": bucket,
+    }

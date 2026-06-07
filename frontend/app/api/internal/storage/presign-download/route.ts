@@ -1,4 +1,4 @@
-// frontend/app/api/internal/storage/presign/route.ts
+// frontend/app/api/internal/storage/presign-download/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 
@@ -11,46 +11,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { projectId, bucket, filename, contentType, expiresIn = 3600 } = await req.json();
+  const { projectId, bucket, key, expiresIn = 3600 } = await req.json();
 
-  if (!projectId || !bucket || !filename) {
+  if (!projectId || !bucket || !key) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
   try {
+    const params = new URLSearchParams({ file_key: key, expires_in: String(expiresIn) });
     const res = await fetch(
-      `${FASTAPI_BASE_URL}/internal/storage/${projectId}/${bucket}/presign-upload`,
+      `${FASTAPI_BASE_URL}/internal/storage/${projectId}/${bucket}/presign-download?${params}`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-internal-secret": INTERNAL_SECRET,
-        },
-        body: JSON.stringify({
-          filename,
-          content_type: contentType || "application/octet-stream",
-          expires_in: expiresIn,
-        }),
+        headers: { "x-internal-secret": INTERNAL_SECRET },
       }
     );
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       return NextResponse.json(
-        { error: body?.detail ?? "Failed to get upload URL" },
+        { error: body?.detail ?? "Failed to generate download URL" },
         { status: res.status }
       );
     }
 
     const data = await res.json();
-    const result = data.data ?? data;
-    return NextResponse.json({
-      uploadUrl: result.upload_url,
-      fileUrl: result.file_url,
-      key: result.key,
-    });
+    return NextResponse.json({ url: data.data?.url ?? data.url });
   } catch (err) {
-    console.error("[storage presign upload]", err);
+    console.error("[storage presign download]", err);
     return NextResponse.json({ error: "Storage service unavailable" }, { status: 503 });
   }
 }

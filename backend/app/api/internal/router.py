@@ -13,6 +13,7 @@ from .nosql_browse import router as nosql_browser
 from .sql_browse import router as sql_browser
 from .auth_browse import router as auth_browser
 from .realtime_browse import router as realtime_browser
+from .storage_browse import router as storage_browser
 from .auth_settings import router as auth_settings_router
 from .realtime_data import router as realtime_data_router
 
@@ -44,6 +45,7 @@ router.include_router(auth_browser)
 router.include_router(realtime_browser)
 router.include_router(auth_settings_router)
 router.include_router(realtime_data_router)
+router.include_router(storage_browser)
 
 # ─── Auth guard ───────────────────────────────────────────────────────────────
 
