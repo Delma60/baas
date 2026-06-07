@@ -14,16 +14,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: `Storage · ${projectId}` };
 }
 
-const FASTAPI_BASE_URL = process.env.FASTAPI_BASE_URL ?? "http://localhost:8000";
+const FASTAPI_BASE_URL =
+  process.env.FASTAPI_BASE_URL ?? "http://localhost:8000";
 const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET ?? "";
 
 async function fetchBuckets(
-  projectId: string
+  projectId: string,
 ): Promise<Array<{ name: string; file_count: number; total_size: number }>> {
   try {
     const res = await fetch(
       `${FASTAPI_BASE_URL}/internal/storage/${projectId}/buckets?include_stats=true`,
-      { cache: "no-store", headers: { "x-internal-secret": INTERNAL_SECRET } }
+      { cache: "no-store", headers: { "x-internal-secret": INTERNAL_SECRET } },
     );
     if (!res.ok) return [];
     const json = await res.json();
@@ -36,9 +37,14 @@ async function fetchBuckets(
 async function fetchFiles(
   projectId: string,
   bucket: string,
-  prefix?: string
+  prefix?: string,
 ): Promise<{
-  files: Array<{ key: string; size: number; last_modified: string; etag: string }>;
+  files: Array<{
+    key: string;
+    size: number;
+    last_modified: string;
+    etag: string;
+  }>;
   error?: string;
 }> {
   try {
@@ -47,7 +53,7 @@ async function fetchFiles(
 
     const res = await fetch(
       `${FASTAPI_BASE_URL}/internal/storage/${projectId}/${bucket}/files?${params}`,
-      { cache: "no-store", headers: { "x-internal-secret": INTERNAL_SECRET } }
+      { cache: "no-store", headers: { "x-internal-secret": INTERNAL_SECRET } },
     );
 
     if (!res.ok) {
@@ -73,20 +79,20 @@ export default async function StoragePage({ params, searchParams }: Props) {
       : Promise.resolve({ files: [] }),
   ]);
 
-  const currentBucket = activeBucket ?? (buckets[0]?.name ?? "uploads");
+  const currentBucket = activeBucket ?? buckets[0]?.name ?? "uploads";
   const currentFiles = activeBucket ? filesResult.files : [];
   const fetchError = activeBucket ? filesResult.error : undefined;
 
   return (
     <div className="flex flex-col h-full">
       {/* Page header */}
-      <div className="flex items-center gap-3 border-b border-[--border] bg-[--background] px-4 sm:px-6 py-4 sm:py-5 shrink-0">
+      <div className="flex items-center gap-3 border-b border-border bg-background px-4 sm:px-6 py-4 sm:py-5 shrink-0">
         <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-amber-500/10">
           <HardDrive className="h-4 w-4 text-amber-500" />
         </div>
         <div className="min-w-0">
-          <h1 className="text-base font-medium text-[--text-primary]">Storage</h1>
-          <p className="text-sm text-[--text-secondary] mt-0.5 hidden sm:block">
+          <h1 className="text-base font-medium text-text-primary">Storage</h1>
+          <p className="text-sm text-text-secondary mt-0.5 hidden sm:block">
             Upload, organize, and serve files with secure access links
           </p>
         </div>
@@ -94,9 +100,9 @@ export default async function StoragePage({ params, searchParams }: Props) {
 
       {fetchError && (
         <div className="mx-4 sm:mx-6 mt-4 shrink-0">
-          <Alert className="border-yellow-200/50 bg-[--warn-bg]">
-            <AlertTriangle className="h-4 w-4 text-[--warn-text]" />
-            <AlertDescription className="text-[12.5px] text-[--warn-text]">
+          <Alert className="border-yellow-200/50 bg-warn-bg">
+            <AlertTriangle className="h-4 w-4 text-warn-text" />
+            <AlertDescription className="text-[12.5px] text-warn-text">
               {fetchError === "Cannot reach storage service"
                 ? "Storage service is temporarily unavailable."
                 : `Could not load files: ${fetchError}`}

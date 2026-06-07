@@ -280,7 +280,7 @@ fontFamily: {
 ```
 Dashboard shell:    sidebar 256px wide (collapsed: 64px icon-only)
 Content area:       max-w-5xl centered, px-6 py-8
-Cards:              rounded-xl, border border-[--border], bg-[--surface], p-5
+Cards:              rounded-xl, border border-border, bg-surface, p-5
 Table rows:         h-12 (48px), px-4
 Buttons:            h-9 (36px) default, h-8 (32px) small, h-11 (44px) large
 Input fields:       h-9, rounded-lg, border
@@ -297,10 +297,10 @@ Sidebar items:      h-10, rounded-lg, px-3, gap-3 icon + label
 <Link href={href} className={cn(
   'flex items-center gap-3 h-10 px-3 rounded-lg text-sm font-medium transition-colors',
   isActive
-    ? 'bg-[--sidebar-active] text-[--sidebar-active-text]'
-    : 'text-[--sidebar-text] hover:bg-[--surface-hover]'
+    ? 'bg-sidebar-active text-sidebar-active-text'
+    : 'text-sidebar-text hover:bg-surface-hover'
 )}>
-  <Icon className={cn('h-4 w-4', isActive ? 'text-brand' : 'text-[--sidebar-icon]')} />
+  <Icon className={cn('h-4 w-4', isActive ? 'text-brand' : 'text-sidebar-icon')} />
   {label}
 </Link>
 ```
@@ -312,9 +312,9 @@ Sidebar items:      h-10, rounded-lg, px-3, gap-3 icon + label
   'flex items-center gap-3 h-10 px-3 rounded-lg text-sm font-medium transition-colors',
   isActive
     ? 'bg-[--admin-sidebar-active] text-[--admin-sidebar-active-text]'
-    : 'text-[--sidebar-text] hover:bg-[--surface-hover]'
+    : 'text-sidebar-text hover:bg-surface-hover'
 )}>
-  <Icon className={cn('h-4 w-4', isActive ? 'text-[--admin-brand]' : 'text-[--sidebar-icon]')} />
+  <Icon className={cn('h-4 w-4', isActive ? 'text-[--admin-brand]' : 'text-sidebar-icon')} />
   {label}
 </Link>
 ```
@@ -347,10 +347,10 @@ const dbModeVariants = {
 #### Metric / Stat Card
 
 ```tsx
-<div className="rounded-xl border border-[--border] bg-[--surface] p-5">
-  <p className="text-sm text-[--text-secondary] font-medium">{label}</p>
-  <p className="text-2xl font-bold text-[--text-primary] mt-1">{value}</p>
-  <p className="text-xs text-[--text-muted] mt-1">{subtext}</p>
+<div className="rounded-xl border border-border bg-surface p-5">
+  <p className="text-sm text-text-secondary font-medium">{label}</p>
+  <p className="text-2xl font-bold text-text-primary mt-1">{value}</p>
+  <p className="text-xs text-text-muted mt-1">{subtext}</p>
 </div>
 ```
 

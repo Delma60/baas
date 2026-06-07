@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import { User } from "next-auth";
 import React, { useState } from "react";
 import { Sidebar } from "./Sidebar";
@@ -16,23 +16,16 @@ export const LayoutShell = ({
   currentProject?: Project;
   projects?: Project[];
 }) => {
-  const [onOpen, setOnOpen] = useState(false);
   return (
-    <div className="flex h-screen overflow-hidden bg-[--bg3]">
+    <div className="flex h-screen overflow-hidden bg-bg3">
       <Sidebar
-        variant="dashboard"
-        user={user}
-        projectId={currentProject?.id}
-        projectName={currentProject?.name}
-        mobileOpen={onOpen}
-        onMobileOpenChange={setOnOpen}
+        userId={user?.id as string}
+        projectId={currentProject?.id as string}
+        currentProject={currentProject as Project}
+        projects={projects as Project[]}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <TopNav
-          user={user}
-          mobileOpen={onOpen}
-          onMobileOpenChange={setOnOpen}
-        />
+        <TopNav user={user} projectName={currentProject?.name} />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>

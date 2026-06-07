@@ -154,12 +154,12 @@ function DocumentCard({
         "group relative rounded-xl border cursor-pointer transition-all duration-150 hover:-translate-y-px",
         isSelected
           ? "border-brand/50 bg-brand/5 shadow-sm shadow-brand/10"
-          : "border-[--border] bg-[--background] hover:border-[--border2] hover:shadow-sm",
+          : "border-border bg-background hover:border-border2 hover:shadow-sm",
       )}
     >
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
-          <code className="text-[11px] font-mono text-[--text-muted] bg-[--surface] border border-[--border] px-2 py-0.5 rounded-md truncate max-w-[200px]">
+          <code className="text-[11px] font-mono text-text-muted bg-surface border border-border px-2 py-0.5 rounded-md truncate max-w-[200px]">
             {String(doc.id ?? "").slice(0, 24)}
           </code>
           <DropdownMenu>
@@ -205,7 +205,7 @@ function DocumentCard({
                 <TypeIcon
                   className={cn("h-3 w-3 shrink-0", TYPE_COLORS[type])}
                 />
-                <span className="text-[--text-secondary] font-medium shrink-0">
+                <span className="text-text-secondary font-medium shrink-0">
                   {k}:
                 </span>
                 <span className={cn("truncate font-mono", TYPE_COLORS[type])}>
@@ -215,7 +215,7 @@ function DocumentCard({
             );
           })}
           {fields.length > 3 && (
-            <p className="text-[11px] text-[--text-muted] pl-5">
+            <p className="text-[11px] text-text-muted pl-5">
               +{fields.length - 3} more fields
             </p>
           )}
@@ -248,7 +248,7 @@ function JsonViewer({ data, depth = 0 }: { data: unknown; depth?: number }) {
     <div>
       <button
         onClick={() => setExpanded((o) => !o)}
-        className="flex items-center gap-1 text-[12px] text-[--text-muted] hover:text-[--text-primary] transition-colors"
+        className="flex items-center gap-1 text-[12px] text-text-muted hover:text-text-primary transition-colors"
       >
         {expanded ? (
           <ChevronDown className="h-3 w-3" />
@@ -262,12 +262,12 @@ function JsonViewer({ data, depth = 0 }: { data: unknown; depth?: number }) {
         </span>
       </button>
       {expanded && (
-        <div className="ml-4 border-l border-[--border] pl-3 mt-1 space-y-0.5">
+        <div className="ml-4 border-l border-border pl-3 mt-1 space-y-0.5">
           {entries.map(([k, v]) => (
             <div key={k} className="flex items-start gap-2 py-0.5">
-              <span className="text-[12px] font-medium text-[--text-secondary] shrink-0 pt-px">
+              <span className="text-[12px] font-medium text-text-secondary shrink-0 pt-px">
                 {Array.isArray(data) ? (
-                  <span className="text-[--text-muted]">{k}</span>
+                  <span className="text-text-muted">{k}</span>
                 ) : (
                   k
                 )}
@@ -300,14 +300,14 @@ function DocumentDetailPanel({
   };
 
   return (
-    <div className="flex flex-col h-full bg-[--background] border-l border-[--border]">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[--border] bg-[--surface] shrink-0">
+    <div className="flex flex-col h-full bg-background border-l border-border">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface shrink-0">
         <div className="flex items-center gap-2">
           <FileJson className="h-4 w-4 text-brand" />
-          <span className="text-[13px] font-medium text-[--text-primary]">
+          <span className="text-[13px] font-medium text-text-primary">
             Document
           </span>
-          <code className="text-[11px] font-mono text-[--text-muted] bg-[--background] border border-[--border] px-1.5 py-0.5 rounded-md">
+          <code className="text-[11px] font-mono text-text-muted bg-background border border-border px-1.5 py-0.5 rounded-md">
             {String(doc.id ?? "").slice(0, 16)}…
           </code>
         </div>
@@ -348,7 +348,7 @@ function DocumentDetailPanel({
             return (
               <div
                 key={k}
-                className="rounded-lg hover:bg-[--surface] transition-colors px-2 py-1.5"
+                className="rounded-lg hover:bg-surface transition-colors px-2 py-1.5"
               >
                 <div className="flex items-start gap-2">
                   <TypeIcon
@@ -357,7 +357,7 @@ function DocumentDetailPanel({
                       TYPE_COLORS[type],
                     )}
                   />
-                  <span className="text-[12px] font-semibold text-[--text-primary] shrink-0">
+                  <span className="text-[12px] font-semibold text-text-primary shrink-0">
                     {k}
                   </span>
                   <div className="flex-1 min-w-0">
@@ -392,8 +392,8 @@ function KVRow({ entry, onDelete }: { entry: KVEntry; onDelete: () => void }) {
   return (
     <div
       className={cn(
-        "border-b border-[--border]/60 last:border-0 transition-colors",
-        expanded ? "bg-[--surface]/50" : "hover:bg-[--surface]/30",
+        "border-b border-border/60 last:border-0 transition-colors",
+        expanded ? "bg-surface/50" : "hover:bg-surface/30",
       )}
     >
       <div
@@ -402,15 +402,15 @@ function KVRow({ entry, onDelete }: { entry: KVEntry; onDelete: () => void }) {
       >
         {isExpandable ? (
           expanded ? (
-            <ChevronDown className="h-3.5 w-3.5 text-[--text-muted] shrink-0" />
+            <ChevronDown className="h-3.5 w-3.5 text-text-muted shrink-0" />
           ) : (
-            <ChevronRight className="h-3.5 w-3.5 text-[--text-muted] shrink-0" />
+            <ChevronRight className="h-3.5 w-3.5 text-text-muted shrink-0" />
           )
         ) : (
           <TypeIcon className={cn("h-3.5 w-3.5 shrink-0", TYPE_COLORS[type])} />
         )}
 
-        <code className="text-[12.5px] font-mono text-[--text-primary] flex-1 truncate">
+        <code className="text-[12.5px] font-mono text-text-primary flex-1 truncate">
           {entry.key}
         </code>
 
@@ -426,7 +426,7 @@ function KVRow({ entry, onDelete }: { entry: KVEntry; onDelete: () => void }) {
         )}
 
         {entry.expires_at && (
-          <span className="flex items-center gap-1 text-[11px] text-[--warn-text] bg-[--warn-bg] rounded-full px-2 py-0.5 shrink-0">
+          <span className="flex items-center gap-1 text-[11px] text-warn-text bg-warn-bg rounded-full px-2 py-0.5 shrink-0">
             <Clock className="h-2.5 w-2.5" />
             TTL
           </span>
@@ -470,7 +470,7 @@ function KVRow({ entry, onDelete }: { entry: KVEntry; onDelete: () => void }) {
 
       {expanded && isExpandable && (
         <div className="px-10 pb-3">
-          <div className="rounded-lg bg-[--code-bg] border border-[--border] p-3 font-mono text-[12px] text-[--code-text]">
+          <div className="rounded-lg bg-code-bg border border-border p-3 font-mono text-[12px] text-code-text">
             <JsonViewer data={entry.value} depth={0} />
           </div>
         </div>
@@ -646,7 +646,7 @@ function InsertDocumentDialog({
           <textarea
             value={json}
             onChange={(e) => setJson(e.target.value)}
-            className="w-full h-48 rounded-lg border border-[--border] bg-[--code-bg] font-mono text-[12.5px] text-[--code-text] p-3 outline-none resize-none focus:border-brand transition-colors"
+            className="w-full h-48 rounded-lg border border-border bg-code-bg font-mono text-[12.5px] text-code-text p-3 outline-none resize-none focus:border-brand transition-colors"
             spellCheck={false}
           />
           {error && (
@@ -780,9 +780,7 @@ function SetKVDialog({
           <div className="space-y-1.5">
             <Label className="text-xs font-medium">
               TTL in seconds{" "}
-              <span className="font-normal text-[--text-muted]">
-                (optional)
-              </span>
+              <span className="font-normal text-text-muted">(optional)</span>
             </Label>
             <Input
               placeholder="3600"
@@ -955,16 +953,16 @@ function CollectionsTab({
   return (
     <div className="flex h-full overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-[220px] shrink-0 flex flex-col border-r border-[--border] bg-[--surface]/40 overflow-hidden">
-        <div className="p-2 border-b border-[--border] shrink-0">
+      <aside className="w-[220px] shrink-0 flex flex-col border-r border-border bg-surface/40 overflow-hidden">
+        <div className="p-2 border-b border-border shrink-0">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[--text-muted] pointer-events-none" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
             <input
               type="text"
               placeholder="Filter…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-8 pl-8 pr-3 text-xs rounded-lg border border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] outline-none focus:border-brand transition-colors"
+              className="w-full h-8 pl-8 pr-3 text-xs rounded-lg border border-border bg-background text-text-primary placeholder:text-text-muted outline-none focus:border-brand transition-colors"
             />
           </div>
         </div>
@@ -972,13 +970,13 @@ function CollectionsTab({
         <ScrollArea className="flex-1 p-1.5">
           <div className="space-y-0.5">
             {loadingCollections ? (
-              <div className="flex items-center justify-center py-8 gap-2 text-[--text-muted]">
+              <div className="flex items-center justify-center py-8 gap-2 text-text-muted">
                 <Loader2 className="h-4 w-4 animate-spin" />
               </div>
             ) : filteredCollections.length === 0 ? (
               <div className="py-8 text-center">
-                <FolderOpen className="h-6 w-6 text-[--text-muted] mx-auto mb-2 opacity-40" />
-                <p className="text-[11px] text-[--text-muted]">
+                <FolderOpen className="h-6 w-6 text-text-muted mx-auto mb-2 opacity-40" />
+                <p className="text-[11px] text-text-muted">
                   No collections yet
                 </p>
               </div>
@@ -990,7 +988,7 @@ function CollectionsTab({
                     "group flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-colors text-[13px]",
                     activeCollection === coll
                       ? "bg-brand/10 text-brand font-medium"
-                      : "text-[--text-secondary] hover:bg-[--surface] hover:text-[--text-primary]",
+                      : "text-text-secondary hover:bg-surface hover:text-text-primary",
                   )}
                   onClick={() => selectCollection(coll)}
                 >
@@ -999,7 +997,7 @@ function CollectionsTab({
                       "h-3.5 w-3.5 shrink-0",
                       activeCollection === coll
                         ? "text-brand"
-                        : "text-[--text-muted]",
+                        : "text-text-muted",
                     )}
                   />
                   <span className="truncate flex-1">{coll}</span>
@@ -1034,7 +1032,7 @@ function CollectionsTab({
           </div>
         </ScrollArea>
 
-        <div className="p-2 border-t border-[--border] shrink-0 flex gap-1.5">
+        <div className="p-2 border-t border-border shrink-0 flex gap-1.5">
           <Button
             size="sm"
             variant="ghost"
@@ -1065,10 +1063,10 @@ function CollectionsTab({
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {activeCollection ? (
           <>
-            <div className="flex items-center justify-between px-5 py-3 border-b border-[--border] bg-[--background] shrink-0 gap-3">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-background shrink-0 gap-3">
               <div className="flex items-center gap-2">
                 <Layers className="h-4 w-4 text-brand" />
-                <span className="text-[13.5px] font-medium text-[--text-primary]">
+                <span className="text-[13.5px] font-medium text-text-primary">
                   {activeCollection}
                 </span>
                 <Badge
@@ -1113,12 +1111,12 @@ function CollectionsTab({
                 className={cn("flex-1 p-5", selectedDoc ? "pr-3" : "")}
               >
                 {loadingDocs ? (
-                  <div className="flex items-center justify-center h-48 gap-2 text-[--text-muted]">
+                  <div className="flex items-center justify-center h-48 gap-2 text-text-muted">
                     <Loader2 className="h-5 w-5 animate-spin" />
                     <span className="text-sm">Loading documents…</span>
                   </div>
                 ) : docs.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-48 gap-3 text-[--text-muted]">
+                  <div className="flex flex-col items-center justify-center h-48 gap-3 text-text-muted">
                     <FileJson className="h-10 w-10 opacity-20" />
                     <p className="text-sm font-medium">No documents yet</p>
                     <p className="text-xs">Insert a document to get started</p>
@@ -1166,12 +1164,12 @@ function CollectionsTab({
             </div>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full gap-4 text-[--text-muted]">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-dashed border-[--border2]">
+          <div className="flex flex-col items-center justify-center h-full gap-4 text-text-muted">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-dashed border-border2">
               <Layers className="h-7 w-7 opacity-30" />
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium text-[--text-primary]">
+              <p className="text-sm font-medium text-text-primary">
                 No collection selected
               </p>
               <p className="text-xs mt-1">
@@ -1301,16 +1299,16 @@ function KVTab({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3 border-b border-[--border] bg-[--background] shrink-0 gap-3">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-background shrink-0 gap-3">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[--text-muted] pointer-events-none" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
             <input
               type="text"
               placeholder="Filter by key…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-8 pl-9 pr-3 text-xs rounded-lg border border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] outline-none focus:border-brand transition-colors w-56"
+              className="h-8 pl-9 pr-3 text-xs rounded-lg border border-border bg-background text-text-primary placeholder:text-text-muted outline-none focus:border-brand transition-colors w-56"
             />
           </div>
           <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
@@ -1344,11 +1342,11 @@ function KVTab({
         </div>
       </div>
 
-      <div className="grid grid-cols-[auto_1fr_1fr_auto] gap-0 bg-[--surface] border-b border-[--border] px-4 py-2">
+      <div className="grid grid-cols-[auto_1fr_1fr_auto] gap-0 bg-surface border-b border-border px-4 py-2">
         {["", "Key", "Value", "Actions"].map((h, i) => (
           <span
             key={i}
-            className="text-[11px] font-semibold uppercase tracking-wider text-[--text-muted]"
+            className="text-[11px] font-semibold uppercase tracking-wider text-text-muted"
           >
             {h}
           </span>
@@ -1357,7 +1355,7 @@ function KVTab({
 
       <ScrollArea className="flex-1">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 gap-3 text-[--text-muted]">
+          <div className="flex flex-col items-center justify-center h-48 gap-3 text-text-muted">
             <Key className="h-8 w-8 opacity-20" />
             <p className="text-sm font-medium">
               {search ? "No keys match your filter" : "No keys yet"}
@@ -1373,7 +1371,7 @@ function KVTab({
             )}
           </div>
         ) : (
-          <div className="divide-y divide-[--border]/60">
+          <div className="divide-y divide-border/60">
             {filtered.map((entry) => (
               <KVRow
                 key={entry.key}
@@ -1473,31 +1471,31 @@ export function NoSQLPageClient({
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden bg-[--background]">
+      <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden bg-background">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[--border] bg-[--background] px-6 py-5 shrink-0">
+        <div className="flex items-center justify-between border-b border-border bg-background px-6 py-5 shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-emerald-500/10">
               <Layers className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <h1 className="text-base font-medium text-[--text-primary]">
+              <h1 className="text-base font-medium text-text-primary">
                 NoSQL Database
               </h1>
-              <p className="text-sm text-[--text-secondary] mt-0.5">
+              <p className="text-sm text-text-secondary mt-0.5">
                 MongoDB documents and key-value store
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <code className="text-[11px] font-mono text-[--text-muted] bg-[--surface] border border-[--border] px-2.5 py-1.5 rounded-lg">
+            <code className="text-[11px] font-mono text-text-muted bg-surface border border-border px-2.5 py-1.5 rounded-lg">
               {mongoDatabase || "—"}
             </code>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-[--border] bg-[--background] px-6 shrink-0">
+        <div className="flex border-b border-border bg-background px-6 shrink-0">
           {TABS.map((t) => {
             const Icon = t.icon;
             return (
@@ -1508,7 +1506,7 @@ export function NoSQLPageClient({
                   "flex items-center gap-2 px-4 pb-3 pt-2 text-[13.5px] font-medium border-b-2 transition-colors whitespace-nowrap",
                   tab === t.id
                     ? "border-brand text-brand"
-                    : "border-transparent text-[--text-muted] hover:text-[--text-primary]",
+                    : "border-transparent text-text-muted hover:text-text-primary",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />

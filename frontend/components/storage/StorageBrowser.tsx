@@ -148,7 +148,7 @@ const FILE_TYPE_COLORS: Record<string, string> = {
   document: "text-blue-500",
   code: "text-amber-500",
   archive: "text-orange-500",
-  other: "text-[--text-muted]",
+  other: "text-text-muted",
 };
 
 const FILE_TYPE_BG: Record<string, string> = {
@@ -158,7 +158,7 @@ const FILE_TYPE_BG: Record<string, string> = {
   document: "bg-blue-500/10",
   code: "bg-amber-500/10",
   archive: "bg-orange-500/10",
-  other: "bg-[--surface]",
+  other: "bg-surface",
 };
 
 function getFileName(key: string): string {
@@ -289,7 +289,7 @@ function UploadZone({
     uploads.every((u) => u.status === "done" || u.status === "error");
 
   return (
-    <div className="mx-6 my-4 rounded-xl border-2 border-dashed border-[--border2] bg-[--background] overflow-hidden">
+    <div className="mx-6 my-4 rounded-xl border-2 border-dashed border-border2 bg-background overflow-hidden">
       {/* Drop area */}
       <div
         className={cn(
@@ -308,17 +308,17 @@ function UploadZone({
         }}
         onClick={() => inputRef.current?.click()}
       >
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[--surface] border border-[--border]">
-          <CloudUpload className="h-6 w-6 text-[--text-muted]" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface border border-border">
+          <CloudUpload className="h-6 w-6 text-text-muted" />
         </div>
         <div className="text-center">
-          <p className="text-sm font-medium text-[--text-primary]">
+          <p className="text-sm font-medium text-text-primary">
             Drop files here or{" "}
             <span className="text-brand underline underline-offset-2 cursor-pointer">
               browse
             </span>
           </p>
-          <p className="text-xs text-[--text-muted] mt-1">
+          <p className="text-xs text-text-muted mt-1">
             Files are uploaded directly to MinIO via presigned URL
           </p>
         </div>
@@ -333,23 +333,23 @@ function UploadZone({
 
       {/* Upload progress list */}
       {uploads.length > 0 && (
-        <div className="border-t border-[--border] divide-y divide-[--border]">
+        <div className="border-t border-border divide-y divide-border">
           {uploads.map((item, i) => (
             <div key={i} className="flex items-center gap-3 px-4 py-3">
               <FileIcon fileKey={item.file.name} size="sm" />
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-[--text-primary] truncate">
+                <p className="text-[13px] font-medium text-text-primary truncate">
                   {item.file.name}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
-                  <div className="flex-1 h-1 rounded-full bg-[--border] overflow-hidden">
+                  <div className="flex-1 h-1 rounded-full bg-border overflow-hidden">
                     <div
                       className={cn(
                         "h-full rounded-full transition-all",
                         item.status === "done"
-                          ? "bg-[--success]"
+                          ? "bg-success"
                           : item.status === "error"
-                            ? "bg-[--danger]"
+                            ? "bg-danger"
                             : "bg-brand",
                       )}
                       style={{
@@ -362,7 +362,7 @@ function UploadZone({
                       }}
                     />
                   </div>
-                  <span className="text-[10px] text-[--text-muted] whitespace-nowrap">
+                  <span className="text-[10px] text-text-muted whitespace-nowrap">
                     {formatBytes(item.file.size)}
                   </span>
                 </div>
@@ -371,12 +371,12 @@ function UploadZone({
                 <Loader2 className="h-4 w-4 animate-spin text-brand shrink-0" />
               )}
               {item.status === "done" && (
-                <Check className="h-4 w-4 text-[--success] shrink-0" />
+                <Check className="h-4 w-4 text-success shrink-0" />
               )}
               {item.status === "error" && (
                 <Tooltip>
                   <TooltipTrigger render={<span />}>
-                    <AlertCircle className="h-4 w-4 text-[--danger] shrink-0" />
+                    <AlertCircle className="h-4 w-4 text-danger shrink-0" />
                   </TooltipTrigger>
                   <TooltipContent>{item.error}</TooltipContent>
                 </Tooltip>
@@ -387,8 +387,8 @@ function UploadZone({
       )}
 
       {/* Footer actions */}
-      <div className="flex items-center justify-between border-t border-[--border] px-4 py-2.5 bg-[--surface]">
-        <p className="text-[11px] text-[--text-muted]">
+      <div className="flex items-center justify-between border-t border-border px-4 py-2.5 bg-surface">
+        <p className="text-[11px] text-text-muted">
           {uploads.length === 0
             ? "No files selected"
             : allDone
@@ -398,7 +398,7 @@ function UploadZone({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 text-xs text-[--text-muted] gap-1"
+          className="h-7 text-xs text-text-muted gap-1"
           onClick={onDismiss}
         >
           <X className="h-3.5 w-3.5" />
@@ -424,23 +424,23 @@ function FileRow({
 }) {
   const name = getFileName(file.key);
   return (
-    <div className="group flex items-center gap-3 px-4 py-3 border-b border-[--border] hover:bg-[--surface] transition-colors">
+    <div className="group flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-surface transition-colors">
       <FileIcon fileKey={name} size="sm" />
       <div className="flex-1 min-w-0">
         <p
-          className="text-[13px] font-medium text-[--text-primary] truncate"
+          className="text-[13px] font-medium text-text-primary truncate"
           title={file.key}
         >
           {name}
         </p>
-        <p className="text-[11px] text-[--text-muted] truncate font-mono">
+        <p className="text-[11px] text-text-muted truncate font-mono">
           {file.key}
         </p>
       </div>
-      <div className="hidden sm:block text-xs text-[--text-muted] tabular-nums shrink-0 w-20 text-right">
+      <div className="hidden sm:block text-xs text-text-muted tabular-nums shrink-0 w-20 text-right">
         {formatBytes(file.size)}
       </div>
-      <div className="hidden md:block text-[11.5px] text-[--text-muted] shrink-0 w-36 text-right">
+      <div className="hidden md:block text-[11.5px] text-text-muted shrink-0 w-36 text-right">
         {formatDate(file.last_modified)}
       </div>
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
@@ -453,7 +453,7 @@ function FileRow({
               onClick={() => onCopyUrl(file.key)}
             >
               {copiedKey === file.key ? (
-                <Check className="h-3.5 w-3.5 text-[--success]" />
+                <Check className="h-3.5 w-3.5 text-success" />
               ) : (
                 <Copy className="h-3.5 w-3.5" />
               )}
@@ -481,7 +481,7 @@ function FileRow({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              className="text-xs gap-2 text-[--danger] focus:text-[--danger]"
+              className="text-xs gap-2 text-danger focus:text-danger"
               onClick={() => onDelete(file.key)}
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -511,14 +511,14 @@ function FileCard({
   const type = getFileType(name);
 
   return (
-    <div className="group relative rounded-xl border border-[--border] bg-[--background] p-3 hover:border-[--border2] hover:shadow-sm transition-all">
+    <div className="group relative rounded-xl border border-border bg-background p-3 hover:border-border2 hover:shadow-sm transition-all">
       {/* Thumbnail / icon */}
-      <div className="mb-3 flex h-24 items-center justify-center rounded-lg bg-[--surface] border border-[--border] overflow-hidden">
+      <div className="mb-3 flex h-24 items-center justify-center rounded-lg bg-surface border border-border overflow-hidden">
         {type === "image" ? (
           // In production, render an actual img with a presigned URL
           <div className="flex flex-col items-center gap-1.5">
             <FileImage className="h-8 w-8 text-emerald-400" />
-            <span className="text-[10px] text-[--text-muted] font-mono uppercase">
+            <span className="text-[10px] text-text-muted font-mono uppercase">
               {name.split(".").pop()}
             </span>
           </div>
@@ -529,12 +529,12 @@ function FileCard({
 
       {/* Info */}
       <p
-        className="text-[12.5px] font-medium text-[--text-primary] truncate"
+        className="text-[12.5px] font-medium text-text-primary truncate"
         title={name}
       >
         {name}
       </p>
-      <p className="text-[11px] text-[--text-muted] mt-0.5">
+      <p className="text-[11px] text-text-muted mt-0.5">
         {formatBytes(file.size)}
       </p>
 
@@ -543,11 +543,11 @@ function FileCard({
         <Tooltip>
           <TooltipTrigger render={<span />}>
             <button
-              className="flex h-6 w-6 items-center justify-center rounded border border-[--border] bg-[--background] text-[--text-muted] hover:text-[--text-primary] transition-colors"
+              className="flex h-6 w-6 items-center justify-center rounded border border-border bg-background text-text-muted hover:text-text-primary transition-colors"
               onClick={() => onCopyUrl(file.key)}
             >
               {copiedKey === file.key ? (
-                <Check className="h-3 w-3 text-[--success]" />
+                <Check className="h-3 w-3 text-success" />
               ) : (
                 <Copy className="h-3 w-3" />
               )}
@@ -557,7 +557,7 @@ function FileCard({
         </Tooltip>
         <DropdownMenu>
           <DropdownMenuTrigger render={<span />}>
-            <button className="flex h-6 w-6 items-center justify-center rounded border border-[--border] bg-[--background] text-[--text-muted] hover:text-[--text-primary] transition-colors">
+            <button className="flex h-6 w-6 items-center justify-center rounded border border-border bg-background text-text-muted hover:text-text-primary transition-colors">
               <MoreHorizontal className="h-3 w-3" />
             </button>
           </DropdownMenuTrigger>
@@ -575,7 +575,7 @@ function FileCard({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              className="text-xs gap-2 text-[--danger] focus:text-[--danger]"
+              className="text-xs gap-2 text-danger focus:text-danger"
               onClick={() => onDelete(file.key)}
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -695,10 +695,10 @@ export function StorageBrowser({
     <TooltipProvider>
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* Toolbar */}
-        <div className="flex items-center gap-3 px-6 py-3 border-b border-[--border] bg-[--background] shrink-0">
+        <div className="flex items-center gap-3 px-6 py-3 border-b border-border bg-background shrink-0">
           {/* Breadcrumb */}
-          <div className="flex items-center gap-1 text-[13px] text-[--text-muted]">
-            <span className="font-mono font-medium text-[--text-primary]">
+          <div className="flex items-center gap-1 text-[13px] text-text-muted">
+            <span className="font-mono font-medium text-text-primary">
               {bucket}
             </span>
             {prefix && (
@@ -713,7 +713,7 @@ export function StorageBrowser({
 
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[--text-muted] pointer-events-none" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
             <Input
               placeholder="Search files…"
               value={search}
@@ -723,13 +723,13 @@ export function StorageBrowser({
           </div>
 
           {/* View toggle */}
-          <div className="flex items-center rounded-lg border border-[--border] overflow-hidden">
+          <div className="flex items-center rounded-lg border border-border overflow-hidden">
             <button
               className={cn(
                 "flex h-8 w-8 items-center justify-center transition-colors",
                 viewMode === "list"
-                  ? "bg-[--surface] text-[--text-primary]"
-                  : "text-[--text-muted] hover:text-[--text-primary]",
+                  ? "bg-surface text-text-primary"
+                  : "text-text-muted hover:text-text-primary",
               )}
               onClick={() => setViewMode("list")}
             >
@@ -739,8 +739,8 @@ export function StorageBrowser({
               className={cn(
                 "flex h-8 w-8 items-center justify-center transition-colors",
                 viewMode === "grid"
-                  ? "bg-[--surface] text-[--text-primary]"
-                  : "text-[--text-muted] hover:text-[--text-primary]",
+                  ? "bg-surface text-text-primary"
+                  : "text-text-muted hover:text-text-primary",
               )}
               onClick={() => setViewMode("grid")}
             >
@@ -786,7 +786,7 @@ export function StorageBrowser({
               </Button>
               <Button
                 size="sm"
-                className="h-7 text-xs gap-1.5 bg-[--danger-bg] text-[--danger] border-[--danger]/30 hover:bg-[--danger]/10"
+                className="h-7 text-xs gap-1.5 bg-danger-bg text-danger border-danger/30 hover:bg-danger/10"
                 onClick={async () => {
                   for (const key of selectedFiles) await handleDelete(key);
                 }}
@@ -809,11 +809,11 @@ export function StorageBrowser({
           ) : viewMode === "list" ? (
             <div>
               {/* Table header */}
-              <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[--border] bg-[--surface] sticky top-0">
+              <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-surface sticky top-0">
                 <div className="w-8 shrink-0">
                   <input
                     type="checkbox"
-                    className="rounded border-[--border]"
+                    className="rounded border-border"
                     checked={
                       selectedFiles.size === filteredFiles.length &&
                       filteredFiles.length > 0
@@ -829,13 +829,13 @@ export function StorageBrowser({
                     }}
                   />
                 </div>
-                <span className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-[--text-muted]">
+                <span className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
                   Name
                 </span>
-                <span className="hidden sm:block text-[11px] font-semibold uppercase tracking-wider text-[--text-muted] w-20 text-right">
+                <span className="hidden sm:block text-[11px] font-semibold uppercase tracking-wider text-text-muted w-20 text-right">
                   Size
                 </span>
-                <span className="hidden md:block text-[11px] font-semibold uppercase tracking-wider text-[--text-muted] w-36 text-right">
+                <span className="hidden md:block text-[11px] font-semibold uppercase tracking-wider text-text-muted w-36 text-right">
                   Modified
                 </span>
                 <div className="w-16" />
@@ -844,12 +844,12 @@ export function StorageBrowser({
               {filteredFiles.map((file) => (
                 <div
                   key={file.key}
-                  className="group flex items-center gap-3 px-4 py-3 border-b border-[--border] hover:bg-[--surface] transition-colors"
+                  className="group flex items-center gap-3 px-4 py-3 border-b border-border hover:bg-surface transition-colors"
                 >
                   <div className="w-8 shrink-0">
                     <input
                       type="checkbox"
-                      className="rounded border-[--border] opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="rounded border-border opacity-0 group-hover:opacity-100 transition-opacity"
                       checked={selectedFiles.has(file.key)}
                       onChange={(e) => {
                         setSelectedFiles((prev) => {
@@ -888,7 +888,7 @@ export function StorageBrowser({
 
         {/* Footer */}
         {filteredFiles.length > 0 && (
-          <div className="flex items-center justify-between px-6 py-2.5 border-t border-[--border] bg-[--background] shrink-0 text-xs text-[--text-muted]">
+          <div className="flex items-center justify-between px-6 py-2.5 border-t border-border bg-background shrink-0 text-xs text-text-muted">
             <span>
               {filteredFiles.length}{" "}
               {filteredFiles.length === 1 ? "file" : "files"}
@@ -929,7 +929,7 @@ function EmptyState({
 }) {
   if (hasSearch) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 py-20 text-[--text-muted]">
+      <div className="flex flex-col items-center justify-center gap-3 py-20 text-text-muted">
         <Search className="h-8 w-8 opacity-30" />
         <p className="text-sm">No files match your search</p>
       </div>
@@ -938,14 +938,14 @@ function EmptyState({
 
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-24">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-dashed border-[--border2] bg-[--surface]">
-        <FolderOpen className="h-7 w-7 text-[--text-muted]" />
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-dashed border-border2 bg-surface">
+        <FolderOpen className="h-7 w-7 text-text-muted" />
       </div>
       <div className="text-center">
-        <p className="text-sm font-medium text-[--text-primary]">
+        <p className="text-sm font-medium text-text-primary">
           No files in <span className="font-mono text-brand">{bucket}</span>
         </p>
-        <p className="text-xs text-[--text-muted] mt-1">
+        <p className="text-xs text-text-muted mt-1">
           Upload your first file to get started
         </p>
       </div>
@@ -959,11 +959,11 @@ function EmptyState({
       </Button>
 
       {/* SDK snippet */}
-      <div className="mt-4 rounded-xl border border-[--border] bg-[--surface] px-5 py-4 max-w-sm w-full">
-        <p className="text-[10.5px] font-semibold uppercase tracking-wider text-[--text-muted] mb-2">
+      <div className="mt-4 rounded-xl border border-border bg-surface px-5 py-4 max-w-sm w-full">
+        <p className="text-[10.5px] font-semibold uppercase tracking-wider text-text-muted mb-2">
           Upload via SDK
         </p>
-        <pre className="text-[11.5px] font-mono text-[--text-secondary] leading-relaxed overflow-x-auto">
+        <pre className="text-[11.5px] font-mono text-text-secondary leading-relaxed overflow-x-auto">
           <code>{`const { uploadUrl, fileUrl } = await baas
   .storage('${bucket}')
   .upload({

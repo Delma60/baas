@@ -8,7 +8,7 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[--background] font-sans">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background font-sans">
       {/* Warm ambient glow — matches brand */}
       <div
         aria-hidden
@@ -36,7 +36,7 @@ export default function AuthLayout({
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand shadow-lg shadow-brand/30">
           <Database className="h-4.5 w-4.5 text-white" />
         </div>
-        <span className="text-xl font-bold tracking-tight text-[--text-primary]">
+        <span className="text-xl font-bold tracking-tight text-text-primary">
           YourBaaS
         </span>
       </Link>
@@ -45,7 +45,7 @@ export default function AuthLayout({
       <div className="relative z-10 w-full max-w-md px-4">{children}</div>
 
       {/* Footer */}
-      <p className="relative z-10 mt-10 text-xs text-[--text-muted]">
+      <p className="relative z-10 mt-10 text-xs text-text-muted">
         © {new Date().getFullYear()} YourBaaS · Built in Lagos 🇳🇬
       </p>
     </div>

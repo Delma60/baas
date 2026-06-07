@@ -18,17 +18,17 @@ export function PlanBanner({ currentPlan, className }: PlanBannerProps) {
     >
       <Zap className="h-4 w-4 flex-shrink-0 text-brand" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-[--text-primary]">
+        <p className="text-sm font-medium text-text-primary">
           You&apos;re on the {currentPlan} plan
         </p>
-        <p className="text-xs text-[--text-secondary]">
+        <p className="text-xs text-text-secondary">
           Upgrade to Starter to unlock 500K rows, 10 GB storage, and email
           support
         </p>
       </div>
       <Link
         href="/dashboard/billing"
-        className="flex-shrink-0 rounded-[8px] border border-brand/30 bg-[--background] px-3 py-1.5 text-xs font-semibold text-brand transition-colors hover:bg-brand/5"
+        className="flex-shrink-0 rounded-[8px] border border-brand/30 bg-background px-3 py-1.5 text-xs font-semibold text-brand transition-colors hover:bg-brand/5"
       >
         Upgrade →
       </Link>

@@ -68,17 +68,17 @@ function DatabaseNotProvisioned({
   ];
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center bg-[--bg3] px-6 py-16">
+    <div className="flex flex-1 flex-col items-center justify-center bg-bg3 px-6 py-16">
       <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="mb-10 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-[--border] bg-[--background] shadow-sm">
-            <Database className="h-8 w-8 text-[--text-secondary]" />
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-background shadow-sm">
+            <Database className="h-8 w-8 text-text-secondary" />
           </div>
-          <h1 className="text-2xl font-semibold text-[--text-primary]">
+          <h1 className="text-2xl font-semibold text-text-primary">
             Create your SQL database
           </h1>
-          <p className="mt-2 text-[15px] text-[--text-secondary] max-w-md mx-auto">
+          <p className="mt-2 text-[15px] text-text-secondary max-w-md mx-auto">
             Your project doesn&apos;t have a database yet. Provisioning takes
             about 2 seconds and sets up an isolated PostgreSQL schema with
             pgvector.
@@ -86,7 +86,7 @@ function DatabaseNotProvisioned({
           <div className="mt-2 flex items-center justify-center gap-2">
             <Badge
               variant="outline"
-              className="font-mono text-[11px] text-[--text-muted]"
+              className="font-mono text-[11px] text-text-muted"
             >
               schema: {dbSchema}
             </Badge>
@@ -100,7 +100,7 @@ function DatabaseNotProvisioned({
             return (
               <div
                 key={f.title}
-                className="flex gap-3 rounded-xl border border-[--border] bg-[--background] p-4 shadow-sm"
+                className="flex gap-3 rounded-xl border border-border bg-background p-4 shadow-sm"
               >
                 <div
                   className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${f.bg}`}
@@ -108,10 +108,10 @@ function DatabaseNotProvisioned({
                   <Icon className={`h-4 w-4 ${f.color}`} />
                 </div>
                 <div>
-                  <p className="text-[13px] font-semibold text-[--text-primary]">
+                  <p className="text-[13px] font-semibold text-text-primary">
                     {f.title}
                   </p>
-                  <p className="mt-0.5 text-[12px] text-[--text-secondary] leading-relaxed">
+                  <p className="mt-0.5 text-[12px] text-text-secondary leading-relaxed">
                     {f.desc}
                   </p>
                 </div>
@@ -123,7 +123,7 @@ function DatabaseNotProvisioned({
         {/* CTA */}
         <div className="flex flex-col items-center gap-3">
           <CreateDatabaseButton projectId={projectId} userId={userId} />
-          <p className="text-[11px] text-[--text-muted]">
+          <p className="text-[11px] text-text-muted">
             Free tier · No credit card required · Provisions in ~2s
           </p>
         </div>
@@ -142,7 +142,7 @@ export default async function DatabasePage({ params, searchParams }: Props) {
   let dbSchema = "";
   try {
     const project = await getProjectById(projectId);
-    console.log(project)
+    console.log(project);
     dbSchema = (project as any).db_schema ?? "";
   } catch {
     return (
@@ -157,7 +157,9 @@ export default async function DatabasePage({ params, searchParams }: Props) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
         <Database className="h-8 w-8 opacity-30" />
-        <p className="text-sm">Database schema not configured for this project.</p>
+        <p className="text-sm">
+          Database schema not configured for this project.
+        </p>
       </div>
     );
   }
@@ -188,7 +190,9 @@ export default async function DatabasePage({ params, searchParams }: Props) {
 
   const initialTable =
     initialTableParam ??
-    (tables.find((t) => t.name !== "_auth_users")?.name ?? tables[0]?.name ?? null);
+    tables.find((t) => t.name !== "_auth_users")?.name ??
+    tables[0]?.name ??
+    null;
 
   let initialResult = null;
   if (initialTable && !tablesError) {
@@ -206,7 +210,9 @@ export default async function DatabasePage({ params, searchParams }: Props) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground p-6">
         <AlertCircle className="h-8 w-8 text-destructive/70" />
-        <p className="text-sm font-medium text-foreground">Could not load database</p>
+        <p className="text-sm font-medium text-foreground">
+          Could not load database
+        </p>
         <p className="text-xs text-center max-w-xs font-mono bg-muted px-3 py-2 rounded-md">
           {tablesError}
         </p>

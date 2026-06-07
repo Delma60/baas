@@ -29,9 +29,9 @@ export function CopyButton({ value, className, size = "md" }: CopyButtonProps) {
     <button
       onClick={handleCopy}
       className={cn(
-        "flex items-center justify-center rounded-[6px] border border-[--border] bg-[--surface] text-[--text-muted] transition-colors hover:border-[--border2] hover:text-[--text-primary]",
+        "flex items-center justify-center rounded-[6px] border border-border bg-surface text-text-muted transition-colors hover:border-border2 hover:text-text-primary",
         sizeClasses[size],
-        copied && "border-[--success-bg] text-[--success-text]",
+        copied && "border-success-bg text-success-text",
         className,
       )}
       aria-label={copied ? "Copied" : "Copy to clipboard"}

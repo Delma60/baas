@@ -58,14 +58,14 @@ const COLOR_MAP: Record<string, { bg: string; text: string; icon: string }> = {
     icon: "text-brand",
   },
   blue: {
-    bg: "bg-[--info-bg]",
-    text: "text-[--info-text]",
-    icon: "text-[--info-text]",
+    bg: "bg-info-bg",
+    text: "text-info-text",
+    icon: "text-info-text",
   },
   green: {
-    bg: "bg-[--success-bg]",
-    text: "text-[--success-text]",
-    icon: "text-[--success-text]",
+    bg: "bg-success-bg",
+    text: "text-success-text",
+    icon: "text-success-text",
   },
   purple: {
     bg: "bg-[#7F77DD]/10",
@@ -93,7 +93,7 @@ export function ProjectGrid({ projects, className }: ProjectGridProps) {
     <div className={className}>
       {/* Header */}
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-medium text-[--text-primary]">Projects</h2>
+        <h2 className="text-sm font-medium text-text-primary">Projects</h2>
         <Link
           href="/dashboard/projects"
           className="text-xs text-brand hover:underline"
@@ -103,7 +103,7 @@ export function ProjectGrid({ projects, className }: ProjectGridProps) {
       </div>
 
       {/* Filter tabs */}
-      <div className="mb-4 flex gap-0.5 rounded-[8px] border border-[--border] bg-[--surface] p-0.5">
+      <div className="mb-4 flex gap-0.5 rounded-[8px] border border-border bg-surface p-0.5">
         {(["all", "active", "paused"] as FilterTab[]).map((tab) => (
           <button
             key={tab}
@@ -111,8 +111,8 @@ export function ProjectGrid({ projects, className }: ProjectGridProps) {
             className={cn(
               "flex-1 rounded-[6px] px-3 py-1.5 text-xs capitalize transition-colors",
               filter === tab
-                ? "bg-[--background] font-medium text-[--text-primary] shadow-sm"
-                : "text-[--text-secondary] hover:text-[--text-primary]",
+                ? "bg-background font-medium text-text-primary shadow-sm"
+                : "text-text-secondary hover:text-text-primary",
             )}
           >
             {tab === "all"
@@ -132,7 +132,7 @@ export function ProjectGrid({ projects, className }: ProjectGridProps) {
         {filter !== "paused" && (
           <Link
             href="/dashboard/projects/new"
-            className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[--border2] p-4 text-[--text-muted] transition-colors hover:border-brand hover:bg-brand/5 hover:text-brand"
+            className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border2 p-4 text-text-muted transition-colors hover:border-brand hover:bg-brand/5 hover:text-brand"
           >
             <Plus className="h-5 w-5" />
             <span className="text-sm">New project</span>
@@ -153,7 +153,7 @@ function ProjectCard({ project }: { project: Project }) {
     <Link
       href={`/dashboard/projects/${project.id}`}
       className={cn(
-        "group relative flex flex-col rounded-xl border border-[--border] bg-[--background] p-4 transition-all hover:border-[--border2] hover:-translate-y-px",
+        "group relative flex flex-col rounded-xl border border-border bg-background p-4 transition-all hover:border-border2 hover:-translate-y-px",
         project.status === "active" && "hover:border-brand/30",
       )}
     >
@@ -170,10 +170,10 @@ function ProjectCard({ project }: { project: Project }) {
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-medium text-[--text-primary]">
+          <p className="truncate text-[13px] font-medium text-text-primary">
             {project.name}
           </p>
-          <p className="truncate text-xs text-[--text-muted]">
+          <p className="truncate text-xs text-text-muted">
             {project.organizationName}
           </p>
         </div>
@@ -190,9 +190,9 @@ function ProjectCard({ project }: { project: Project }) {
           return (
             <span
               key={mod}
-              className="flex items-center gap-1 rounded-[5px] border border-[--border] bg-[--surface] px-1.5 py-0.5 text-[11px] text-[--text-secondary]"
+              className="flex items-center gap-1 rounded-[5px] border border-border bg-surface px-1.5 py-0.5 text-[11px] text-text-secondary"
             >
-              <ModIcon className="h-3 w-3 text-[--text-muted]" />
+              <ModIcon className="h-3 w-3 text-text-muted" />
               {meta.label}
             </span>
           );
@@ -200,7 +200,7 @@ function ProjectCard({ project }: { project: Project }) {
       </div>
 
       {/* Footer meta */}
-      <div className="mt-auto flex items-center gap-3 border-t border-[--border] pt-3 text-[11px] text-[--text-muted]">
+      <div className="mt-auto flex items-center gap-3 border-t border-border pt-3 text-[11px] text-text-muted">
         <span className="flex items-center gap-1">
           <Database className="h-3 w-3" />
           {formatNumber(project.sqlRows)} rows
@@ -219,7 +219,7 @@ function ProjectCard({ project }: { project: Project }) {
 
       {/* Paused overlay tint */}
       {project.status === "paused" && (
-        <div className="pointer-events-none absolute inset-0 rounded-xl bg-[--background]/40" />
+        <div className="pointer-events-none absolute inset-0 rounded-xl bg-background/40" />
       )}
     </Link>
   );
@@ -231,8 +231,8 @@ function StatusDot({ status }: { status: "active" | "paused" }) {
       className={cn(
         "flex flex-shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
         status === "active"
-          ? "bg-[--success-bg] text-[--success-text]"
-          : "bg-[--warn-bg] text-[--warn-text]",
+          ? "bg-success-bg text-success-text"
+          : "bg-warn-bg text-warn-text",
       )}
     >
       <span

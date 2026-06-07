@@ -33,14 +33,14 @@ function PasswordStrength({ password }: { password: string }) {
         <div key={rule.label} className="flex items-center gap-1.5">
           <CheckCircle2
             className={`h-3 w-3 transition-colors ${
-              rule.test(password) ? "text-green-500" : "text-[--text-muted]"
+              rule.test(password) ? "text-green-500" : "text-text-muted"
             }`}
           />
           <span
             className={`text-xs transition-colors ${
               rule.test(password)
                 ? "text-green-600 dark:text-green-400"
-                : "text-[--text-muted]"
+                : "text-text-muted"
             }`}
           >
             {rule.label}
@@ -88,13 +88,13 @@ export default function SignUpPage() {
   }, [state]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[--border] bg-[--surface] shadow-xl shadow-black/5">
+    <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-xl shadow-black/5">
       {/* Header */}
-      <div className="border-b border-[--border] px-7 py-6">
-        <h1 className="text-xl font-bold text-[--text-primary]">
+      <div className="border-b border-border px-7 py-6">
+        <h1 className="text-xl font-bold text-text-primary">
           Create your account
         </h1>
-        <p className="mt-1 text-sm text-[--text-secondary]">
+        <p className="mt-1 text-sm text-text-secondary">
           Start building your backend in seconds — free forever
         </p>
       </div>
@@ -105,7 +105,7 @@ export default function SignUpPage() {
           <form action={signInWithGitHub} className="flex-1">
             <button
               type="submit"
-              className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[--border] bg-[--background] text-sm font-medium text-[--text-primary] transition-colors hover:bg-[--surface-hover]"
+              className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-border bg-background text-sm font-medium text-text-primary transition-colors hover:bg-surface-hover"
             >
               <GitBranch className="h-4 w-4" />
               GitHub
@@ -114,7 +114,7 @@ export default function SignUpPage() {
           <form action={signInWithGoogle} className="flex-1">
             <button
               type="submit"
-              className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[--border] bg-[--background] text-sm font-medium text-[--text-primary] transition-colors hover:bg-[--surface-hover]"
+              className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-border bg-background text-sm font-medium text-text-primary transition-colors hover:bg-surface-hover"
             >
               <Globe className="h-4 w-4" />
               Google
@@ -124,9 +124,9 @@ export default function SignUpPage() {
 
         {/* Divider */}
         <div className="relative my-5 flex items-center gap-3">
-          <div className="h-px flex-1 bg-[--border]" />
-          <span className="text-xs font-medium text-[--text-muted]">or</span>
-          <div className="h-px flex-1 bg-[--border]" />
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-xs font-medium text-text-muted">or</span>
+          <div className="h-px flex-1 bg-border" />
         </div>
 
         {/* Global error */}
@@ -142,7 +142,7 @@ export default function SignUpPage() {
           <div className="space-y-1.5">
             <Label
               htmlFor="name"
-              className="text-xs font-medium text-[--text-secondary]"
+              className="text-xs font-medium text-text-secondary"
             >
               Full name
             </Label>
@@ -155,7 +155,7 @@ export default function SignUpPage() {
               placeholder="Jane Doe"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-brand focus-visible:ring-brand/20"
+              className="h-9 border-border bg-background text-text-primary placeholder:text-text-muted focus-visible:border-brand focus-visible:ring-brand/20"
             />
             {state?.errors?.name && (
               <p className="text-xs text-red-500">{state.errors.name[0]}</p>
@@ -165,7 +165,7 @@ export default function SignUpPage() {
           <div className="space-y-1.5">
             <Label
               htmlFor="organizationName"
-              className="text-xs font-medium text-[--text-secondary]"
+              className="text-xs font-medium text-text-secondary"
             >
               Organization name
             </Label>
@@ -177,7 +177,7 @@ export default function SignUpPage() {
               placeholder="Acme Inc"
               value={organizationName}
               onChange={(event) => setOrganizationName(event.target.value)}
-              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-brand focus-visible:ring-brand/20"
+              className="h-9 border-border bg-background text-text-primary placeholder:text-text-muted focus-visible:border-brand focus-visible:ring-brand/20"
             />
             {state?.errors?.organizationName && (
               <p className="text-xs text-red-500">
@@ -189,7 +189,7 @@ export default function SignUpPage() {
           <div className="space-y-1.5">
             <Label
               htmlFor="email"
-              className="text-xs font-medium text-[--text-secondary]"
+              className="text-xs font-medium text-text-secondary"
             >
               Email address
             </Label>
@@ -202,7 +202,7 @@ export default function SignUpPage() {
               placeholder="you@example.com"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-brand focus-visible:ring-brand/20"
+              className="h-9 border-border bg-background text-text-primary placeholder:text-text-muted focus-visible:border-brand focus-visible:ring-brand/20"
             />
             {state?.errors?.email && (
               <p className="text-xs text-red-500">{state.errors.email[0]}</p>
@@ -212,7 +212,7 @@ export default function SignUpPage() {
           <div className="space-y-1.5">
             <Label
               htmlFor="password"
-              className="text-xs font-medium text-[--text-secondary]"
+              className="text-xs font-medium text-text-secondary"
             >
               Password
             </Label>
@@ -225,7 +225,7 @@ export default function SignUpPage() {
               placeholder="Min. 8 characters"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-brand focus-visible:ring-brand/20"
+              className="h-9 border-border bg-background text-text-primary placeholder:text-text-muted focus-visible:border-brand focus-visible:ring-brand/20"
             />
             {state?.errors?.password ? (
               <p className="text-xs text-red-500">{state.errors.password[0]}</p>
@@ -235,7 +235,7 @@ export default function SignUpPage() {
           <SubmitButton />
         </form>
 
-        <p className="mt-4 text-center text-xs text-[--text-muted]">
+        <p className="mt-4 text-center text-xs text-text-muted">
           By creating an account, you agree to our{" "}
           <Link href="/terms" className="text-brand hover:underline">
             Terms
@@ -249,8 +249,8 @@ export default function SignUpPage() {
       </div>
 
       {/* Footer */}
-      <div className="border-t border-[--border] bg-[--background] px-7 py-4">
-        <p className="text-center text-sm text-[--text-secondary]">
+      <div className="border-t border-border bg-background px-7 py-4">
+        <p className="text-center text-sm text-text-secondary">
           Already have an account?{" "}
           <Link
             href="/login"

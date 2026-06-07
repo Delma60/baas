@@ -49,13 +49,11 @@ export default function LoginPage() {
   }, [state]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[--border] bg-[--surface] shadow-xl shadow-black/5">
+    <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-xl shadow-black/5">
       {/* Header strip */}
-      <div className="border-b border-[--border] px-7 py-6">
-        <h1 className="text-xl font-bold text-[--text-primary]">
-          Welcome back
-        </h1>
-        <p className="mt-1 text-sm text-[--text-secondary]">
+      <div className="border-b border-border px-7 py-6">
+        <h1 className="text-xl font-bold text-text-primary">Welcome back</h1>
+        <p className="mt-1 text-sm text-text-secondary">
           Sign in to your YourBaaS dashboard
         </p>
       </div>
@@ -66,7 +64,7 @@ export default function LoginPage() {
           <form action={signInWithGitHub} className="flex-1">
             <button
               type="submit"
-              className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[--border] bg-[--background] text-sm font-medium text-[--text-primary] transition-colors hover:bg-[--surface-hover]"
+              className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-border bg-background text-sm font-medium text-text-primary transition-colors hover:bg-surface-hover"
             >
               <GitBranch className="h-4 w-4" />
               GitHub
@@ -75,7 +73,7 @@ export default function LoginPage() {
           <form action={signInWithGoogle} className="flex-1">
             <button
               type="submit"
-              className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[--border] bg-[--background] text-sm font-medium text-[--text-primary] transition-colors hover:bg-[--surface-hover]"
+              className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-border bg-background text-sm font-medium text-text-primary transition-colors hover:bg-surface-hover"
             >
               <Globe className="h-4 w-4" />
               Google
@@ -85,9 +83,9 @@ export default function LoginPage() {
 
         {/* Divider */}
         <div className="relative my-5 flex items-center gap-3">
-          <div className="h-px flex-1 bg-[--border]" />
-          <span className="text-xs font-medium text-[--text-muted]">or</span>
-          <div className="h-px flex-1 bg-[--border]" />
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-xs font-medium text-text-muted">or</span>
+          <div className="h-px flex-1 bg-border" />
         </div>
 
         {/* Error */}
@@ -103,7 +101,7 @@ export default function LoginPage() {
           <div className="space-y-1.5">
             <Label
               htmlFor="email"
-              className="text-xs font-medium text-[--text-secondary]"
+              className="text-xs font-medium text-text-secondary"
             >
               Email address
             </Label>
@@ -116,7 +114,7 @@ export default function LoginPage() {
               placeholder="you@example.com"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-brand focus-visible:ring-brand/20"
+              className="h-9 border-border bg-background text-text-primary placeholder:text-text-muted focus-visible:border-brand focus-visible:ring-brand/20"
             />
             {state?.errors?.email && (
               <p className="text-xs text-red-500">{state.errors.email[0]}</p>
@@ -127,7 +125,7 @@ export default function LoginPage() {
             <div className="flex items-center justify-between">
               <Label
                 htmlFor="password"
-                className="text-xs font-medium text-[--text-secondary]"
+                className="text-xs font-medium text-text-secondary"
               >
                 Password
               </Label>
@@ -147,7 +145,7 @@ export default function LoginPage() {
               placeholder="••••••••"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="h-9 border-[--border] bg-[--background] text-[--text-primary] placeholder:text-[--text-muted] focus-visible:border-brand focus-visible:ring-brand/20"
+              className="h-9 border-border bg-background text-text-primary placeholder:text-text-muted focus-visible:border-brand focus-visible:ring-brand/20"
             />
             {state?.errors?.password && (
               <p className="text-xs text-red-500">{state.errors.password[0]}</p>
@@ -159,8 +157,8 @@ export default function LoginPage() {
       </div>
 
       {/* Footer */}
-      <div className="border-t border-[--border] bg-[--background] px-7 py-4">
-        <p className="text-center text-sm text-[--text-secondary]">
+      <div className="border-t border-border bg-background px-7 py-4">
+        <p className="text-center text-sm text-text-secondary">
           Don't have an account?{" "}
           <Link
             href="/signup"

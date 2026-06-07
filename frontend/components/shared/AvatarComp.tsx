@@ -26,18 +26,16 @@ export const AvatarComp = ({ user }: { user: IUser }) => {
             src={user.image ?? undefined}
             alt={user.name as string}
           />
-          <AvatarFallback className="bg-[--sidebar-active] text-[--sidebar-active-text] text-xs font-medium">
+          <AvatarFallback className="bg-sidebar-active text-sidebar-active-text text-xs font-medium">
             {initials}
           </AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-56">
-        <div className="px-2 py-2 border-b border-[--border] mb-1">
-          <p className="text-sm font-medium text-[--text-primary]">
-            {user.name}
-          </p>
-          <p className="text-xs text-[--text-muted] mt-0.5">{user.email}</p>
+        <div className="px-2 py-2 border-b border-border mb-1">
+          <p className="text-sm font-medium text-text-primary">{user.name}</p>
+          <p className="text-xs text-text-muted mt-0.5">{user.email}</p>
         </div>
 
         <DropdownMenuItem>

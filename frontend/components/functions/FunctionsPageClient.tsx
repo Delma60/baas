@@ -129,7 +129,7 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="rounded-xl border border-[--border] bg-[--background] p-4">
+    <div className="rounded-xl border border-border bg-background p-4">
       <div className="flex items-center gap-2 mb-2">
         <div
           className={cn(
@@ -139,9 +139,9 @@ function StatCard({
         >
           <Icon className="h-3.5 w-3.5" />
         </div>
-        <span className="text-xs text-[--text-secondary]">{label}</span>
+        <span className="text-xs text-text-secondary">{label}</span>
       </div>
-      <p className="text-2xl font-semibold text-[--text-primary]">{value}</p>
+      <p className="text-2xl font-semibold text-text-primary">{value}</p>
     </div>
   );
 }
@@ -277,7 +277,7 @@ function FunctionDialog({
                 className="h-9 font-mono text-sm"
                 autoFocus
               />
-              <p className="text-[10px] text-[--text-muted]">
+              <p className="text-[10px] text-text-muted">
                 Alphanumeric, hyphens, underscores only
               </p>
             </div>
@@ -460,7 +460,7 @@ function TestDialog({
             >
               {fn.method}
             </span>
-            <code className="text-xs text-[--text-secondary] truncate max-w-xs">
+            <code className="text-xs text-text-secondary truncate max-w-xs">
               {fn.endpoint_url}
             </code>
           </div>
@@ -469,13 +469,13 @@ function TestDialog({
         <div className="flex-1 overflow-y-auto space-y-4 py-2">
           <div className="space-y-1.5">
             <Label className="text-xs font-medium flex items-center gap-1.5">
-              <Code2 className="h-3 w-3 text-[--text-muted]" />
+              <Code2 className="h-3 w-3 text-text-muted" />
               Request payload (JSON)
             </Label>
             <Textarea
               value={payload}
               onChange={(e) => setPayload(e.target.value)}
-              className="font-mono text-xs min-h-[120px] resize-y bg-[--surface] text-[--text-primary]"
+              className="font-mono text-xs min-h-[120px] resize-y bg-surface text-text-primary"
               placeholder='{ "key": "value" }'
               spellCheck={false}
             />
@@ -504,12 +504,12 @@ function TestDialog({
                       {result.status_code}
                     </span>
                   )}
-                  <span className="text-[10px] text-[--text-muted] flex items-center gap-1">
+                  <span className="text-[10px] text-text-muted flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     {result.duration_ms}ms
                   </span>
                   <button
-                    className="flex h-6 w-6 items-center justify-center rounded border border-[--border] text-[--text-muted] hover:text-[--text-primary] transition-colors"
+                    className="flex h-6 w-6 items-center justify-center rounded border border-border text-text-muted hover:text-text-primary transition-colors"
                     onClick={copyResponse}
                   >
                     {copied ? (
@@ -534,18 +534,18 @@ function TestDialog({
                   </p>
                 </div>
               ) : (
-                <div className="rounded-lg border border-[--border] bg-[--surface] overflow-hidden">
-                  <div className="flex items-center gap-2 px-3 py-2 border-b border-[--border] bg-[--background]">
+                <div className="rounded-lg border border-border bg-surface overflow-hidden">
+                  <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-background">
                     {result.success ? (
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                     ) : (
                       <XCircle className="h-3.5 w-3.5 text-red-500" />
                     )}
-                    <span className="text-[10px] text-[--text-muted]">
+                    <span className="text-[10px] text-text-muted">
                       {result.success ? "Success" : "Error response"}
                     </span>
                   </div>
-                  <pre className="p-3 text-[11.5px] font-mono text-[--text-primary] overflow-x-auto max-h-52">
+                  <pre className="p-3 text-[11.5px] font-mono text-text-primary overflow-x-auto max-h-52">
                     {tryPrettyJson(result.response)}
                   </pre>
                 </div>
@@ -554,7 +554,7 @@ function TestDialog({
           )}
         </div>
 
-        <DialogFooter className="shrink-0 pt-2 border-t border-[--border]">
+        <DialogFooter className="shrink-0 pt-2 border-t border-border">
           <Button variant="outline" size="sm" onClick={onClose}>
             Close
           </Button>
@@ -611,20 +611,20 @@ function LogsSheet({
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader className="mb-4">
           <SheetTitle className="flex items-center gap-2 text-sm">
-            <ScrollText className="h-4 w-4 text-[--text-secondary]" />
+            <ScrollText className="h-4 w-4 text-text-secondary" />
             Invocation logs — {fn?.name}
           </SheetTitle>
         </SheetHeader>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-5 w-5 animate-spin text-[--text-muted]" />
+            <Loader2 className="h-5 w-5 animate-spin text-text-muted" />
           </div>
         ) : logs.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-            <ScrollText className="h-8 w-8 text-[--text-muted] opacity-40" />
-            <p className="text-sm text-[--text-muted]">No invocations yet</p>
-            <p className="text-xs text-[--text-muted]">
+            <ScrollText className="h-8 w-8 text-text-muted opacity-40" />
+            <p className="text-sm text-text-muted">No invocations yet</p>
+            <p className="text-xs text-text-muted">
               Use the Test button to invoke this function
             </p>
           </div>
@@ -636,7 +636,7 @@ function LogsSheet({
               return (
                 <div
                   key={log.id}
-                  className="rounded-lg border border-[--border] bg-[--background] overflow-hidden"
+                  className="rounded-lg border border-border bg-background overflow-hidden"
                 >
                   <button
                     className="w-full flex items-center gap-3 px-4 py-3 text-left"
@@ -662,23 +662,23 @@ function LogsSheet({
                           </span>
                         )}
                         {log.duration_ms && (
-                          <span className="text-[11px] text-[--text-muted]">
+                          <span className="text-[11px] text-text-muted">
                             {log.duration_ms}ms
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-[--text-muted] mt-0.5">
+                      <p className="text-[11px] text-text-muted mt-0.5">
                         {formatRelative(log.created_at)}
                       </p>
                     </div>
                     {isExp ? (
-                      <ChevronDown className="h-3.5 w-3.5 text-[--text-muted] shrink-0" />
+                      <ChevronDown className="h-3.5 w-3.5 text-text-muted shrink-0" />
                     ) : (
-                      <ChevronRight className="h-3.5 w-3.5 text-[--text-muted] shrink-0" />
+                      <ChevronRight className="h-3.5 w-3.5 text-text-muted shrink-0" />
                     )}
                   </button>
                   {isExp && (
-                    <div className="border-t border-[--border] bg-[--surface] p-4 space-y-3">
+                    <div className="border-t border-border bg-surface p-4 space-y-3">
                       {log.error && (
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-red-600 mb-1">
@@ -691,10 +691,10 @@ function LogsSheet({
                       )}
                       {log.request_payload && (
                         <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-[--text-muted] mb-1">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">
                             Request payload
                           </p>
-                          <pre className="text-xs font-mono text-[--text-primary] bg-[--code-bg] p-2 rounded overflow-x-auto">
+                          <pre className="text-xs font-mono text-text-primary bg-code-bg p-2 rounded overflow-x-auto">
                             {tryPrettyJson(
                               JSON.parse(log.request_payload || "{}"),
                             )}
@@ -703,10 +703,10 @@ function LogsSheet({
                       )}
                       {log.response_body && (
                         <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-[--text-muted] mb-1">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted mb-1">
                             Response
                           </p>
-                          <pre className="text-xs font-mono text-[--text-primary] bg-[--code-bg] p-2 rounded overflow-x-auto max-h-40">
+                          <pre className="text-xs font-mono text-text-primary bg-code-bg p-2 rounded overflow-x-auto max-h-40">
                             {tryPrettyJson(
                               JSON.parse(log.response_body || "null"),
                             )}
@@ -753,8 +753,8 @@ function FunctionCard({
   return (
     <div
       className={cn(
-        "rounded-xl border bg-[--background] p-5 transition-all hover:shadow-sm",
-        fn.is_active ? "border-[--border]" : "border-[--border] opacity-60",
+        "rounded-xl border bg-background p-5 transition-all hover:shadow-sm",
+        fn.is_active ? "border-border" : "border-border opacity-60",
       )}
     >
       {/* Top row */}
@@ -763,19 +763,19 @@ function FunctionCard({
           <div
             className={cn(
               "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-              fn.is_active ? "bg-brand/10" : "bg-[--surface]",
+              fn.is_active ? "bg-brand/10" : "bg-surface",
             )}
           >
             <Zap
               className={cn(
                 "h-4 w-4",
-                fn.is_active ? "text-brand" : "text-[--text-muted]",
+                fn.is_active ? "text-brand" : "text-text-muted",
               )}
             />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <p className="text-[13px] font-semibold text-[--text-primary] font-mono truncate">
+              <p className="text-[13px] font-semibold text-text-primary font-mono truncate">
                 {fn.name}
               </p>
               <span
@@ -788,7 +788,7 @@ function FunctionCard({
               </span>
             </div>
             {fn.description && (
-              <p className="text-xs text-[--text-secondary] mt-0.5 truncate">
+              <p className="text-xs text-text-secondary mt-0.5 truncate">
                 {fn.description}
               </p>
             )}
@@ -796,7 +796,7 @@ function FunctionCard({
         </div>
         <button
           onClick={onToggle}
-          className="shrink-0 text-[--text-muted] hover:text-[--text-primary] transition-colors"
+          className="shrink-0 text-text-muted hover:text-text-primary transition-colors"
           title={fn.is_active ? "Disable function" : "Enable function"}
         >
           {fn.is_active ? (
@@ -808,14 +808,14 @@ function FunctionCard({
       </div>
 
       {/* Endpoint URL */}
-      <div className="flex items-center gap-2 rounded-lg bg-[--surface] border border-[--border] px-3 py-2 mb-3">
-        <Globe className="h-3 w-3 text-[--text-muted] shrink-0" />
-        <code className="flex-1 text-[11px] text-[--text-secondary] truncate font-mono">
+      <div className="flex items-center gap-2 rounded-lg bg-surface border border-border px-3 py-2 mb-3">
+        <Globe className="h-3 w-3 text-text-muted shrink-0" />
+        <code className="flex-1 text-[11px] text-text-secondary truncate font-mono">
           {fn.endpoint_url}
         </code>
         <button
           onClick={copyUrl}
-          className="shrink-0 text-[--text-muted] hover:text-[--text-primary] transition-colors"
+          className="shrink-0 text-text-muted hover:text-text-primary transition-colors"
         >
           {copiedUrl ? (
             <Check className="h-3 w-3 text-emerald-500" />
@@ -826,7 +826,7 @@ function FunctionCard({
       </div>
 
       {/* Meta row */}
-      <div className="flex items-center gap-3 mb-4 text-[11px] text-[--text-muted]">
+      <div className="flex items-center gap-3 mb-4 text-[11px] text-text-muted">
         <span className="flex items-center gap-1">
           <Activity className="h-3 w-3" />
           {formatInvocations(fn.invoke_count)} calls
@@ -841,7 +841,7 @@ function FunctionCard({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 pt-3 border-t border-[--border]">
+      <div className="flex items-center gap-2 pt-3 border-t border-border">
         <Button
           size="sm"
           variant="outline"
@@ -887,14 +887,14 @@ function FunctionCard({
 function EmptyFunctions({ onNew }: { onNew: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-20 px-6">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-dashed border-[--border] bg-[--surface]">
-        <Zap className="h-7 w-7 text-[--text-muted]" />
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-dashed border-border bg-surface">
+        <Zap className="h-7 w-7 text-text-muted" />
       </div>
       <div className="text-center max-w-sm">
-        <p className="text-sm font-medium text-[--text-primary]">
+        <p className="text-sm font-medium text-text-primary">
           No edge functions yet
         </p>
-        <p className="text-xs text-[--text-muted] mt-1 leading-relaxed">
+        <p className="text-xs text-text-muted mt-1 leading-relaxed">
           Register an external HTTP endpoint to invoke it via the SDK or
           dashboard test panel.
         </p>
@@ -908,11 +908,11 @@ function EmptyFunctions({ onNew }: { onNew: () => void }) {
         Create your first function
       </Button>
 
-      <div className="mt-2 w-full max-w-sm rounded-xl border border-[--border] bg-[--surface] p-4">
-        <p className="text-[10.5px] font-semibold uppercase tracking-wider text-[--text-muted] mb-2">
+      <div className="mt-2 w-full max-w-sm rounded-xl border border-border bg-surface p-4">
+        <p className="text-[10.5px] font-semibold uppercase tracking-wider text-text-muted mb-2">
           Invoke via SDK
         </p>
-        <pre className="text-[11.5px] font-mono text-[--text-secondary] leading-relaxed overflow-x-auto">
+        <pre className="text-[11.5px] font-mono text-text-secondary leading-relaxed overflow-x-auto">
           <code>{`const result = await baas
   .functions()
   .invoke('my-function', {
@@ -1029,16 +1029,16 @@ export function FunctionsPageClient({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 border-b border-[--border] px-4 sm:px-6 py-4 sm:py-5 bg-[--background] shrink-0">
+      <div className="flex items-center justify-between gap-4 border-b border-border px-4 sm:px-6 py-4 sm:py-5 bg-background shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand/10">
             <Zap className="h-4 w-4 text-brand" />
           </div>
           <div>
-            <h1 className="text-base font-medium text-[--text-primary]">
+            <h1 className="text-base font-medium text-text-primary">
               Edge Functions
             </h1>
-            <p className="text-sm text-[--text-secondary] mt-0.5 hidden sm:block">
+            <p className="text-sm text-text-secondary mt-0.5 hidden sm:block">
               Register external HTTP endpoints and invoke them via the SDK
             </p>
           </div>
@@ -1067,7 +1067,7 @@ export function FunctionsPageClient({
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 sm:px-6 py-4 border-b border-[--border] bg-[--background] shrink-0">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 sm:px-6 py-4 border-b border-border bg-background shrink-0">
         <StatCard
           label="Total functions"
           value={computedStats.total}
@@ -1084,7 +1084,7 @@ export function FunctionsPageClient({
           label="Inactive"
           value={computedStats.inactive}
           icon={XCircle}
-          color="bg-[--surface] text-[--text-muted]"
+          color="bg-surface text-text-muted"
         />
         <StatCard
           label="Total invocations"
@@ -1096,11 +1096,11 @@ export function FunctionsPageClient({
 
       {/* SDK hint */}
       {functions.length > 0 && (
-        <div className="px-4 sm:px-6 py-3 border-b border-[--border] bg-[--surface] shrink-0">
-          <div className="flex items-center gap-2 text-[11.5px] text-[--text-muted]">
+        <div className="px-4 sm:px-6 py-3 border-b border-border bg-surface shrink-0">
+          <div className="flex items-center gap-2 text-[11.5px] text-text-muted">
             <Code2 className="h-3.5 w-3.5 shrink-0" />
             <span>Invoke via API:</span>
-            <code className="font-mono bg-[--code-bg] border border-[--border] rounded px-1.5 py-0.5 text-[--text-secondary]">
+            <code className="font-mono bg-code-bg border border-border rounded px-1.5 py-0.5 text-text-secondary">
               POST /v1/functions/{"{projectId}"}/invoke/{"{functionName}"}
             </code>
           </div>
@@ -1116,8 +1116,8 @@ export function FunctionsPageClient({
             {functions.map((fn) => (
               <div key={fn.id} className="relative">
                 {deletingId === fn.id && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-[--background]/70">
-                    <Loader2 className="h-5 w-5 animate-spin text-[--text-muted]" />
+                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background/70">
+                    <Loader2 className="h-5 w-5 animate-spin text-text-muted" />
                   </div>
                 )}
                 <FunctionCard

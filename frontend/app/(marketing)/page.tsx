@@ -150,35 +150,35 @@ baas.realtime.on('posts', (event) => {
 
 export default function MarketingPage() {
   return (
-    <div className="min-h-screen bg-[--background] text-[--text-primary] font-sans">
+    <div className="min-h-screen bg-background text-text-primary font-sans">
       {/* ─── Nav ──────────────────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-50 border-b border-[--border] bg-[--background]/90 backdrop-blur-sm">
+      <nav className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand">
               <Database className="h-4 w-4 text-white" />
             </div>
-            <span className="text-lg font-bold tracking-tight text-[--text-primary]">
+            <span className="text-lg font-bold tracking-tight text-text-primary">
               YourBaaS
             </span>
           </div>
 
-          <div className="hidden items-center gap-8 text-sm font-medium text-[--text-secondary] md:flex">
+          <div className="hidden items-center gap-8 text-sm font-medium text-text-secondary md:flex">
             <Link
               href="#features"
-              className="hover:text-[--text-primary] transition-colors"
+              className="hover:text-text-primary transition-colors"
             >
               Features
             </Link>
             <Link
               href="#pricing"
-              className="hover:text-[--text-primary] transition-colors"
+              className="hover:text-text-primary transition-colors"
             >
               Pricing
             </Link>
             <Link
               href="/docs"
-              className="hover:text-[--text-primary] transition-colors"
+              className="hover:text-text-primary transition-colors"
             >
               Docs
             </Link>
@@ -187,7 +187,7 @@ export default function MarketingPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="hidden text-sm font-medium text-[--text-secondary] hover:text-[--text-primary] transition-colors md:block"
+              className="hidden text-sm font-medium text-text-secondary hover:text-text-primary transition-colors md:block"
             >
               Sign in
             </Link>
@@ -212,18 +212,18 @@ export default function MarketingPage() {
         </div>
 
         <div className="relative mx-auto max-w-4xl text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[--border] bg-[--surface] px-4 py-2 text-sm font-medium text-[--text-secondary]">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm font-medium text-text-secondary">
             <Globe className="h-4 w-4 text-brand" />
             Africa-first · Open standards · Zero lock-in
           </div>
 
-          <h1 className="mb-6 text-5xl font-extrabold leading-tight tracking-tight text-[--text-primary] md:text-6xl lg:text-7xl">
+          <h1 className="mb-6 text-5xl font-extrabold leading-tight tracking-tight text-text-primary md:text-6xl lg:text-7xl">
             Backend infrastructure
             <br />
             <span className="text-brand">that doesn&apos;t surprise you</span>
           </h1>
 
-          <p className="mx-auto mb-10 max-w-2xl text-lg leading-8 text-[--text-secondary] md:text-xl">
+          <p className="mx-auto mb-10 max-w-2xl text-lg leading-8 text-text-secondary md:text-xl">
             A developer-first BaaS platform with PostgreSQL, MongoDB, object
             storage, auth, realtime, and AI — all on flat-rate pricing with no
             per-operation charges.
@@ -239,14 +239,14 @@ export default function MarketingPage() {
             </Link>
             <Link
               href="/docs"
-              className="flex h-12 items-center gap-2 rounded-xl border border-[--border] bg-[--surface] px-8 text-base font-semibold text-[--text-primary] transition-colors hover:bg-[--surface-hover]"
+              className="flex h-12 items-center gap-2 rounded-xl border border-border bg-surface px-8 text-base font-semibold text-text-primary transition-colors hover:bg-surface-hover"
             >
               <Code2 className="h-4 w-4" />
               Read the docs
             </Link>
           </div>
 
-          <p className="mt-6 text-sm text-[--text-muted]">
+          <p className="mt-6 text-sm text-text-muted">
             No credit card required · Free tier forever
           </p>
         </div>
@@ -255,17 +255,17 @@ export default function MarketingPage() {
       {/* ─── Code preview ─────────────────────────────────────────────── */}
       <section className="px-6 pb-24">
         <div className="mx-auto max-w-4xl">
-          <div className="overflow-hidden rounded-2xl border border-[--border] bg-[--code-bg] shadow-2xl">
+          <div className="overflow-hidden rounded-2xl border border-border bg-code-bg shadow-2xl">
             {/* Window chrome */}
-            <div className="flex items-center gap-2 border-b border-[--border] px-4 py-3">
+            <div className="flex items-center gap-2 border-b border-border px-4 py-3">
               <div className="h-3 w-3 rounded-full bg-red-400/80" />
               <div className="h-3 w-3 rounded-full bg-yellow-400/80" />
               <div className="h-3 w-3 rounded-full bg-green-400/80" />
-              <span className="ml-3 text-xs font-medium text-[--text-muted]">
+              <span className="ml-3 text-xs font-medium text-text-muted">
                 app/lib/baas.ts
               </span>
             </div>
-            <pre className="overflow-x-auto p-6 text-sm leading-7 text-[--code-text]">
+            <pre className="overflow-x-auto p-6 text-sm leading-7 text-code-text">
               <code>{CODE_SNIPPET}</code>
             </pre>
           </div>
@@ -276,10 +276,10 @@ export default function MarketingPage() {
       <section id="features" className="px-6 pb-24">
         <div className="mx-auto max-w-6xl">
           <div className="mb-16 text-center">
-            <h2 className="mb-4 text-3xl font-bold tracking-tight text-[--text-primary] md:text-4xl">
+            <h2 className="mb-4 text-3xl font-bold tracking-tight text-text-primary md:text-4xl">
               Everything your backend needs
             </h2>
-            <p className="mx-auto max-w-xl text-[--text-secondary]">
+            <p className="mx-auto max-w-xl text-text-secondary">
               Eight modules. One SDK. One flat price. No stitching together a
               dozen services.
             </p>
@@ -291,17 +291,17 @@ export default function MarketingPage() {
               return (
                 <div
                   key={mod.name}
-                  className="group rounded-xl border border-[--border] bg-[--surface] p-5 transition-all hover:border-brand/30 hover:shadow-md"
+                  className="group rounded-xl border border-border bg-surface p-5 transition-all hover:border-brand/30 hover:shadow-md"
                 >
                   <div
                     className={`mb-4 inline-flex rounded-lg p-2.5 ${mod.bg}`}
                   >
                     <Icon className={`h-5 w-5 ${mod.color}`} />
                   </div>
-                  <h3 className="mb-2 text-sm font-semibold text-[--text-primary]">
+                  <h3 className="mb-2 text-sm font-semibold text-text-primary">
                     {mod.name}
                   </h3>
-                  <p className="text-sm leading-6 text-[--text-secondary]">
+                  <p className="text-sm leading-6 text-text-secondary">
                     {mod.desc}
                   </p>
                 </div>
@@ -314,8 +314,8 @@ export default function MarketingPage() {
       {/* ─── Why section ──────────────────────────────────────────────── */}
       <section className="px-6 pb-24">
         <div className="mx-auto max w-6xl max-w-6xl">
-          <div className="overflow-hidden rounded-2xl border border-[--border] bg-[--surface]">
-            <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[--border]">
+          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+            <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border">
               {[
                 {
                   icon: Lock,
@@ -339,10 +339,10 @@ export default function MarketingPage() {
                     <div className="mb-4 inline-flex rounded-lg bg-brand/10 p-2.5">
                       <Icon className="h-5 w-5 text-brand" />
                     </div>
-                    <h3 className="mb-2 text-base font-semibold text-[--text-primary]">
+                    <h3 className="mb-2 text-base font-semibold text-text-primary">
                       {item.title}
                     </h3>
-                    <p className="text-sm leading-6 text-[--text-secondary]">
+                    <p className="text-sm leading-6 text-text-secondary">
                       {item.desc}
                     </p>
                   </div>
@@ -356,11 +356,11 @@ export default function MarketingPage() {
       {/* ─── SDK callout ──────────────────────────────────────────────── */}
       <section className="px-6 pb-24">
         <div className="mx-auto max-w-6xl">
-          <div className="rounded-2xl border border-[--border] bg-[--surface] p-10 md:p-14 text-center">
-            <h2 className="mb-4 text-2xl font-bold text-[--text-primary] md:text-3xl">
+          <div className="rounded-2xl border border-border bg-surface p-10 md:p-14 text-center">
+            <h2 className="mb-4 text-2xl font-bold text-text-primary md:text-3xl">
               One SDK. Two languages. Same API.
             </h2>
-            <p className="mx-auto mb-8 max-w-xl text-[--text-secondary]">
+            <p className="mx-auto mb-8 max-w-xl text-text-secondary">
               Install the JavaScript/TypeScript SDK or the Python SDK —
               identical method names, identical options, identical behaviour.
             </p>
@@ -374,12 +374,12 @@ export default function MarketingPage() {
               ].map((s) => (
                 <div
                   key={s.lang}
-                  className="flex flex-col items-start gap-1 rounded-xl border border-[--border] bg-[--code-bg] px-6 py-4 text-left"
+                  className="flex flex-col items-start gap-1 rounded-xl border border-border bg-code-bg px-6 py-4 text-left"
                 >
-                  <span className="text-xs font-medium text-[--text-muted]">
+                  <span className="text-xs font-medium text-text-muted">
                     {s.lang}
                   </span>
-                  <code className="font-mono text-sm text-[--code-text]">
+                  <code className="font-mono text-sm text-code-text">
                     {s.label}
                   </code>
                 </div>
@@ -393,10 +393,10 @@ export default function MarketingPage() {
       <section id="pricing" className="px-6 pb-24">
         <div className="mx-auto max-w-6xl">
           <div className="mb-16 text-center">
-            <h2 className="mb-4 text-3xl font-bold tracking-tight text-[--text-primary] md:text-4xl">
+            <h2 className="mb-4 text-3xl font-bold tracking-tight text-text-primary md:text-4xl">
               Simple, honest pricing
             </h2>
-            <p className="text-[--text-secondary]">
+            <p className="text-text-secondary">
               Flat-rate plans. No per-operation charges. Priced for Nigeria and
               the world.
             </p>
@@ -409,7 +409,7 @@ export default function MarketingPage() {
                 className={`relative rounded-2xl border p-8 ${
                   plan.highlight
                     ? "border-brand bg-brand/5 shadow-lg shadow-brand/10"
-                    : "border-[--border] bg-[--surface]"
+                    : "border-border bg-surface"
                 }`}
               >
                 {plan.highlight && (
@@ -421,17 +421,17 @@ export default function MarketingPage() {
                 )}
 
                 <div className="mb-6">
-                  <h3 className="mb-1 text-lg font-bold text-[--text-primary]">
+                  <h3 className="mb-1 text-lg font-bold text-text-primary">
                     {plan.name}
                   </h3>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-[--text-primary]">
+                    <span className="text-3xl font-extrabold text-text-primary">
                       {plan.price_ngn === 0
                         ? "Free"
                         : `₦${plan.price_ngn.toLocaleString()}`}
                     </span>
                     {plan.price_ngn > 0 && (
-                      <span className="text-sm text-[--text-muted]">
+                      <span className="text-sm text-text-muted">
                         /mo · ${plan.price_usd} USD
                       </span>
                     )}
@@ -442,7 +442,7 @@ export default function MarketingPage() {
                   {plan.features.map((f) => (
                     <li
                       key={f}
-                      className="flex items-center gap-2 text-sm text-[--text-secondary]"
+                      className="flex items-center gap-2 text-sm text-text-secondary"
                     >
                       <Check className="h-4 w-4 flex-shrink-0 text-brand" />
                       {f}
@@ -455,7 +455,7 @@ export default function MarketingPage() {
                   className={`flex h-10 w-full items-center justify-center rounded-lg text-sm font-semibold transition-colors ${
                     plan.highlight
                       ? "bg-brand text-white hover:bg-brand-hover"
-                      : "border border-[--border] bg-[--background] text-[--text-primary] hover:bg-[--surface-hover]"
+                      : "border border-border bg-background text-text-primary hover:bg-surface-hover"
                   }`}
                 >
                   {plan.cta}
@@ -487,50 +487,50 @@ export default function MarketingPage() {
       </section>
 
       {/* ─── Footer ───────────────────────────────────────────────────── */}
-      <footer className="border-t border-[--border] px-6 py-12">
+      <footer className="border-t border-border px-6 py-12">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand">
                 <Database className="h-3.5 w-3.5 text-white" />
               </div>
-              <span className="font-bold text-[--text-primary]">YourBaaS</span>
+              <span className="font-bold text-text-primary">YourBaaS</span>
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-[--text-muted]">
+            <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-text-muted">
               <Link
                 href="/docs"
-                className="hover:text-[--text-primary] transition-colors"
+                className="hover:text-text-primary transition-colors"
               >
                 Documentation
               </Link>
               <Link
                 href="/pricing"
-                className="hover:text-[--text-primary] transition-colors"
+                className="hover:text-text-primary transition-colors"
               >
                 Pricing
               </Link>
               <Link
                 href="/blog"
-                className="hover:text-[--text-primary] transition-colors"
+                className="hover:text-text-primary transition-colors"
               >
                 Blog
               </Link>
               <Link
                 href="/status"
-                className="hover:text-[--text-primary] transition-colors"
+                className="hover:text-text-primary transition-colors"
               >
                 Status
               </Link>
               <Link
                 href="/privacy"
-                className="hover:text-[--text-primary] transition-colors"
+                className="hover:text-text-primary transition-colors"
               >
                 Privacy
               </Link>
             </div>
 
-            <p className="text-sm text-[--text-muted]">
+            <p className="text-sm text-text-muted">
               © {new Date().getFullYear()} YourBaaS. Built in Lagos 🇳🇬
             </p>
           </div>

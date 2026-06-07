@@ -29,18 +29,18 @@ const TYPE_META: Record<
     Icon: UserPlus,
   },
   db: {
-    bg: "bg-[--info-bg]",
-    text: "text-[--info-text]",
+    bg: "bg-info-bg",
+    text: "text-info-text
     Icon: TableProperties,
   },
   storage: {
-    bg: "bg-[--warn-bg]",
-    text: "text-[--warn-text]",
+    bg: "bg-warn-bg",
+    text: "text-warn-text",
     Icon: Upload,
   },
   key: {
-    bg: "bg-[--success-bg]",
-    text: "text-[--success-text]",
+    bg: "bg-success-bg
+    text: "text-success-text",
     Icon: KeyRound,
   },
   ai: {
@@ -56,7 +56,7 @@ export function ActivityFeed({ activities, className }: ActivityFeedProps) {
   return (
     <div className={className}>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-medium text-[--text-primary]">
+        <h2 className="text-sm font-medium text-text-primary">
           Recent activity
         </h2>
         <Link
@@ -67,7 +67,7 @@ export function ActivityFeed({ activities, className }: ActivityFeedProps) {
         </Link>
       </div>
 
-      <div className="rounded-xl border border-[--border] bg-[--background]">
+      <div className="rounded-xl border border-border bg-background">
         {activities.map((activity, idx) => {
           const meta = TYPE_META[activity.type] ?? TYPE_META.db;
           const { Icon } = meta;
@@ -77,7 +77,7 @@ export function ActivityFeed({ activities, className }: ActivityFeedProps) {
               key={activity.id}
               className={cn(
                 "flex items-start gap-3 px-4 py-3",
-                idx < activities.length - 1 && "border-b border-[--border]",
+                idx < activities.length - 1 && "border-b border-border",
               )}
             >
               {/* Icon */}
@@ -93,13 +93,13 @@ export function ActivityFeed({ activities, className }: ActivityFeedProps) {
 
               {/* Body */}
               <div className="min-w-0 flex-1">
-                <p className="text-xs leading-relaxed text-[--text-primary]">
+                <p className="text-xs leading-relaxed text-text-primary">
                   <ActivityMessage message={activity.message} />
-                  <span className="ml-1.5 inline-flex items-center rounded-[4px] border border-[--border] bg-[--surface] px-1.5 py-0.5 text-[11px] text-[--text-secondary]">
+                  <span className="ml-1.5 inline-flex items-center rounded-[4px] border border-border bg-surface px-1.5 py-0.5 text-[11px] text-text-secondary
                     {activity.projectName}
                   </span>
                 </p>
-                <p className="mt-0.5 text-[11px] text-[--text-muted]">
+                <p className="mt-0.5 text-[11px] text-text-muted">
                   {formatRelativeTime(activity.timestamp)}
                 </p>
               </div>
@@ -122,7 +122,7 @@ function ActivityMessage({ message }: { message: string }) {
     <>
       {parts.map((part, i) =>
         i % 2 === 1 ? (
-          <strong key={i} className="font-medium text-[--text-primary]">
+          <strong key={i} className="font-medium text-text-primary">
             {part}
           </strong>
         ) : (

@@ -13,8 +13,8 @@ interface PageHeaderProps {
 
 const ICON_COLORS = {
   orange: "bg-brand/10 text-brand",
-  blue: "bg-[--info-bg] text-[--info-text]",
-  green: "bg-[--success-bg] text-[--success-text]",
+  blue: "bg-info-bg text-info-text",
+  green: "bg-success-bg text-success-text",
   purple: "bg-[#7F77DD]/10 text-[#7F77DD]",
 };
 
@@ -29,7 +29,7 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        "flex items-start justify-between gap-4 border-b border-[--border] px-6 py-5",
+        "flex items-start justify-between gap-4 border-b border-border px-6 py-5",
         className,
       )}
     >
@@ -45,13 +45,9 @@ export function PageHeader({
           </div>
         )}
         <div>
-          <h1 className="text-base font-medium text-[--text-primary]">
-            {title}
-          </h1>
+          <h1 className="text-base font-medium text-text-primary">{title}</h1>
           {description && (
-            <p className="mt-0.5 text-sm text-[--text-secondary]">
-              {description}
-            </p>
+            <p className="mt-0.5 text-sm text-text-secondary">{description}</p>
           )}
         </div>
       </div>
