@@ -15,22 +15,39 @@ async function proxyToFastAPI(req: NextRequest, method: string) {
   const { projectId, table, dbSchema, rowId, data } = body;
 
   if (!projectId || !table || !dbSchema) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing required fields: projectId, table, dbSchema" },
+      { status: 400 }
+    );
+  }
+
+  if ((method === "PATCH" || method === "DELETE") && !rowId) {
+    return NextResponse.json(
+      { error: "Missing rowId — cannot update or delete without a row identifier" },
+      { status: 400 }
+    );
+  }
+
+  if (method === "POST" && (!data || Object.keys(data).length === 0)) {
+    return NextResponse.json(
+      { error: "No data provided for insert" },
+      { status: 400 }
+    );
   }
 
   let url: string;
-  let fetchBody: string;
+  let fetchBody: string | undefined;
 
   if (method === "POST") {
     url = `${FASTAPI_BASE_URL}/internal/projects/${projectId}/sql/tables/${encodeURIComponent(table)}/rows`;
     fetchBody = JSON.stringify({ db_schema: dbSchema, data });
   } else if (method === "PATCH") {
-    url = `${FASTAPI_BASE_URL}/internal/projects/${projectId}/sql/tables/${encodeURIComponent(table)}/rows/${rowId}`;
+    url = `${FASTAPI_BASE_URL}/internal/projects/${projectId}/sql/tables/${encodeURIComponent(table)}/rows/${encodeURIComponent(String(rowId))}`;
     fetchBody = JSON.stringify({ db_schema: dbSchema, data });
   } else {
     // DELETE
-    url = `${FASTAPI_BASE_URL}/internal/projects/${projectId}/sql/tables/${encodeURIComponent(table)}/rows/${rowId}?db_schema=${encodeURIComponent(dbSchema)}`;
-    fetchBody = "";
+    url = `${FASTAPI_BASE_URL}/internal/projects/${projectId}/sql/tables/${encodeURIComponent(table)}/rows/${encodeURIComponent(String(rowId))}?db_schema=${encodeURIComponent(dbSchema)}`;
+    fetchBody = undefined;
   }
 
   try {
@@ -40,7 +57,7 @@ async function proxyToFastAPI(req: NextRequest, method: string) {
         "Content-Type": "application/json",
         "x-internal-secret": INTERNAL_SECRET,
       },
-      ...(fetchBody ? { body: fetchBody } : {}),
+      ...(fetchBody !== undefined ? { body: fetchBody } : {}),
       cache: "no-store",
     });
 
