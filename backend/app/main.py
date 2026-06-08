@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await _bootstrap_superadmin()
     yield
     # Shutdown: close persistent connections
     from app.db.mongo import close_mongo_client
@@ -47,7 +46,7 @@ from app.api.v1.realtime.router import router as realtime_router
 from app.api.v1.functions.router import router as functions_router
 from app.api.v1.ai.router import router as ai_router
 from app.api.internal.router import router as internal_router
-from app.api.superadmin.router import router as superadmin_router
+from app.api.admin_api.router import router as admin_api_router
 
 app.include_router(db_router, prefix="/v1")
 app.include_router(nosql_router, prefix="/v1")
@@ -57,41 +56,10 @@ app.include_router(realtime_router, prefix="/v1")
 app.include_router(functions_router, prefix="/v1")
 app.include_router(ai_router, prefix="/v1")
 app.include_router(internal_router, prefix="/internal")
-app.include_router(superadmin_router, prefix="/superadmin")
+app.include_router(admin_api_router, prefix="/admin")
 
 
-async def _bootstrap_superadmin() -> None:
-    """Create the initial super_admin if none exists."""
-    from sqlalchemy import text
-    from app.db.postgres import AsyncSessionLocal
-    from app.auth.staff_auth import hash_staff_password
-    import uuid
-
-    if not settings.bootstrap_admin_email or not settings.bootstrap_admin_password:
-        return
-
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            text("SELECT id FROM staff WHERE role = 'super_admin' LIMIT 1")
-        )
-        if result.first():
-            return  # Already bootstrapped
-
-        await session.execute(
-            text("""
-                INSERT INTO staff (id, email, name, hashed_password, role, is_active)
-                VALUES (:id, :email, :name, :pwd, 'super_admin', true)
-                ON CONFLICT (email) DO NOTHING
-            """),
-            {
-                "id": str(uuid.uuid4()),
-                "email": settings.bootstrap_admin_email,
-                "name": "Platform Admin",
-                "pwd": hash_staff_password(settings.bootstrap_admin_password),
-            },
-        )
-        await session.commit()
-        logger.info("Bootstrapped super_admin: %s", settings.bootstrap_admin_email)
+# Superadmin bootstrap removed — superadmin routes are no longer mounted.
 
 
 @app.get("/health")

@@ -93,16 +93,14 @@ export const authConfig: NextAuthConfig = {
       const isLoggedIn = !!auth?.user;
       const { pathname } = nextUrl;
 
-      const isDashboard =
-  pathname.startsWith("/dashboard") || pathname.startsWith("/projects");
-const isUserDashboard = pathname.startsWith("/u/");
-const isSuperadmin = pathname.startsWith("/superadmin");
+      const isDashboard = pathname.startsWith("/dashboard") || pathname.startsWith("/projects");
+      const isUserDashboard = pathname.startsWith("/u/");
 const isAuthPage =
   pathname === "/login" ||
   pathname === "/signup" ||
   pathname === "/verify";
 
-if ((isDashboard || isUserDashboard || isSuperadmin) && !isLoggedIn) {
+if ((isDashboard || isUserDashboard) && !isLoggedIn) {
   const loginUrl = new URL("/login", nextUrl);
   loginUrl.searchParams.set("callbackUrl", nextUrl.href);
   return Response.redirect(loginUrl);
