@@ -13,7 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.db.postgres import get_db
+from app.db.postgres import get_db, set_tenant_session
 
 router = APIRouter(tags=["Internal Auth Browse"])
 logger = logging.getLogger(__name__)
@@ -49,6 +49,8 @@ async def list_auth_users(
     """List all users in the project's _auth_users table."""
     if not db_schema.replace("_", "").replace("-", "").isalnum():
         raise HTTPException(status_code=400, detail="Invalid schema name")
+
+    await set_tenant_session(db, db_schema)
 
     where = "TRUE"
     params: dict[str, Any] = {"limit": limit, "offset": offset}
@@ -115,6 +117,8 @@ async def get_auth_user(
     if not db_schema.replace("_", "").replace("-", "").isalnum():
         raise HTTPException(status_code=400, detail="Invalid schema name")
 
+    await set_tenant_session(db, db_schema)
+
     result = await db.execute(
         text(f"""
             SELECT id, email, name, is_email_verified, created_at
@@ -149,6 +153,8 @@ async def create_auth_user(
         raise HTTPException(status_code=400, detail="Invalid schema name")
 
     from app.auth.project_auth import hash_password
+
+    await set_tenant_session(db, db_schema)
 
     existing = await db.execute(
         text(f'SELECT id FROM "{db_schema}"."_auth_users" WHERE email = :email'),
@@ -189,6 +195,8 @@ async def update_auth_user(
 ) -> dict[str, Any]:
     if not db_schema.replace("_", "").replace("-", "").isalnum():
         raise HTTPException(status_code=400, detail="Invalid schema name")
+
+    await set_tenant_session(db, db_schema)
 
     updates: dict[str, Any] = {}
     if body.is_email_verified is not None:
@@ -231,6 +239,8 @@ async def delete_auth_user(
     if not db_schema.replace("_", "").replace("-", "").isalnum():
         raise HTTPException(status_code=400, detail="Invalid schema name")
 
+    await set_tenant_session(db, db_schema)
+
     result = await db.execute(
         text(f'DELETE FROM "{db_schema}"."_auth_users" WHERE id = :user_id RETURNING id'),
         {"user_id": user_id},
@@ -262,6 +272,8 @@ async def reset_auth_user_password(
     from app.auth.project_auth import hash_password
 
     hashed = hash_password(body.new_password)
+    await set_tenant_session(db, db_schema)
+
     result = await db.execute(
         text(f"""
             UPDATE "{db_schema}"."_auth_users"
@@ -288,6 +300,8 @@ async def get_auth_stats(
 ) -> dict[str, Any]:
     if not db_schema.replace("_", "").replace("-", "").isalnum():
         raise HTTPException(status_code=400, detail="Invalid schema name")
+
+    await set_tenant_session(db, db_schema)
 
     try:
         result = await db.execute(

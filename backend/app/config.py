@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,11 +9,17 @@ class Settings(BaseSettings):
     app_name: str = "BaaS Platform"
     node_env: str = "development"
     fastapi_base_url: str = "http://localhost:8000"
-    internal_api_secret: str = "123-76-43334-5-433-45-65665-ghfgdfv-s-6543-2v-bvc-vwe-56"
+    internal_api_secret: str = Field(..., min_length=32)
 
     # PostgreSQL
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/baas_platform"
     database_sync_url: str = "postgresql://postgres:postgres@localhost:5432/baas_platform"
+    # Optional restricted DB role to SET LOCAL ROLE to before executing tenant SQL.
+    # Create this role in Postgres and grant minimal permissions (SELECT/INSERT/UPDATE/DELETE
+    # on tenant schemas only). Leave empty to skip role switching.
+    db_restricted_role: str | None = None
+    # Toggle to indicate RLS/role-switching is desired (no effect if db_restricted_role is None)
+    db_enable_rls: bool = False
 
     # MongoDB
     mongodb_url: str = "mongodb://localhost:27017"
@@ -20,6 +27,8 @@ class Settings(BaseSettings):
 
     # Redis
     redis_url: str = "redis://localhost:6379"
+    # API key cache TTL (seconds) for Redis. Lower values reduce revocation window.
+    api_key_cache_ttl: int = 15
 
     # MinIO
     minio_endpoint: str = "localhost:9000"
@@ -29,17 +38,17 @@ class Settings(BaseSettings):
     minio_use_ssl: bool = False
 
     # Auth.js / per-project JWTs
-    jwt_secret: str = "changeme-jwt"
+    jwt_secret: str = Field(..., min_length=32)
     jwt_expiry: int = 3600
 
     # Staff / Superadmin
-    staff_jwt_secret: str = "changeme-staff"
+    staff_jwt_secret: str = Field(..., min_length=32)
     staff_jwt_expiry: int = 28800
     bootstrap_admin_email: str = "admin@example.com"
     bootstrap_admin_password: str = "changeme"
 
     # API key encryption
-    api_key_encryption_secret: str = "changeme-enc"
+    api_key_encryption_secret: str = Field(..., min_length=32)
 
     # Email
     smtp_host: str = "localhost"

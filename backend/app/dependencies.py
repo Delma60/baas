@@ -92,3 +92,17 @@ def parse_filters(filter_str: str | None = Query(default=None, alias="filter")) 
 ProjectCtx = Annotated[dict[str, Any], Depends(get_project_context)]
 AuthCtx = Annotated[AuthContext, Depends(get_auth_context)]
 ParsedFilters = Annotated[list[tuple[str, Any, Any]], Depends(parse_filters)]
+
+
+def require_key_type(*allowed: str):
+    """Dependency factory to require the API key type for an endpoint.
+
+    Usage: `ctx: ProjectCtx = Depends(require_key_type('service'))`
+    """
+    async def _dep(ctx: dict[str, Any] = Depends(get_project_context)) -> dict[str, Any]:
+        key_type = ctx.get("key_type")
+        if key_type not in allowed:
+            raise HTTPException(status_code=403, detail="API key not authorized for this operation")
+        return ctx
+
+    return _dep

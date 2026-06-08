@@ -13,7 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.db.postgres import get_db, engine
+from app.db.postgres import get_db, engine, set_tenant_connection, set_tenant_session
 
 router = APIRouter(tags=["Internal SQL Browse"])
 logger = logging.getLogger(__name__)
@@ -81,6 +81,7 @@ async def list_tables(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     _validate_identifier(db_schema, "schema")
+    await set_tenant_session(db, db_schema)
     result = await _execute_with_retry(db, text("""
             SELECT
                 t.table_name,
@@ -107,6 +108,7 @@ async def list_columns(
 ) -> dict[str, Any]:
     _validate_identifier(db_schema, "schema")
     _validate_identifier(table, "table")
+    await set_tenant_session(db, db_schema)
 
     result = await _execute_with_retry(db, text("""
             SELECT column_name, data_type, is_nullable, column_default
@@ -133,6 +135,8 @@ async def list_rows(
     _validate_identifier(table, "table")
     if order_col:
         _validate_identifier(order_col, "order column")
+
+    await set_tenant_session(db, db_schema)
 
     order_clause = (
         f'ORDER BY "{order_col}" {order_dir.upper()}'
@@ -188,9 +192,7 @@ async def run_query(
     async def _run():
         async with engine.connect() as conn:
             await conn.execute(text("BEGIN"))
-            await conn.execute(
-                text(f'SET LOCAL search_path TO "{db_schema}", public')
-            )
+            await set_tenant_connection(conn, db_schema)
             result = await conn.execute(text(query_no_comments))
             rows = [dict(r._mapping) for r in result]
             await conn.execute(text("ROLLBACK"))
@@ -235,6 +237,8 @@ async def insert_row(
     _validate_identifier(body.db_schema, "schema")
     _validate_identifier(table, "table")
 
+    await set_tenant_session(db, body.db_schema)
+
     data = body.data
     if not data:
         raise HTTPException(status_code=400, detail="No data provided")
@@ -263,6 +267,8 @@ async def update_row(
 ) -> dict[str, Any]:
     _validate_identifier(body.db_schema, "schema")
     _validate_identifier(table, "table")
+
+    await set_tenant_session(db, body.db_schema)
 
     data = body.data
     if not data:
@@ -295,6 +301,8 @@ async def delete_row(
     _validate_identifier(db_schema, "schema")
     _validate_identifier(table, "table")
 
+    await set_tenant_session(db, db_schema)
+
     result = await _execute_with_retry(
         db,
         text(f'DELETE FROM "{db_schema}"."{table}" WHERE id = :row_id RETURNING id'),
@@ -317,6 +325,8 @@ async def truncate_table(
 ) -> dict:
     _validate_identifier(db_schema, "schema")
     _validate_identifier(table, "table")
+
+    await set_tenant_session(db, db_schema)
 
     if table.startswith("_"):
         raise HTTPException(status_code=400, detail="Cannot truncate reserved tables")
@@ -344,6 +354,8 @@ async def drop_column_endpoint(
     _validate_identifier(table, "table")
     _validate_identifier(column, "column")
 
+    await set_tenant_session(db, db_schema)
+
     PROTECTED = {"id", "created_at", "updated_at"}
     if column in PROTECTED:
         raise HTTPException(
@@ -369,6 +381,7 @@ async def list_relationships(
 ) -> dict[str, Any]:
     """Return all FK relationships in the project schema."""
     _validate_identifier(db_schema, "schema")
+    await set_tenant_session(db, db_schema)
     from app.provisioner.sql_provisioner import get_foreign_keys
     fks = await get_foreign_keys(db, db_schema)
     return {"data": {"relationships": fks}}

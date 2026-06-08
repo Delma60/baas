@@ -18,6 +18,7 @@ Sync wrapper (scripts / notebooks):
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any
 
 from baas.modules.auth import AuthModule
@@ -28,8 +29,12 @@ from baas.modules.nosql import NoSQLModule
 from baas.modules.realtime import RealtimeModule
 from baas.modules.storage import StorageModule
 from baas.utils.http import HttpClient
+from dotenv import load_dotenv
 
-_DEFAULT_BASE_URL = "https://api.yourbaas.com"
+# Load environment variables from .env file
+load_dotenv()
+
+_DEFAULT_BASE_URL = os.getenv("BAAS_BASE_URL", "https://api.yourbaas.com")
 
 
 class BaasClient:

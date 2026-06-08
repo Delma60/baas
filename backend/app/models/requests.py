@@ -23,7 +23,9 @@ class RefreshTokenRequest(BaseModel):
 # ─── SQL Database ─────────────────────────────────────────────────────────────
 
 class InsertRowRequest(BaseModel):
-    data: dict[str, Any] | list[dict[str, Any]]
+    # Accept either a single row (dict) or a list of rows. Cap the list size
+    # to prevent DoS via extremely large payloads.
+    data: dict[str, Any] | list[dict[str, Any]] = Field(..., max_items=1000)
 
 
 class UpdateRowRequest(BaseModel):

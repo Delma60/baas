@@ -7,10 +7,11 @@ from sqlalchemy import text
 
 from app.db.postgres import AsyncSessionLocal
 from app.db.redis import get_redis
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-CACHE_TTL = 60  # seconds
+CACHE_TTL = settings.api_key_cache_ttl
 
 
 def _hash_key(raw_key: str) -> str:

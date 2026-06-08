@@ -57,8 +57,9 @@ async def similarity_search(
     Perform cosine similarity search using pgvector.
     The table must have an 'embedding' column of type vector.
     """
-    _validate_identifier(schema)
-    _validate_identifier(table)
+     _validate_identifier(schema)
+     _validate_identifier(table)
+     await set_tenant_session(session, schema)
 
     vector_literal = _embedding_to_pg_literal(embedding)
 
@@ -100,8 +101,9 @@ async def upsert_embedding(
     metadata: dict[str, Any] | None = None,
 ) -> None:
     """Insert or update an embedding record."""
-    _validate_identifier(schema)
-    _validate_identifier(table)
+     _validate_identifier(schema)
+     _validate_identifier(table)
+     await set_tenant_session(session, schema)
 
     vector_literal = _embedding_to_pg_literal(embedding)
 
