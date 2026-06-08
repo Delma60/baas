@@ -43,17 +43,29 @@ async def invoke_function(
         from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="Function is inactive")
 
-    timeout_s = (fn["timeout_ms"] or 30000) / 1000
+    timeout_ms = int(fn["timeout_ms"] or 10000)
+    timeout_ms = max(1000, min(timeout_ms, 15000))
+    timeout_s = timeout_ms / 1000
     method = (fn["method"] or "POST").upper()
     merged_headers = {"Content-Type": "application/json", **(headers or {})}
 
-    async with httpx.AsyncClient(timeout=timeout_s) as client:
-        response = await client.request(
-            method,
-            fn["endpoint_url"],
-            json=payload,
-            headers=merged_headers,
-        )
+    async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_s, connect=5.0)) as client:
+        try:
+            response = await client.request(
+                method,
+                fn["endpoint_url"],
+                json=payload,
+                headers=merged_headers,
+            )
+            response.raise_for_status()
+        except httpx.TimeoutException as exc:
+            logger.warning("Function invocation timed out: %s", exc)
+            from fastapi import HTTPException
+            raise HTTPException(status_code=504, detail="Function invocation timed out")
+        except httpx.RequestError as exc:
+            logger.error("Function invocation failed: %s", exc)
+            from fastapi import HTTPException
+            raise HTTPException(status_code=502, detail="Function invocation failed")
 
     return {
         "status": response.status_code,

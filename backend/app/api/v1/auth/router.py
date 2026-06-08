@@ -15,7 +15,7 @@ from app.auth.project_auth import (
     hash_password,
     verify_password,
 )
-from app.db.postgres import get_db
+from app.db.postgres import get_db, set_tenant_session
 from app.dependencies import AuthCtx, ProjectCtx
 from app.models.requests import RefreshTokenRequest, SignInRequest, SignUpRequest
 from jose import JWTError
@@ -35,6 +35,7 @@ async def sign_up(
         raise HTTPException(status_code=403, detail="Project ID mismatch")
 
     schema = ctx["db_schema"]
+    await set_tenant_session(db, schema)
 
     # Check existing user
     result = await db.execute(
@@ -80,6 +81,7 @@ async def sign_in(
         raise HTTPException(status_code=403, detail="Project ID mismatch")
 
     schema = ctx["db_schema"]
+    await set_tenant_session(db, schema)
 
     result = await db.execute(
         text(f'SELECT id, email, name, hashed_password FROM "{schema}"."_auth_users" WHERE email = :email'),
@@ -147,6 +149,7 @@ async def get_me(
         raise HTTPException(status_code=401, detail="Authentication required")
 
     schema = ctx["db_schema"]
+    await set_tenant_session(db, schema)
     result = await db.execute(
         text(f'SELECT id, email, name, is_email_verified, created_at FROM "{schema}"."_auth_users" WHERE id = :uid'),
         {"uid": auth.uid},

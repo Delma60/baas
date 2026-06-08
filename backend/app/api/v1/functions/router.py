@@ -2,9 +2,9 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
-from app.dependencies import AuthCtx, ProjectCtx
+from app.dependencies import AuthCtx, ProjectCtx, require_key_type
 from app.engines.function_runner import invoke_function
 from app.models.requests import FunctionInvokeRequest
 
@@ -17,12 +17,15 @@ async def invoke(
     project_id: str,
     function_name: str,
     body: FunctionInvokeRequest,
-    ctx: ProjectCtx,
-    auth: AuthCtx,
+    ctx: ProjectCtx = Depends(require_key_type("service")),
+    auth: AuthCtx = Depends(),
 ) -> dict[str, Any]:
     """Invoke a named edge function for this project."""
     if ctx["project_id"] != project_id:
         raise HTTPException(status_code=403, detail="Project ID mismatch")
+
+    if not function_name.isidentifier():
+        raise HTTPException(status_code=400, detail="Invalid function name")
 
     # Merge request headers (forwarding auth context if authenticated)
     extra_headers = dict(body.headers)

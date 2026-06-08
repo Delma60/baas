@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.postgres import get_db
-from app.dependencies import AuthCtx, ProjectCtx
+from app.dependencies import AuthCtx, ProjectCtx, require_key_type
 from app.engines.vector_engine import similarity_search, upsert_embedding
 
 router = APIRouter(prefix="/ai", tags=["AI / Vector"])
@@ -36,8 +36,8 @@ class SearchRequest(BaseModel):
 async def create_embedding(
     project_id: str,
     body: EmbedRequest,
-    ctx: ProjectCtx,
-    auth: AuthCtx,
+    ctx: ProjectCtx = Depends(require_key_type("service")),
+    auth: AuthCtx = Depends(),
 ) -> dict[str, Any]:
     """Generate an embedding for the given text using OpenAI."""
     if ctx["project_id"] != project_id:
@@ -49,12 +49,12 @@ async def create_embedding(
 
     try:
         import httpx
-        async with httpx.AsyncClient() as client:
+        timeout = httpx.Timeout(15.0, connect=5.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(
                 "https://api.openai.com/v1/embeddings",
                 headers={"Authorization": f"Bearer {settings.openai_api_key}"},
                 json={"input": body.text, "model": body.model},
-                timeout=30,
             )
             resp.raise_for_status()
             data = resp.json()
@@ -71,8 +71,8 @@ async def upsert_vector(
     project_id: str,
     table: str,
     body: UpsertEmbeddingRequest,
-    ctx: ProjectCtx,
-    auth: AuthCtx,
+    ctx: ProjectCtx = Depends(require_key_type("service")),
+    auth: AuthCtx = Depends(),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Insert or update an embedding record in a pgvector table."""
@@ -96,8 +96,8 @@ async def search_vectors(
     project_id: str,
     table: str,
     body: SearchRequest,
-    ctx: ProjectCtx,
-    auth: AuthCtx,
+    ctx: ProjectCtx = Depends(require_key_type("service")),
+    auth: AuthCtx = Depends(),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Cosine similarity search in a pgvector table."""

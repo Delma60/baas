@@ -14,6 +14,32 @@ RATE_LIMITS: dict[str, tuple[int, int]] = {
     "default": (300, 60),  # 300 req / 60s
 }
 
+# More aggressive throttling for compute-heavy routes.
+ROUTE_RATE_LIMITS: dict[str, dict[str, tuple[int, int]]] = {
+    "/v1/functions": {
+        "anon": (5, 60),
+        "service": (30, 60),
+        "default": (10, 60),
+    },
+    "/v1/ai/embed": {
+        "anon": (3, 60),
+        "service": (15, 60),
+        "default": (5, 60),
+    },
+    "/v1/ai/vectors": {
+        "anon": (10, 60),
+        "service": (40, 60),
+        "default": (20, 60),
+    },
+}
+
+
+def _get_limit_for_path(path: str, key_type: str) -> tuple[int, int]:
+    for prefix, limits in ROUTE_RATE_LIMITS.items():
+        if path.startswith(prefix):
+            return limits.get(key_type, limits["default"])
+    return RATE_LIMITS.get(key_type, RATE_LIMITS["default"])
+
 
 async def rate_limit(request: Request) -> None:
     """
@@ -26,7 +52,7 @@ async def rate_limit(request: Request) -> None:
     if not project_id:
         return  # Internal routes bypass rate limiting
 
-    limit, window = RATE_LIMITS.get(key_type, RATE_LIMITS["default"])
+    limit, window = _get_limit_for_path(request.url.path, key_type)
     redis = await get_redis()
 
     now = time.time()

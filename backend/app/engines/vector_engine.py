@@ -6,6 +6,8 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.postgres import set_tenant_session
+
 logger = logging.getLogger(__name__)
 
 # Only allow simple column comparisons in extra_filter: e.g. "col = 'val'" or "col IS NULL"
@@ -57,9 +59,9 @@ async def similarity_search(
     Perform cosine similarity search using pgvector.
     The table must have an 'embedding' column of type vector.
     """
-     _validate_identifier(schema)
-     _validate_identifier(table)
-     await set_tenant_session(session, schema)
+    _validate_identifier(schema)
+    _validate_identifier(table)
+    await set_tenant_session(session, schema)
 
     vector_literal = _embedding_to_pg_literal(embedding)
 
@@ -101,9 +103,9 @@ async def upsert_embedding(
     metadata: dict[str, Any] | None = None,
 ) -> None:
     """Insert or update an embedding record."""
-     _validate_identifier(schema)
-     _validate_identifier(table)
-     await set_tenant_session(session, schema)
+    _validate_identifier(schema)
+    _validate_identifier(table)
+    await set_tenant_session(session, schema)
 
     vector_literal = _embedding_to_pg_literal(embedding)
 
