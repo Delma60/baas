@@ -100,9 +100,12 @@ export class FindBuilder<T extends Document = Document> {
     if (this._sort) {
       const entries = Object.entries(this._sort);
       if (entries.length > 0) {
-        const [field, dir] = entries[0];
-        query["sort_field"] = field;
-        query["sort_dir"] = dir;
+        const firstEntry = entries[0];
+        if(firstEntry){
+          const [field, dir] = firstEntry;
+          query["sort_field"] = field;
+          query["sort_dir"] = dir;
+        }
       }
     }
 
