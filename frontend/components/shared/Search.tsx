@@ -35,14 +35,15 @@ export function Search({
   const [value, setValue] = React.useState(
     defaultValue || searchParams.get(paramName) || "",
   );
-  const debounceRef = React.useRef<NodeJS.Timeout>();
+  const debounceRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const newVal = e.target.value;
       setValue(newVal);
 
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (debounceRef.current)
+        clearTimeout(debounceRef.current as NodeJS.Timeout);
 
       debounceRef.current = setTimeout(() => {
         if (onSearch) {
@@ -67,7 +68,8 @@ export function Search({
 
   const handleClear = useCallback(() => {
     setValue("");
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (debounceRef.current)
+      clearTimeout(debounceRef.current as NodeJS.Timeout);
     if (onSearch) {
       onSearch("");
       return;

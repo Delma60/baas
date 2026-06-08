@@ -314,7 +314,9 @@ function FunctionDialog({
               <Label className="text-xs font-medium">HTTP method</Label>
               <Select
                 value={form.method}
-                onValueChange={(v) => setForm((f) => ({ ...f, method: v }))}
+                onValueChange={(v) =>
+                  setForm((f) => ({ ...f, method: v ?? "" }))
+                }
               >
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue />

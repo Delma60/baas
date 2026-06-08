@@ -111,11 +111,20 @@ function castValue(value: string, dataType: string): unknown {
   if (value === "") return null;
   const t = dataType.toLowerCase();
   if (t.includes("int") || t.includes("serial")) return parseInt(value, 10);
-  if (t.includes("float") || t.includes("double") || t.includes("numeric") || t.includes("real"))
+  if (
+    t.includes("float") ||
+    t.includes("double") ||
+    t.includes("numeric") ||
+    t.includes("real")
+  )
     return parseFloat(value);
   if (t.includes("bool")) return value === "true";
   if (t.includes("json")) {
-    try { return JSON.parse(value); } catch { return value; }
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
   }
   return value;
 }
@@ -162,11 +171,11 @@ function RowFormDialog({
   onSaved,
 }: RowFormDialogProps) {
   const editableCols = columns.filter(
-    (c) => !SYSTEM_COLS.includes(c.column_name)
+    (c) => !SYSTEM_COLS.includes(c.column_name),
   );
 
   const [fields, setFields] = useState<Record<string, string>>(() =>
-    buildFields(editableCols, existingRow)
+    buildFields(editableCols, existingRow),
   );
   const [fkOptions, setFkOptions] = useState<
     Record<string, Array<{ value: string; label: string }>>
@@ -203,12 +212,11 @@ function RowFormDialog({
         .then((r) => r.json())
         .then((data) => {
           const rows: Record<string, unknown>[] = data.data?.rows ?? [];
-          const labelCol =
-            rows[0]
-              ? (["name", "title", "email", "slug", "label"].find(
-                  (k) => k in rows[0]
-                ) ?? fk.to_column)
-              : fk.to_column;
+          const labelCol = rows[0]
+            ? (["name", "title", "email", "slug", "label"].find(
+                (k) => k in rows[0],
+              ) ?? fk.to_column)
+            : fk.to_column;
           setFkOptions((p) => ({
             ...p,
             [col]: rows.map((r) => ({
@@ -236,7 +244,7 @@ function RowFormDialog({
     // Validate rowId for edit mode
     if (mode === "edit" && !existingRow?.id) {
       setError(
-        "This row has no 'id' column — edit is only supported for rows with a primary key named 'id'."
+        "This row has no 'id' column — edit is only supported for rows with a primary key named 'id'.",
       );
       setLoading(false);
       return;
@@ -292,7 +300,9 @@ function RowFormDialog({
       <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
         <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
         <span>
-          This row has no <code className="font-mono">id</code> column — it cannot be updated via the dashboard. Run an UPDATE query in the editor instead.
+          This row has no <code className="font-mono">id</code> column — it
+          cannot be updated via the dashboard. Run an UPDATE query in the editor
+          instead.
         </span>
       </div>
     ) : null;
@@ -328,16 +338,21 @@ function RowFormDialog({
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
                   Read-only (system columns)
                 </p>
-                {SYSTEM_COLS.filter((c) => existingRow[c] != null).map((col) => (
-                  <div key={col} className="flex items-center gap-3 text-[11.5px]">
-                    <span className="w-24 font-mono text-muted-foreground shrink-0">
-                      {col}
-                    </span>
-                    <span className="font-mono text-foreground/70 truncate">
-                      {toDisplayString(existingRow[col])}
-                    </span>
-                  </div>
-                ))}
+                {SYSTEM_COLS.filter((c) => existingRow[c] != null).map(
+                  (col) => (
+                    <div
+                      key={col}
+                      className="flex items-center gap-3 text-[11.5px]"
+                    >
+                      <span className="w-24 font-mono text-muted-foreground shrink-0">
+                        {col}
+                      </span>
+                      <span className="font-mono text-foreground/70 truncate">
+                        {toDisplayString(existingRow[col])}
+                      </span>
+                    </div>
+                  ),
+                )}
               </div>
             )}
 
@@ -350,9 +365,13 @@ function RowFormDialog({
             {editableCols.map((col) => {
               const fk = getFkForColumn(col.column_name);
               const options = fk ? (fkOptions[col.column_name] ?? []) : [];
-              const isLoadingFk = fk ? (fkLoading[col.column_name] ?? false) : false;
+              const isLoadingFk = fk
+                ? (fkLoading[col.column_name] ?? false)
+                : false;
               const currentVal = fields[col.column_name] ?? "";
-              const originalVal = toDisplayString(existingRow?.[col.column_name]);
+              const originalVal = toDisplayString(
+                existingRow?.[col.column_name],
+              );
               const isDirty = mode === "edit" && currentVal !== originalVal;
 
               return (
@@ -369,7 +388,8 @@ function RowFormDialog({
                     </Badge>
                     {fk && (
                       <span className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 font-medium">
-                        <Link2 className="h-3 w-3" />→ {fk.to_table}.{fk.to_column}
+                        <Link2 className="h-3 w-3" />→ {fk.to_table}.
+                        {fk.to_column}
                       </span>
                     )}
                     {col.is_nullable === "YES" && (
@@ -389,20 +409,28 @@ function RowFormDialog({
                       <Select
                         value={currentVal}
                         onValueChange={(v) =>
-                          setFields((f) => ({ ...f, [col.column_name]: v }))
+                          setFields((f) => ({
+                            ...f,
+                            [col.column_name]: v ?? "",
+                          }))
                         }
                         disabled={isLoadingFk}
                       >
                         <SelectTrigger className="h-9 text-sm">
                           <SelectValue
                             placeholder={
-                              isLoadingFk ? "Loading…" : `Select ${fk.to_table}…`
+                              isLoadingFk
+                                ? "Loading…"
+                                : `Select ${fk.to_table}…`
                             }
                           />
                         </SelectTrigger>
                         <SelectContent>
                           {col.is_nullable === "YES" && (
-                            <SelectItem value="" className="text-xs text-muted-foreground italic">
+                            <SelectItem
+                              value=""
+                              className="text-xs text-muted-foreground italic"
+                            >
                               — null —
                             </SelectItem>
                           )}
@@ -427,7 +455,10 @@ function RowFormDialog({
                     <select
                       value={currentVal}
                       onChange={(e) =>
-                        setFields((f) => ({ ...f, [col.column_name]: e.target.value }))
+                        setFields((f) => ({
+                          ...f,
+                          [col.column_name]: e.target.value,
+                        }))
                       }
                       className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                     >
@@ -439,7 +470,10 @@ function RowFormDialog({
                     <Input
                       value={currentVal}
                       onChange={(e) =>
-                        setFields((f) => ({ ...f, [col.column_name]: e.target.value }))
+                        setFields((f) => ({
+                          ...f,
+                          [col.column_name]: e.target.value,
+                        }))
                       }
                       placeholder={
                         col.column_default
@@ -448,7 +482,7 @@ function RowFormDialog({
                       }
                       className={cn(
                         "h-9 text-sm font-mono",
-                        isDirty && "border-amber-300 dark:border-amber-700"
+                        isDirty && "border-amber-300 dark:border-amber-700",
                       )}
                     />
                   )}
@@ -470,7 +504,11 @@ function RowFormDialog({
           <Button
             size="sm"
             onClick={handleSubmit}
-            disabled={loading || editableCols.length === 0 || (mode === "edit" && !rowId)}
+            disabled={
+              loading ||
+              editableCols.length === 0 ||
+              (mode === "edit" && !rowId)
+            }
             className="gap-1.5 bg-brand hover:bg-brand-hover text-white border-0"
           >
             {loading ? (
@@ -481,8 +519,12 @@ function RowFormDialog({
               <Save className="h-3.5 w-3.5" />
             )}
             {loading
-              ? mode === "insert" ? "Inserting…" : "Saving…"
-              : mode === "insert" ? "Insert row" : "Save changes"}
+              ? mode === "insert"
+                ? "Inserting…"
+                : "Saving…"
+              : mode === "insert"
+                ? "Insert row"
+                : "Save changes"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -492,7 +534,7 @@ function RowFormDialog({
 
 function buildFields(
   editableCols: SqlColumn[],
-  existingRow?: Record<string, unknown>
+  existingRow?: Record<string, unknown>,
 ): Record<string, string> {
   const init: Record<string, string> = {};
   for (const col of editableCols) {
@@ -532,34 +574,65 @@ function AddColumnDialog({
   const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
-    setName(""); setType("text"); setNullable(true); setDefaultVal("");
-    setFkEnabled(false); setFkTable(""); setFkColumn("id"); setFkOnDelete("NO ACTION");
+    setName("");
+    setType("text");
+    setNullable(true);
+    setDefaultVal("");
+    setFkEnabled(false);
+    setFkTable("");
+    setFkColumn("id");
+    setFkOnDelete("NO ACTION");
     setError(null);
   };
 
   const handleAdd = async () => {
-    if (!name.trim()) { setError("Column name is required"); return; }
-    if (fkEnabled && !fkTable) { setError("Select a referenced table"); return; }
-    setLoading(true); setError(null);
+    if (!name.trim()) {
+      setError("Column name is required");
+      return;
+    }
+    if (fkEnabled && !fkTable) {
+      setError("Select a referenced table");
+      return;
+    }
+    setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`/api/internal/sql/tables/${table}/columns`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          projectId, dbSchema, table,
+          projectId,
+          dbSchema,
+          table,
           column: {
-            name: name.trim(), type, nullable,
+            name: name.trim(),
+            type,
+            nullable,
             default: defaultVal || null,
-            foreign_key: fkEnabled ? { table: fkTable, column: fkColumn, on_delete: fkOnDelete } : null,
+            foreign_key: fkEnabled
+              ? { table: fkTable, column: fkColumn, on_delete: fkOnDelete }
+              : null,
           },
         }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data?.error ?? "Failed to add column"); return; }
-      onAdded({ column_name: name.trim(), data_type: type, is_nullable: nullable ? "YES" : "NO", column_default: defaultVal || null });
-      reset(); onClose();
-    } catch { setError("Network error"); }
-    finally { setLoading(false); }
+      if (!res.ok) {
+        setError(data?.error ?? "Failed to add column");
+        return;
+      }
+      onAdded({
+        column_name: name.trim(),
+        data_type: type,
+        is_nullable: nullable ? "YES" : "NO",
+        column_default: defaultVal || null,
+      });
+      reset();
+      onClose();
+    } catch {
+      setError("Network error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const ON_DELETE_OPTIONS = [
@@ -570,7 +643,15 @@ function AddColumnDialog({
   ];
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) {
+          reset();
+          onClose();
+        }
+      }}
+    >
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Add column</DialogTitle>
@@ -581,27 +662,46 @@ function AddColumnDialog({
         <div className="space-y-3 py-1">
           {error && (
             <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />{error}
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              {error}
             </div>
           )}
           <div className="space-y-1.5">
             <Label className="text-xs font-medium">Column name</Label>
-            <Input placeholder="e.g. description" value={name} onChange={(e) => setName(e.target.value)} className="h-9 text-sm font-mono" autoFocus />
+            <Input
+              placeholder="e.g. description"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="h-9 text-sm font-mono"
+              autoFocus
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs font-medium">Type</Label>
             <Select value={type} onValueChange={setType}>
-              <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {COLUMN_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value} className="text-sm">{t.label}</SelectItem>
+                  <SelectItem key={t.value} value={t.value} className="text-sm">
+                    {t.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Default value <span className="text-muted-foreground">(optional)</span></Label>
-            <Input placeholder="e.g. 0, 'draft', NOW()" value={defaultVal} onChange={(e) => setDefaultVal(e.target.value)} className="h-9 text-sm font-mono" />
+            <Label className="text-xs font-medium">
+              Default value{" "}
+              <span className="text-muted-foreground">(optional)</span>
+            </Label>
+            <Input
+              placeholder="e.g. 0, 'draft', NOW()"
+              value={defaultVal}
+              onChange={(e) => setDefaultVal(e.target.value)}
+              className="h-9 text-sm font-mono"
+            />
           </div>
           <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2.5">
             <span className="text-sm font-medium">Allow NULL</span>
@@ -619,26 +719,49 @@ function AddColumnDialog({
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">References table</Label>
                 <Select value={fkTable} onValueChange={setFkTable}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select table…" /></SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Select table…" />
+                  </SelectTrigger>
                   <SelectContent>
-                    {existingTables.filter((t) => !t.startsWith("_") && t !== table).map((t) => (
-                      <SelectItem key={t} value={t} className="text-xs font-mono">{t}</SelectItem>
-                    ))}
+                    {existingTables
+                      .filter((t) => !t.startsWith("_") && t !== table)
+                      .map((t) => (
+                        <SelectItem
+                          key={t}
+                          value={t}
+                          className="text-xs font-mono"
+                        >
+                          {t}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Column</Label>
-                  <Input value={fkColumn} onChange={(e) => setFkColumn(e.target.value)} className="h-8 text-xs font-mono" placeholder="id" />
+                  <Input
+                    value={fkColumn}
+                    onChange={(e) => setFkColumn(e.target.value)}
+                    className="h-8 text-xs font-mono"
+                    placeholder="id"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">On delete</Label>
                   <Select value={fkOnDelete} onValueChange={setFkOnDelete}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       {ON_DELETE_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                        <SelectItem
+                          key={o.value}
+                          value={o.value}
+                          className="text-xs"
+                        >
+                          {o.label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -648,9 +771,28 @@ function AddColumnDialog({
           )}
         </div>
         <DialogFooter className="pt-2 border-t">
-          <Button variant="outline" size="sm" onClick={() => { reset(); onClose(); }} disabled={loading}>Cancel</Button>
-          <Button size="sm" onClick={handleAdd} disabled={loading || !name.trim()} className="gap-1.5 bg-brand hover:bg-brand-hover text-white border-0">
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              reset();
+              onClose();
+            }}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleAdd}
+            disabled={loading || !name.trim()}
+            className="gap-1.5 bg-brand hover:bg-brand-hover text-white border-0"
+          >
+            {loading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Plus className="h-3.5 w-3.5" />
+            )}
             Add column
           </Button>
         </DialogFooter>
@@ -662,11 +804,23 @@ function AddColumnDialog({
 // ─── Confirm Dialog ───────────────────────────────────────────────────────────
 
 function ConfirmDialog({
-  open, onClose, onConfirm, title, description, confirmLabel = "Confirm", variant = "destructive", loading,
+  open,
+  onClose,
+  onConfirm,
+  title,
+  description,
+  confirmLabel = "Confirm",
+  variant = "destructive",
+  loading,
 }: {
-  open: boolean; onClose: () => void; onConfirm: () => void;
-  title: string; description: string; confirmLabel?: string;
-  variant?: "destructive" | "default"; loading?: boolean;
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  description: string;
+  confirmLabel?: string;
+  variant?: "destructive" | "default";
+  loading?: boolean;
 }) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -676,9 +830,23 @@ function ConfirmDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={onClose} disabled={loading}>Cancel</Button>
-          <Button size="sm" variant={variant === "destructive" ? "destructive" : "default"} onClick={onConfirm} disabled={loading} className="gap-1.5">
-            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}{confirmLabel}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            variant={variant === "destructive" ? "destructive" : "default"}
+            onClick={onConfirm}
+            disabled={loading}
+            className="gap-1.5"
+          >
+            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -690,11 +858,26 @@ function ConfirmDialog({
 
 function CellValue({ value }: { value: unknown }) {
   if (value === null || value === undefined)
-    return <span className="text-muted-foreground/50 italic text-xs">null</span>;
+    return (
+      <span className="text-muted-foreground/50 italic text-xs">null</span>
+    );
   if (typeof value === "boolean")
-    return <span className={cn("text-xs font-medium", value ? "text-emerald-600" : "text-rose-500")}>{String(value)}</span>;
+    return (
+      <span
+        className={cn(
+          "text-xs font-medium",
+          value ? "text-emerald-600" : "text-rose-500",
+        )}
+      >
+        {String(value)}
+      </span>
+    );
   if (typeof value === "object")
-    return <span className="text-violet-600 dark:text-violet-400 text-xs">{JSON.stringify(value)}</span>;
+    return (
+      <span className="text-violet-600 dark:text-violet-400 text-xs">
+        {JSON.stringify(value)}
+      </span>
+    );
   const str = String(value);
   return <span className={str.length > 80 ? "text-xs" : ""}>{str}</span>;
 }
@@ -702,7 +885,11 @@ function CellValue({ value }: { value: unknown }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function DatabaseClient({
-  projectId, dbSchema, initialTables, initialTable, initialResult,
+  projectId,
+  dbSchema,
+  initialTables,
+  initialTable,
+  initialResult,
 }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [tables, setTables] = useState<SqlTable[]>(initialTables);
@@ -710,7 +897,9 @@ export function DatabaseClient({
   const [columns, setColumns] = useState<SqlColumn[]>([]);
   const [foreignKeys, setForeignKeys] = useState<ForeignKey[]>([]);
   const [query, setQuery] = useState(
-    initialTable ? `SELECT *\nFROM "${initialTable}"\nLIMIT 50;` : "SELECT * FROM your_table LIMIT 50;"
+    initialTable
+      ? `SELECT *\nFROM "${initialTable}"\nLIMIT 50;`
+      : "SELECT * FROM your_table LIMIT 50;",
   );
   const [filter, setFilter] = useState("");
   const [isRunning, setIsRunning] = useState(false);
@@ -740,7 +929,7 @@ export function DatabaseClient({
   const [emptyTableLoading, setEmptyTableLoading] = useState(false);
 
   const filteredTables = tables.filter((t) =>
-    t.name.toLowerCase().includes(filter.toLowerCase())
+    t.name.toLowerCase().includes(filter.toLowerCase()),
   );
 
   // Flash success then clear
@@ -758,72 +947,106 @@ export function DatabaseClient({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          projectId, dbSchema,
+          projectId,
+          dbSchema,
           query: `SELECT table_name FROM information_schema.tables WHERE table_schema = '${dbSchema}' AND table_type = 'BASE TABLE' AND table_name NOT LIKE '\\_%' ORDER BY table_name`,
         }),
       });
       const data = await res.json();
       if (res.ok && data.data?.rows) {
-        setTables(data.data.rows.map((r: { table_name: string }) => ({ name: r.table_name, rows: 0 })));
+        setTables(
+          data.data.rows.map((r: { table_name: string }) => ({
+            name: r.table_name,
+            rows: 0,
+          })),
+        );
       }
-    } catch { /* non-fatal */ }
-    finally { setIsRefreshingTables(false); }
+    } catch {
+      /* non-fatal */
+    } finally {
+      setIsRefreshingTables(false);
+    }
   }, [projectId, dbSchema]);
 
-  const fetchColumns = useCallback(async (tableName: string) => {
-    try {
-      const [colRes, fkRes] = await Promise.all([
-        fetch(`/api/internal/sql/query`, {
+  const fetchColumns = useCallback(
+    async (tableName: string) => {
+      try {
+        const [colRes, fkRes] = await Promise.all([
+          fetch(`/api/internal/sql/query`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              dbSchema,
+              query: `SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = '${dbSchema}' AND table_name = '${tableName}' ORDER BY ordinal_position`,
+            }),
+          }),
+          fetch(
+            `/api/internal/sql/relationships?projectId=${projectId}&db_schema=${encodeURIComponent(dbSchema)}`,
+          ).catch(() => null),
+        ]);
+        const colData = await colRes.json();
+        if (colRes.ok && colData.data?.rows)
+          setColumns(colData.data.rows as SqlColumn[]);
+
+        if (fkRes && fkRes.ok) {
+          const fkData = await fkRes.json();
+          const allFks = fkData.data?.relationships ?? [];
+          setForeignKeys(
+            allFks.filter((fk: ForeignKey) => fk.from_table === tableName),
+          );
+        }
+      } catch {
+        setColumns([]);
+        setForeignKeys([]);
+      }
+    },
+    [projectId, dbSchema],
+  );
+
+  const handleSelectTable = useCallback(
+    async (tableName: string) => {
+      setActiveTable(tableName);
+      setQuery(`SELECT *\nFROM "${tableName}"\nLIMIT 50;`);
+      setQueryError(null);
+      setCrudError(null);
+      setCrudSuccess(null);
+      setResult(null);
+      setSelectedRows(new Set());
+      setIsLoadingTable(true);
+
+      await fetchColumns(tableName);
+
+      try {
+        const res = await fetch(`/api/internal/sql/query`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            projectId, dbSchema,
-            query: `SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = '${dbSchema}' AND table_name = '${tableName}' ORDER BY ordinal_position`,
+            projectId,
+            dbSchema,
+            query: `SELECT * FROM "${tableName}" ORDER BY created_at DESC NULLS LAST LIMIT 50`,
           }),
-        }),
-        fetch(`/api/internal/sql/relationships?projectId=${projectId}&db_schema=${encodeURIComponent(dbSchema)}`)
-          .catch(() => null),
-      ]);
-      const colData = await colRes.json();
-      if (colRes.ok && colData.data?.rows) setColumns(colData.data.rows as SqlColumn[]);
-
-      if (fkRes && fkRes.ok) {
-        const fkData = await fkRes.json();
-        const allFks = fkData.data?.relationships ?? [];
-        setForeignKeys(allFks.filter((fk: ForeignKey) => fk.from_table === tableName));
+        });
+        const data = await res.json();
+        if (!res.ok) setQueryError(data?.error ?? "Failed to load table");
+        else setResult(data.data);
+      } catch {
+        setQueryError("Cannot reach backend");
+      } finally {
+        setIsLoadingTable(false);
       }
-    } catch { setColumns([]); setForeignKeys([]); }
-  }, [projectId, dbSchema]);
-
-  const handleSelectTable = useCallback(async (tableName: string) => {
-    setActiveTable(tableName);
-    setQuery(`SELECT *\nFROM "${tableName}"\nLIMIT 50;`);
-    setQueryError(null); setCrudError(null); setCrudSuccess(null);
-    setResult(null); setSelectedRows(new Set());
-    setIsLoadingTable(true);
-
-    await fetchColumns(tableName);
-
-    try {
-      const res = await fetch(`/api/internal/sql/query`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId, dbSchema,
-          query: `SELECT * FROM "${tableName}" ORDER BY created_at DESC NULLS LAST LIMIT 50`,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) setQueryError(data?.error ?? "Failed to load table");
-      else setResult(data.data);
-    } catch { setQueryError("Cannot reach backend"); }
-    finally { setIsLoadingTable(false); }
-  }, [projectId, dbSchema, fetchColumns]);
+    },
+    [projectId, dbSchema, fetchColumns],
+  );
 
   const handleRunQuery = useCallback(async () => {
     if (!query.trim()) return;
-    setIsRunning(true); setQueryError(null); setCrudError(null); setCrudSuccess(null);
-    setResult(null); setSelectedRows(new Set());
+    setIsRunning(true);
+    setQueryError(null);
+    setCrudError(null);
+    setCrudSuccess(null);
+    setResult(null);
+    setSelectedRows(new Set());
     try {
       const res = await fetch(`/api/internal/sql/query`, {
         method: "POST",
@@ -833,8 +1056,11 @@ export function DatabaseClient({
       const data = await res.json();
       if (!res.ok) setQueryError(data?.error ?? "Query failed");
       else setResult(data.data);
-    } catch { setQueryError("Cannot reach backend"); }
-    finally { setIsRunning(false); }
+    } catch {
+      setQueryError("Cannot reach backend");
+    } finally {
+      setIsRunning(false);
+    }
   }, [query, projectId, dbSchema]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -849,10 +1075,16 @@ export function DatabaseClient({
   const handleRowSaved = (row: Record<string, unknown>, isNew: boolean) => {
     setResult((prev) => {
       if (!prev) return { rows: [row], total: 1 };
-      if (isNew) return { ...prev, rows: [row, ...prev.rows], total: prev.total + 1 };
-      return { ...prev, rows: prev.rows.map((r) => (r.id === row.id ? row : r)) };
+      if (isNew)
+        return { ...prev, rows: [row, ...prev.rows], total: prev.total + 1 };
+      return {
+        ...prev,
+        rows: prev.rows.map((r) => (r.id === row.id ? row : r)),
+      };
     });
-    showSuccess(isNew ? "Row inserted successfully" : "Row updated successfully");
+    showSuccess(
+      isNew ? "Row inserted successfully" : "Row updated successfully",
+    );
   };
 
   const handleDeleteRow = async (row: Record<string, unknown>) => {
@@ -867,17 +1099,32 @@ export function DatabaseClient({
       const res = await fetch("/api/internal/sql/rows", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, table: activeTable, dbSchema, rowId: id }),
+        body: JSON.stringify({
+          projectId,
+          table: activeTable,
+          dbSchema,
+          rowId: id,
+        }),
       });
       const data = await res.json();
-      if (!res.ok) { setCrudError(data?.error ?? "Delete failed"); return; }
+      if (!res.ok) {
+        setCrudError(data?.error ?? "Delete failed");
+        return;
+      }
       setResult((prev) => {
         if (!prev) return prev;
-        return { ...prev, rows: prev.rows.filter((r) => r.id !== id), total: prev.total - 1 };
+        return {
+          ...prev,
+          rows: prev.rows.filter((r) => r.id !== id),
+          total: prev.total - 1,
+        };
       });
       showSuccess("Row deleted");
-    } catch { setCrudError("Network error"); }
-    finally { setDeletingId(null); }
+    } catch {
+      setCrudError("Network error");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleDeleteSelected = async () => {
@@ -893,30 +1140,42 @@ export function DatabaseClient({
   const handleDropTable = async (tableName: string) => {
     setDropTableLoading(true);
     try {
-      const res = await fetch(`/api/internal/sql/tables/${encodeURIComponent(tableName)}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, dbSchema }),
-      });
+      const res = await fetch(
+        `/api/internal/sql/tables/${encodeURIComponent(tableName)}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId, dbSchema }),
+        },
+      );
       if (res.ok) {
         setTables((prev) => prev.filter((t) => t.name !== tableName));
         if (activeTable === tableName) {
-          setActiveTable(null); setResult(null); setColumns([]);
+          setActiveTable(null);
+          setResult(null);
+          setColumns([]);
           setQuery("SELECT * FROM your_table LIMIT 50;");
         }
       }
-    } catch { /* non-fatal */ }
-    finally { setDropTableLoading(false); setDropTableTarget(null); }
+    } catch {
+      /* non-fatal */
+    } finally {
+      setDropTableLoading(false);
+      setDropTableTarget(null);
+    }
   };
 
   const handleEmptyTable = async (tableName: string) => {
     setEmptyTableLoading(true);
     try {
-      const res = await fetch(`/api/internal/sql/tables/${encodeURIComponent(tableName)}/truncate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, dbSchema }),
-      });
+      const res = await fetch(
+        `/api/internal/sql/tables/${encodeURIComponent(tableName)}/truncate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId, dbSchema }),
+        },
+      );
       if (res.ok) {
         setResult((prev) => (prev ? { ...prev, rows: [], total: 0 } : null));
         showSuccess("Table emptied");
@@ -924,8 +1183,12 @@ export function DatabaseClient({
         const data = await res.json().catch(() => ({}));
         setCrudError(data?.error ?? "Failed to empty table");
       }
-    } catch { setCrudError("Network error"); }
-    finally { setEmptyTableLoading(false); setEmptyTableTarget(null); }
+    } catch {
+      setCrudError("Network error");
+    } finally {
+      setEmptyTableLoading(false);
+      setEmptyTableTarget(null);
+    }
   };
 
   const handleDropColumn = async (colName: string) => {
@@ -938,19 +1201,31 @@ export function DatabaseClient({
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ projectId, dbSchema }),
-        }
+        },
       );
       if (res.ok) {
         setColumns((prev) => prev.filter((c) => c.column_name !== colName));
         if (result) {
           setResult((prev) =>
-            prev ? { ...prev, rows: prev.rows.map((r) => { const nr = { ...r }; delete nr[colName]; return nr; }) } : prev
+            prev
+              ? {
+                  ...prev,
+                  rows: prev.rows.map((r) => {
+                    const nr = { ...r };
+                    delete nr[colName];
+                    return nr;
+                  }),
+                }
+              : prev,
           );
         }
         showSuccess(`Column "${colName}" dropped`);
       }
-    } catch { /* non-fatal */ }
-    finally { setDroppingColumn(null); }
+    } catch {
+      /* non-fatal */
+    } finally {
+      setDroppingColumn(null);
+    }
   };
 
   // ── misc ───────────────────────────────────────────────────────────────────
@@ -966,7 +1241,7 @@ export function DatabaseClient({
   const toggleAll = () => {
     const rows = result?.rows ?? [];
     setSelectedRows((prev) =>
-      prev.size === rows.length ? new Set() : new Set(rows.map((_, i) => i))
+      prev.size === rows.length ? new Set() : new Set(rows.map((_, i) => i)),
     );
   };
 
@@ -1014,22 +1289,40 @@ export function DatabaseClient({
           <div className="flex items-center gap-3">
             <Tooltip>
               <TooltipTrigger render={<span />}>
-                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setSidebarOpen((o) => !o)}>
-                  {sidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => setSidebarOpen((o) => !o)}
+                >
+                  {sidebarOpen ? (
+                    <PanelLeftClose className="h-4 w-4" />
+                  ) : (
+                    <PanelLeftOpen className="h-4 w-4" />
+                  )}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">{sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}</TooltipContent>
+              <TooltipContent side="bottom">
+                {sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+              </TooltipContent>
             </Tooltip>
             <Separator orientation="vertical" className="h-5" />
             <div className="flex items-center gap-2">
               <DatabaseZap className="h-4 w-4 text-primary shrink-0" />
-              <span className="font-semibold text-sm hidden sm:inline">SQL Database</span>
+              <span className="font-semibold text-sm hidden sm:inline">
+                SQL Database
+              </span>
             </div>
             {activeTable && (
               <div className="hidden md:flex items-center gap-1 text-sm text-muted-foreground">
                 <ChevronRight className="h-3.5 w-3.5" />
-                <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded-md">{activeTable}</span>
-                <Badge variant="secondary" className="text-[10px] h-4 px-1.5 ml-1">
+                <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded-md">
+                  {activeTable}
+                </span>
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] h-4 px-1.5 ml-1"
+                >
                   {result?.total ?? 0} rows
                 </Badge>
               </div>
@@ -1042,49 +1335,90 @@ export function DatabaseClient({
                 {/* Columns manager */}
                 <DropdownMenu open={columnsOpen} onOpenChange={setColumnsOpen}>
                   <DropdownMenuTrigger render={<span />}>
-                    <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
-                      <Columns className="h-3.5 w-3.5" />Columns<ChevronDown className="h-3 w-3 text-muted-foreground" />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1.5 text-xs"
+                    >
+                      <Columns className="h-3.5 w-3.5" />
+                      Columns
+                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-64">
-                    <div className="px-2 py-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">Table columns</div>
+                    <div className="px-2 py-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Table columns
+                    </div>
                     <DropdownMenuSeparator />
                     <ScrollArea className="max-h-48">
                       {columns.map((col) => (
-                        <div key={col.column_name} className="flex items-center justify-between px-2 py-1.5 group">
+                        <div
+                          key={col.column_name}
+                          className="flex items-center justify-between px-2 py-1.5 group"
+                        >
                           <div className="flex items-center gap-2 min-w-0">
-                            <code className="text-xs font-mono text-foreground truncate">{col.column_name}</code>
-                            <Badge variant="outline" className="text-[9px] h-4 px-1 font-mono shrink-0">{col.data_type}</Badge>
+                            <code className="text-xs font-mono text-foreground truncate">
+                              {col.column_name}
+                            </code>
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] h-4 px-1 font-mono shrink-0"
+                            >
+                              {col.data_type}
+                            </Badge>
                           </div>
                           {!SYSTEM_COLS.includes(col.column_name) && (
                             <Button
-                              variant="ghost" size="icon"
+                              variant="ghost"
+                              size="icon"
                               className="h-5 w-5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
                               onClick={() => handleDropColumn(col.column_name)}
                               disabled={droppingColumn === col.column_name}
                             >
-                              {droppingColumn === col.column_name ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                              {droppingColumn === col.column_name ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <X className="h-3 w-3" />
+                              )}
                             </Button>
                           )}
                         </div>
                       ))}
                     </ScrollArea>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-xs gap-2 cursor-pointer" onClick={() => { setColumnsOpen(false); setAddColumnOpen(true); }}>
+                    <DropdownMenuItem
+                      className="text-xs gap-2 cursor-pointer"
+                      onClick={() => {
+                        setColumnsOpen(false);
+                        setAddColumnOpen(true);
+                      }}
+                    >
                       <Plus className="h-3.5 w-3.5" /> Add column
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => setInsertOpen(true)}>
-                  <Plus className="h-3.5 w-3.5" />Insert row
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-xs"
+                  onClick={() => setInsertOpen(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Insert row
                 </Button>
               </>
             )}
 
             <Tooltip>
               <TooltipTrigger render={<span />}>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => activeTable && handleSelectTable(activeTable)} disabled={!activeTable}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => activeTable && handleSelectTable(activeTable)}
+                  disabled={!activeTable}
+                >
                   <RefreshCw className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
@@ -1093,15 +1427,26 @@ export function DatabaseClient({
 
             <Tooltip>
               <TooltipTrigger render={<span />}>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleExportCSV} disabled={rows.length === 0}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={handleExportCSV}
+                  disabled={rows.length === 0}
+                >
                   <Download className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">Export CSV</TooltipContent>
             </Tooltip>
 
-            <Button size="sm" className="h-8 gap-1.5 bg-brand hover:bg-brand-hover text-white border-0" onClick={() => setAddTableOpen(true)}>
-              <Plus className="h-3.5 w-3.5" /><span className="hidden sm:inline">New Table</span>
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 bg-brand hover:bg-brand-hover text-white border-0"
+              onClick={() => setAddTableOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">New Table</span>
             </Button>
           </div>
         </header>
@@ -1109,20 +1454,48 @@ export function DatabaseClient({
         {/* ── Body ── */}
         <div className="flex flex-1 min-h-0">
           {/* Sidebar */}
-          <aside className={cn("flex flex-col border-r bg-muted/20 transition-all duration-200 overflow-hidden shrink-0", sidebarOpen ? "w-56" : "w-0")}>
+          <aside
+            className={cn(
+              "flex flex-col border-r bg-muted/20 transition-all duration-200 overflow-hidden shrink-0",
+              sidebarOpen ? "w-56" : "w-0",
+            )}
+          >
             <div className="p-3 flex flex-col gap-3 min-w-[224px] h-full">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                <Input placeholder="Filter tables…" className="pl-8 h-8 text-sm" value={filter} onChange={(e) => setFilter(e.target.value)} />
+                <Input
+                  placeholder="Filter tables…"
+                  className="pl-8 h-8 text-sm"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                />
               </div>
               <div className="flex items-center gap-1.5 px-1">
                 <Database className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Tables</span>
-                <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0">{filteredTables.length}</Badge>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Tables
+                </span>
+                <Badge
+                  variant="secondary"
+                  className="ml-auto text-[10px] px-1.5 py-0"
+                >
+                  {filteredTables.length}
+                </Badge>
                 <Tooltip>
                   <TooltipTrigger render={<span />}>
-                    <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground" onClick={refreshTableList} disabled={isRefreshingTables}>
-                      <RefreshCw className={cn("h-3 w-3", isRefreshingTables && "animate-spin")} />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 text-muted-foreground"
+                      onClick={refreshTableList}
+                      disabled={isRefreshingTables}
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "h-3 w-3",
+                          isRefreshingTables && "animate-spin",
+                        )}
+                      />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Refresh tables</TooltipContent>
@@ -1133,8 +1506,15 @@ export function DatabaseClient({
                   {filteredTables.length === 0 && !filter && (
                     <div className="flex flex-col items-center gap-2 py-6 text-center">
                       <TableIcon className="h-6 w-6 text-muted-foreground/30" />
-                      <p className="text-xs text-muted-foreground">No tables yet.</p>
-                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setAddTableOpen(true)}>
+                      <p className="text-xs text-muted-foreground">
+                        No tables yet.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1"
+                        onClick={() => setAddTableOpen(true)}
+                      >
                         <Plus className="h-3 w-3" /> Create table
                       </Button>
                     </div>
@@ -1142,35 +1522,75 @@ export function DatabaseClient({
                   {filteredTables.map((table) => (
                     <div
                       key={table.name}
-                      className={cn("group flex items-center justify-between px-2 py-1 rounded-md transition-colors",
-                        activeTable === table.name ? "bg-primary/10 text-primary" : "hover:bg-accent text-foreground/80"
+                      className={cn(
+                        "group flex items-center justify-between px-2 py-1 rounded-md transition-colors",
+                        activeTable === table.name
+                          ? "bg-primary/10 text-primary"
+                          : "hover:bg-accent text-foreground/80",
                       )}
                     >
-                      <button onClick={() => handleSelectTable(table.name)} className="flex items-center gap-2 flex-1 min-w-0 text-left">
-                        <TableIcon className={cn("h-3.5 w-3.5 shrink-0", activeTable === table.name ? "text-primary" : "text-muted-foreground")} />
-                        <span className="truncate font-mono text-xs font-medium">{table.name}</span>
+                      <button
+                        onClick={() => handleSelectTable(table.name)}
+                        className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                      >
+                        <TableIcon
+                          className={cn(
+                            "h-3.5 w-3.5 shrink-0",
+                            activeTable === table.name
+                              ? "text-primary"
+                              : "text-muted-foreground",
+                          )}
+                        />
+                        <span className="truncate font-mono text-xs font-medium">
+                          {table.name}
+                        </span>
                       </button>
                       <DropdownMenu>
                         <DropdownMenuTrigger render={<span />}>
-                          <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                          >
                             <MoreHorizontal className="h-3 w-3" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem className="text-xs gap-2" onClick={() => handleSelectTable(table.name)}>
+                          <DropdownMenuItem
+                            className="text-xs gap-2"
+                            onClick={() => handleSelectTable(table.name)}
+                          >
                             <TableIcon className="h-3.5 w-3.5" /> Browse rows
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-xs gap-2" onClick={() => { handleSelectTable(table.name); setTimeout(() => setInsertOpen(true), 300); }}>
+                          <DropdownMenuItem
+                            className="text-xs gap-2"
+                            onClick={() => {
+                              handleSelectTable(table.name);
+                              setTimeout(() => setInsertOpen(true), 300);
+                            }}
+                          >
                             <Plus className="h-3.5 w-3.5" /> Insert row
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-xs gap-2" onClick={() => { handleSelectTable(table.name); setTimeout(() => setAddColumnOpen(true), 300); }}>
+                          <DropdownMenuItem
+                            className="text-xs gap-2"
+                            onClick={() => {
+                              handleSelectTable(table.name);
+                              setTimeout(() => setAddColumnOpen(true), 300);
+                            }}
+                          >
                             <Columns className="h-3.5 w-3.5" /> Add column
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-xs gap-2 text-amber-600 focus:text-amber-600 dark:text-amber-400" onClick={() => setEmptyTableTarget(table.name)}>
+                          <DropdownMenuItem
+                            className="text-xs gap-2 text-amber-600 focus:text-amber-600 dark:text-amber-400"
+                            onClick={() => setEmptyTableTarget(table.name)}
+                          >
                             <Eraser className="h-3.5 w-3.5" /> Empty table
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-xs gap-2 text-destructive focus:text-destructive" onClick={() => setDropTableTarget(table.name)}>
+                          <DropdownMenuItem
+                            className="text-xs gap-2 text-destructive focus:text-destructive"
+                            onClick={() => setDropTableTarget(table.name)}
+                          >
                             <Trash2 className="h-3.5 w-3.5" /> Drop table
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -1184,18 +1604,28 @@ export function DatabaseClient({
 
           {/* Main workspace */}
           <div className="flex-1 min-w-0 min-h-0 flex flex-col">
-            <ResizablePanelGroup orientation="vertical" className="flex-1 min-h-0">
+            <ResizablePanelGroup
+              orientation="vertical"
+              className="flex-1 min-h-0"
+            >
               {/* Query Editor */}
               <ResizablePanel defaultSize="30%" minSize="15%" maxSize="85%">
                 <div className="flex flex-col h-full">
                   <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 shrink-0">
                     <div className="flex items-center gap-2">
                       <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-xs font-medium text-muted-foreground">Query Editor</span>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Query Editor
+                      </span>
                     </div>
                     <Tooltip>
                       <TooltipTrigger render={<span />}>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => navigator.clipboard.writeText(query)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => navigator.clipboard.writeText(query)}
+                        >
                           <Copy className="h-3 w-3" />
                         </Button>
                       </TooltipTrigger>
@@ -1212,13 +1642,31 @@ export function DatabaseClient({
                   />
                   <div className="flex items-center justify-between px-4 py-2 border-t bg-muted/30 gap-3 shrink-0">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0">SQL</Badge>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-mono px-1.5 py-0"
+                      >
+                        SQL
+                      </Badge>
                       <span className="text-xs text-muted-foreground hidden sm:inline">
-                        Press <kbd className="px-1 py-0.5 bg-muted rounded text-[10px] font-mono">⌘ Enter</kbd> to run
+                        Press{" "}
+                        <kbd className="px-1 py-0.5 bg-muted rounded text-[10px] font-mono">
+                          ⌘ Enter
+                        </kbd>{" "}
+                        to run
                       </span>
                     </div>
-                    <Button size="sm" className="h-7 gap-1.5 text-xs bg-brand hover:bg-brand-hover" onClick={handleRunQuery} disabled={isRunning || !query.trim()}>
-                      {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                    <Button
+                      size="sm"
+                      className="h-7 gap-1.5 text-xs bg-brand hover:bg-brand-hover"
+                      onClick={handleRunQuery}
+                      disabled={isRunning || !query.trim()}
+                    >
+                      {isRunning ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Play className="h-3 w-3" />
+                      )}
                       {isRunning ? "Running…" : "Run Query"}
                     </Button>
                   </div>
@@ -1232,41 +1680,65 @@ export function DatabaseClient({
                 <div className="flex flex-col h-full">
                   <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 shrink-0 gap-3">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs font-medium text-muted-foreground shrink-0">Results</span>
+                      <span className="text-xs font-medium text-muted-foreground shrink-0">
+                        Results
+                      </span>
                       {result && (
                         <>
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] px-1.5 py-0 shrink-0"
+                          >
                             {result.total.toLocaleString()} rows
                           </Badge>
                           {cols.length > 0 && (
-                            <span className="text-[10px] text-muted-foreground hidden sm:inline">· {cols.length} columns</span>
+                            <span className="text-[10px] text-muted-foreground hidden sm:inline">
+                              · {cols.length} columns
+                            </span>
                           )}
                         </>
                       )}
                     </div>
 
                     {selectedRows.size > 0 && canCRUD && (
-                      <Button size="sm" variant="destructive" className="h-7 text-xs gap-1.5 shrink-0" onClick={handleDeleteSelected}>
-                        <Trash2 className="h-3.5 w-3.5" />Delete {selectedRows.size} selected
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-7 text-xs gap-1.5 shrink-0"
+                        onClick={handleDeleteSelected}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete {selectedRows.size} selected
                       </Button>
                     )}
 
-                    {canCRUD && result && result.total > 0 && selectedRows.size === 0 && (
-                      <Tooltip>
-                        <TooltipTrigger render={<span />}>
-                          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 shrink-0" onClick={() => setEmptyTableTarget(activeTable!)}>
-                            <Eraser className="h-3.5 w-3.5" /> Empty table
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Truncate all rows from this table</TooltipContent>
-                      </Tooltip>
-                    )}
+                    {canCRUD &&
+                      result &&
+                      result.total > 0 &&
+                      selectedRows.size === 0 && (
+                        <Tooltip>
+                          <TooltipTrigger render={<span />}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-xs gap-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 shrink-0"
+                              onClick={() => setEmptyTableTarget(activeTable!)}
+                            >
+                              <Eraser className="h-3.5 w-3.5" /> Empty table
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            Truncate all rows from this table
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                   </div>
 
                   {/* Success / error banners */}
                   {crudSuccess && (
                     <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
-                      <Check className="h-3.5 w-3.5 shrink-0" />{crudSuccess}
+                      <Check className="h-3.5 w-3.5 shrink-0" />
+                      {crudSuccess}
                     </div>
                   )}
 
@@ -1276,7 +1748,12 @@ export function DatabaseClient({
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription className="text-xs flex items-center justify-between">
                           {crudError}
-                          <Button variant="ghost" size="icon" className="h-5 w-5 ml-2 shrink-0" onClick={() => setCrudError(null)}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 ml-2 shrink-0"
+                            onClick={() => setCrudError(null)}
+                          >
                             <X className="h-3 w-3" />
                           </Button>
                         </AlertDescription>
@@ -1289,7 +1766,9 @@ export function DatabaseClient({
                       <div className="p-4">
                         <Alert variant="destructive">
                           <AlertCircle className="h-4 w-4" />
-                          <AlertDescription className="font-mono text-xs whitespace-pre-wrap">{queryError}</AlertDescription>
+                          <AlertDescription className="font-mono text-xs whitespace-pre-wrap">
+                            {queryError}
+                          </AlertDescription>
                         </Alert>
                       </div>
                     ) : isLoadingTable ? (
@@ -1300,9 +1779,17 @@ export function DatabaseClient({
                     ) : result === null ? (
                       <div className="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground">
                         <DatabaseZap className="h-8 w-8 opacity-20" />
-                        <p className="text-sm">{tables.length === 0 ? "Create a table to get started" : "Select a table or run a query"}</p>
+                        <p className="text-sm">
+                          {tables.length === 0
+                            ? "Create a table to get started"
+                            : "Select a table or run a query"}
+                        </p>
                         {tables.length === 0 && (
-                          <Button size="sm" className="gap-1.5 text-xs bg-brand hover:bg-brand-hover text-white border-0" onClick={() => setAddTableOpen(true)}>
+                          <Button
+                            size="sm"
+                            className="gap-1.5 text-xs bg-brand hover:bg-brand-hover text-white border-0"
+                            onClick={() => setAddTableOpen(true)}
+                          >
                             <Plus className="h-3.5 w-3.5" /> New Table
                           </Button>
                         )}
@@ -1312,7 +1799,11 @@ export function DatabaseClient({
                         <DatabaseZap className="h-8 w-8 opacity-20" />
                         <p className="text-sm">No rows yet</p>
                         {canCRUD && (
-                          <Button size="sm" className="gap-1.5 text-xs bg-brand hover:bg-brand-hover text-white border-0" onClick={() => setInsertOpen(true)}>
+                          <Button
+                            size="sm"
+                            className="gap-1.5 text-xs bg-brand hover:bg-brand-hover text-white border-0"
+                            onClick={() => setInsertOpen(true)}
+                          >
                             <Plus className="h-3.5 w-3.5" /> Insert first row
                           </Button>
                         )}
@@ -1326,16 +1817,27 @@ export function DatabaseClient({
                                 <input
                                   type="checkbox"
                                   className="rounded border-border"
-                                  checked={selectedRows.size === rows.length && rows.length > 0}
+                                  checked={
+                                    selectedRows.size === rows.length &&
+                                    rows.length > 0
+                                  }
                                   onChange={toggleAll}
                                 />
                               </TableHead>
                               {cols.map((col) => (
-                                <TableHead key={col} className="font-mono text-xs text-muted-foreground font-semibold whitespace-nowrap">
+                                <TableHead
+                                  key={col}
+                                  className="font-mono text-xs text-muted-foreground font-semibold whitespace-nowrap"
+                                >
                                   <div className="flex items-center gap-1">
                                     {col}
                                     {SYSTEM_COLS.includes(col) && (
-                                      <Badge variant="outline" className="text-[8px] h-3 px-1 ml-1 text-muted-foreground">auto</Badge>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[8px] h-3 px-1 ml-1 text-muted-foreground"
+                                      >
+                                        auto
+                                      </Badge>
                                     )}
                                   </div>
                                 </TableHead>
@@ -1350,11 +1852,14 @@ export function DatabaseClient({
                                 className={cn(
                                   "group cursor-pointer",
                                   selectedRows.has(i) && "bg-primary/5",
-                                  deletingId === String(row.id) && "opacity-50"
+                                  deletingId === String(row.id) && "opacity-50",
                                 )}
                                 onClick={() => toggleRow(i)}
                               >
-                                <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
+                                <TableCell
+                                  className="w-10"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   <input
                                     type="checkbox"
                                     className="rounded border-border"
@@ -1363,21 +1868,37 @@ export function DatabaseClient({
                                   />
                                 </TableCell>
                                 {cols.map((col) => (
-                                  <TableCell key={col} className="text-sm font-mono whitespace-nowrap max-w-[240px] truncate" title={String(row[col] ?? "")}>
+                                  <TableCell
+                                    key={col}
+                                    className="text-sm font-mono whitespace-nowrap max-w-[240px] truncate"
+                                    title={String(row[col] ?? "")}
+                                  >
                                     <CellValue value={row[col]} />
                                   </TableCell>
                                 ))}
                                 {canCRUD && (
-                                  <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
+                                  <TableCell
+                                    className="w-10"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
                                     <DropdownMenu>
                                       <DropdownMenuTrigger render={<span />}>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                                          {deletingId === String(row.id)
-                                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                            : <MoreHorizontal className="h-3.5 w-3.5" />}
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                          {deletingId === String(row.id) ? (
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                          ) : (
+                                            <MoreHorizontal className="h-3.5 w-3.5" />
+                                          )}
                                         </Button>
                                       </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end" className="w-36">
+                                      <DropdownMenuContent
+                                        align="end"
+                                        className="w-36"
+                                      >
                                         <DropdownMenuItem
                                           className="text-xs gap-2"
                                           onClick={() => {
@@ -1386,14 +1907,27 @@ export function DatabaseClient({
                                             setEditRow(row);
                                           }}
                                         >
-                                          <Pencil className="h-3.5 w-3.5" /> Edit row
+                                          <Pencil className="h-3.5 w-3.5" />{" "}
+                                          Edit row
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem className="text-xs gap-2" onClick={() => navigator.clipboard.writeText(JSON.stringify(row, null, 2))}>
-                                          <Copy className="h-3.5 w-3.5" /> Copy JSON
+                                        <DropdownMenuItem
+                                          className="text-xs gap-2"
+                                          onClick={() =>
+                                            navigator.clipboard.writeText(
+                                              JSON.stringify(row, null, 2),
+                                            )
+                                          }
+                                        >
+                                          <Copy className="h-3.5 w-3.5" /> Copy
+                                          JSON
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem className="text-xs gap-2 text-destructive focus:text-destructive" onClick={() => handleDeleteRow(row)}>
-                                          <Trash2 className="h-3.5 w-3.5" /> Delete row
+                                        <DropdownMenuItem
+                                          className="text-xs gap-2 text-destructive focus:text-destructive"
+                                          onClick={() => handleDeleteRow(row)}
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />{" "}
+                                          Delete row
                                         </DropdownMenuItem>
                                       </DropdownMenuContent>
                                     </DropdownMenu>
@@ -1409,9 +1943,17 @@ export function DatabaseClient({
 
                   {result && rows.length > 0 && (
                     <div className="flex items-center justify-between px-4 py-2 border-t bg-muted/20 text-xs text-muted-foreground shrink-0">
-                      <span>Showing {rows.length.toLocaleString()} of {result.total.toLocaleString()} rows</span>
+                      <span>
+                        Showing {rows.length.toLocaleString()} of{" "}
+                        {result.total.toLocaleString()} rows
+                      </span>
                       {canCRUD && (
-                        <Button size="sm" variant="ghost" className="h-6 text-xs gap-1 text-muted-foreground" onClick={() => setInsertOpen(true)}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 text-xs gap-1 text-muted-foreground"
+                          onClick={() => setInsertOpen(true)}
+                        >
                           <Plus className="h-3 w-3" /> Insert row
                         </Button>
                       )}
@@ -1488,7 +2030,9 @@ export function DatabaseClient({
         <ConfirmDialog
           open={!!emptyTableTarget}
           onClose={() => setEmptyTableTarget(null)}
-          onConfirm={() => emptyTableTarget && handleEmptyTable(emptyTableTarget)}
+          onConfirm={() =>
+            emptyTableTarget && handleEmptyTable(emptyTableTarget)
+          }
           title={`Empty table "${emptyTableTarget}"?`}
           description="This will delete all rows but keep the table structure and columns. This cannot be undone."
           confirmLabel="Empty table"

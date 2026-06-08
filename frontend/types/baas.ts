@@ -29,6 +29,10 @@ export interface Project {
   updatedAt: Date;
   db_schema: string;
   mongo_database: string
+  // Optional keys returned by backend/dashboard
+  plan?: string;
+  anonKey?: string;
+  serviceKey?: string;
 }
 
 // ─── Activity ─────────────────────────────────────────────────────────────────
@@ -72,6 +76,11 @@ export interface ProjectUsage {
   storageBytes: number;
   functionCalls: number;
   aiRequests: number;
+  // Additional usage fields referenced in UI
+  apiCalls?: number;
+  authUsers?: number;
+  sqlRows?: number;
+  storageUsedMb?: number;
 }
 
 // ─── Staff ────────────────────────────────────────────────────────────────────

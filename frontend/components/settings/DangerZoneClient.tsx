@@ -21,6 +21,7 @@ function ConfirmModal({
   confirmText,
   confirmPlaceholder,
   danger,
+  variant,
   loading,
   onConfirm,
   onClose,
@@ -30,10 +31,12 @@ function ConfirmModal({
   confirmText: string;
   confirmPlaceholder: string;
   danger?: boolean;
+  variant?: "warning" | "danger";
   loading: boolean;
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  const useDanger = danger ?? variant === "danger";
   const [input, setInput] = React.useState("");
   const matches = input === confirmText;
 
@@ -42,24 +45,42 @@ function ConfirmModal({
       <div className="bg-background rounded-2xl border border-border shadow-2xl w-full max-w-md mx-4 overflow-hidden">
         <div className="flex items-start justify-between px-6 py-5 border-b border-border">
           <div className="flex items-start gap-3">
-            <div className={cn(
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-              danger ? "bg-danger-bg" : "bg-warn-bg"
-            )}>
-              <AlertTriangle className={cn("h-4 w-4", danger ? "text-danger-text" : "text-warn-text")} />
+            <div
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+                useDanger ? "bg-danger-bg" : "bg-warn-bg",
+              )}
+            >
+              <AlertTriangle
+                className={cn(
+                  "h-4 w-4",
+                  danger ? "text-danger-text" : "text-warn-text",
+                )}
+              />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-text-primary">{title}</h3>
-              <p className="text-[13px] text-text-muted mt-0.5">{description}</p>
+              <h3 className="text-base font-semibold text-text-primary">
+                {title}
+              </h3>
+              <p className="text-[13px] text-text-muted mt-0.5">
+                {description}
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-text-muted hover:text-text-primary transition-colors ml-2 mt-0.5">
+          <button
+            onClick={onClose}
+            className="text-text-muted hover:text-text-primary transition-colors ml-2 mt-0.5"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
         <div className="px-6 py-5">
           <p className="text-[13px] text-text-secondary mb-2">
-            Type <span className="font-mono font-semibold text-text-primary">{confirmText}</span> to confirm:
+            Type{" "}
+            <span className="font-mono font-semibold text-text-primary">
+              {confirmText}
+            </span>{" "}
+            to confirm:
           </p>
           <input
             type="text"
@@ -81,9 +102,9 @@ function ConfirmModal({
               disabled={!matches || loading}
               className={cn(
                 "flex-1 h-9 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50",
-                danger
+                useDanger
                   ? "bg-danger hover:bg-danger/90 text-white"
-                  : "bg-warn-text hover:bg-warn-text/90 text-white"
+                  : "bg-warn-text hover:bg-warn-text/90 text-white",
               )}
             >
               {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
@@ -112,15 +133,19 @@ function DangerCard({
   onClick: () => void;
 }) {
   return (
-    <div className={cn(
-      "rounded-xl border p-5 flex items-center justify-between gap-4",
-      variant === "danger"
-        ? "border-danger/30 bg-danger-bg/40"
-        : "border-warn-text/20 bg-warn-bg/60"
-    )}>
+    <div
+      className={cn(
+        "rounded-xl border p-5 flex items-center justify-between gap-4",
+        variant === "danger"
+          ? "border-danger/30 bg-danger-bg/40"
+          : "border-warn-text/20 bg-warn-bg/60",
+      )}
+    >
       <div className="min-w-0">
         <p className="text-[13px] font-semibold text-text-primary">{title}</p>
-        <p className="text-[12px] text-text-muted mt-0.5 leading-relaxed">{description}</p>
+        <p className="text-[12px] text-text-muted mt-0.5 leading-relaxed">
+          {description}
+        </p>
       </div>
       <button
         onClick={onClick}
@@ -128,7 +153,7 @@ function DangerCard({
           "flex items-center gap-1.5 h-8 px-4 rounded-lg text-[13px] font-medium shrink-0 transition-colors border",
           variant === "danger"
             ? "border-danger/40 text-danger-text hover:bg-danger hover:text-white hover:border-danger"
-            : "border-warn-text/30 text-warn-text hover:bg-warn-text hover:text-white hover:border-warn-text"
+            : "border-warn-text/30 text-warn-text hover:bg-warn-text hover:text-white hover:border-warn-text",
         )}
       >
         <Icon className="h-3.5 w-3.5" />
@@ -147,7 +172,9 @@ export function DangerZoneClient({
   mongoDatabase,
 }: Props) {
   const router = useRouter();
-  const [modal, setModal] = React.useState<"pause" | "resume" | "delete" | null>(null);
+  const [modal, setModal] = React.useState<
+    "pause" | "resume" | "delete" | null
+  >(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -157,11 +184,14 @@ export function DangerZoneClient({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/internal/settings/status?projectId=${projectId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: isPaused ? "active" : "paused" }),
-      });
+      const res = await fetch(
+        `/api/internal/settings/status?projectId=${projectId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: isPaused ? "active" : "paused" }),
+        },
+      );
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         setError(j?.error ?? "Failed to update project status");
@@ -180,7 +210,7 @@ export function DangerZoneClient({
     try {
       const res = await fetch(
         `/api/internal/settings/delete?projectId=${projectId}&db_schema=${dbSchema}&mongo_database=${mongoDatabase}`,
-        { method: "DELETE" }
+        { method: "DELETE" },
       );
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));

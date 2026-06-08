@@ -643,10 +643,9 @@ function UploadZone({
                 <Check className="h-4 w-4 text-success shrink-0" />
               )}
               {item.status === "error" && (
-                <AlertCircle
-                  className="h-4 w-4 text-danger shrink-0"
-                  title={item.error}
-                />
+                <span title={item.error}>
+                  <AlertCircle className="h-4 w-4 text-danger shrink-0" />
+                </span>
               )}
             </div>
           ))}
