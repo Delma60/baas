@@ -33,8 +33,8 @@ export class BaasError extends Error {
     this.details = options?.details;
 
     // Maintains proper stack trace in V8
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, BaasError);
+    if (typeof (Error as any).captureStackTrace === "function") {
+      (Error as any).captureStackTrace(this, BaasError);
     }
   }
 

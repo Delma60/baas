@@ -30,7 +30,7 @@ const TYPE_META: Record<
   },
   db: {
     bg: "bg-info-bg",
-    text: "text-info-text
+    text: "text-info-text",
     Icon: TableProperties,
   },
   storage: {
@@ -39,13 +39,13 @@ const TYPE_META: Record<
     Icon: Upload,
   },
   key: {
-    bg: "bg-success-bg
+    bg: "bg-success-bg",
     text: "text-success-text",
     Icon: KeyRound,
   },
   ai: {
     bg: "bg-brand/10",
-    text: "text-brand
+    text: "text-brand",
     Icon: Sparkles,
   },
 };
@@ -59,10 +59,7 @@ export function ActivityFeed({ activities, className }: ActivityFeedProps) {
         <h2 className="text-sm font-medium text-text-primary">
           Recent activity
         </h2>
-        <Link
-          href="/dashboard/logs"
-          className="text-xs text-brander:underline"
-        >
+        <Link href="/dashboard/logs" className="text-xs text-brand underline">
           View log →
         </Link>
       </div>
@@ -95,7 +92,7 @@ export function ActivityFeed({ activities, className }: ActivityFeedProps) {
               <div className="min-w-0 flex-1">
                 <p className="text-xs leading-relaxed text-text-primary">
                   <ActivityMessage message={activity.message} />
-                  <span className="ml-1.5 inline-flex items-center rounded-[4px] border border-border bg-surface px-1.5 py-0.5 text-[11px] text-text-secondary
+                  <span className="ml-1.5 inline-flex items-center rounded-[4px] border border-border bg-surface px-1.5 py-0.5 text-[11px] text-text-secondary">
                     {activity.projectName}
                   </span>
                 </p>

@@ -176,10 +176,10 @@ export class RealtimeModule {
     this.connecting = true;
 
     return new Promise((resolve, reject) => {
-      this.socket = io(this.baseUrl, {
+      const url = `${this.baseUrl.replace(/\/$/, "")}/${encodeURIComponent(this.projectId)}`;
+      this.socket = io(url, {
         path: "/socket.io",
         transports: ["websocket", "polling"],
-        namespace: `/${this.projectId}`,
         auth: (cb) => {
           // Inject the API key as the connection credential
           cb({ apiKey: this._getApiKey() });

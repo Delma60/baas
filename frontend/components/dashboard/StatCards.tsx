@@ -63,11 +63,11 @@ export function StatCards({ stats, className }: StatCardsProps) {
         return (
           <div
             key={card.label}
-            className="rounded-xl border border-border bg-background p-4 transition-colors hover:border-border2
+            className="rounded-xl border border-border bg-background p-4 transition-colors hover:border-border2"
           >
-            <div className="mb-3 flex items-center gap-1.5 text-xs text-text-secondary
+            <div className="mb-3 flex items-center gap-1.5 text-xs text-text-secondary">
               <Icon className="h-3.5 w-3.5" />
-              {card.label}
+              <span className="ml-2">{card.label}</span>
             </div>
             <p className="text-2xl font-medium leading-none text-text-primary">
               {card.value}
@@ -95,7 +95,7 @@ export function StatCards({ stats, className }: StatCardsProps) {
                 <span
                   className={cn(
                     "text-xs font-medium",
-                    card.trend >= 0 ? "text-success"text-danger",
+                    card.trend >= 0 ? "text-success" : "text-danger",
                   )}
                 >
                   {card.trend >= 0 ? "↑" : "↓"} {Math.abs(card.trend)}%
