@@ -81,7 +81,7 @@ export default async function StoragePage({ params, searchParams }: Props) {
 
   const currentBucket = activeBucket ?? buckets[0]?.name ?? "uploads";
   const currentFiles = activeBucket ? filesResult.files : [];
-  const fetchError = activeBucket ? filesResult.error : undefined;
+  const fetchError = activeBucket ? (filesResult as { error?: string }).error : undefined;
 
   return (
     <div className="flex flex-col h-full">
