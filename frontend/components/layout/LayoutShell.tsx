@@ -1,10 +1,16 @@
-"use client";
 // frontend/components/layout/LayoutShell.tsx
+"use client";
+
 import { User } from "next-auth";
-import React, { useState } from "react";
+import React from "react";
 import { Sidebar } from "./Sidebar";
 import { TopNav } from "./TopNav";
 import { Project } from "@/types/baas";
+import {
+  SidebarProvider,
+  SidebarInset,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 
 export const LayoutShell = ({
   children,
@@ -17,26 +23,31 @@ export const LayoutShell = ({
   currentProject?: Project;
   projects?: Project[];
 }) => {
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-
   return (
-    <div className="flex h-screen overflow-hidden bg-bg3">
+    <SidebarProvider
+      style={
+        {
+          "--sidebar-width": "220px",
+          "--sidebar-width-icon": "3rem",
+        } as React.CSSProperties
+      }
+    >
       <Sidebar
         userId={user?.id as string}
         projectId={currentProject?.id as string}
         currentProject={currentProject as Project}
         projects={projects as Project[]}
-        mobileOpen={mobileSidebarOpen}
-        onMobileOpenChange={setMobileSidebarOpen}
       />
-      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+
+      <SidebarInset className="flex flex-col overflow-hidden min-w-0">
         <TopNav
           user={user}
           projectName={currentProject?.name}
-          onMenuClick={() => setMobileSidebarOpen(true)}
+          // Pass the SidebarTrigger slot — TopNav renders it inside the header
+          sidebarTrigger
         />
         <main className="flex-1 overflow-y-auto">{children}</main>
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 };

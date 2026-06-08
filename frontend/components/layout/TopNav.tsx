@@ -1,33 +1,35 @@
 // frontend/components/layout/TopNav.tsx
 import Link from "next/link";
-import { BookOpen, Bell, Menu } from "lucide-react";
+import { BookOpen, Bell } from "lucide-react";
 import { AvatarComp } from "@/components/shared/AvatarComp";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 import type { User } from "next-auth";
 
 interface TopNavProps {
   user: User;
   projectName?: string;
+  /** When true, renders the shadcn SidebarTrigger (hamburger/toggle) */
+  sidebarTrigger?: boolean;
+  /** @deprecated — use sidebarTrigger prop instead */
   onMenuClick?: () => void;
 }
 
-export function TopNav({ user, projectName, onMenuClick }: TopNavProps) {
+export function TopNav({ user, projectName, sidebarTrigger }: TopNavProps) {
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-4 md:px-6">
-      {/* Left: hamburger (mobile) + breadcrumb */}
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-3 md:px-4">
+      {/* Left: sidebar trigger + breadcrumb */}
       <div className="flex items-center gap-2 min-w-0">
-        {/* Hamburger — only visible on mobile */}
-        <button
-          onClick={onMenuClick}
-          className="flex md:hidden h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface hover:text-text-primary"
-          aria-label="Open navigation"
-        >
-          <Menu className="h-4 w-4" />
-        </button>
+        {/* shadcn SidebarTrigger handles both mobile sheet and desktop collapse */}
+        <SidebarTrigger className="-ml-1 text-text-muted hover:text-text-primary hover:bg-surface" />
 
         {projectName && (
-          <span className="text-sm font-medium text-text-secondary truncate">
-            {projectName}
-          </span>
+          <>
+            <Separator orientation="vertical" className="h-4 mx-1" />
+            <span className="text-sm font-medium text-text-secondary truncate hidden sm:block">
+              {projectName}
+            </span>
+          </>
         )}
       </div>
 
