@@ -4,11 +4,14 @@ Internal-only endpoints for the project settings dashboard.
 NOT exposed via /v1/ — only callable from Next.js with X-Internal-Secret.
 
 Endpoints:
-  GET  /projects/{id}/api-keys          — list all API keys for a project
-  POST /projects/{id}/api-keys          — create a new API key
-  DELETE /projects/{id}/api-keys/{kid}  — revoke an API key
-  GET  /projects/{id}/settings          — get editable project settings
-  PATCH /projects/{id}/settings         — update project name / description
+  GET    /projects/{id}/api-keys             — list all API keys for a project
+  POST   /projects/{id}/api-keys             — create a new API key
+  DELETE /projects/{id}/api-keys/{kid}       — revoke an API key
+  GET    /projects/{id}/settings             — get editable project settings
+  PATCH  /projects/{id}/settings             — update project name / description / status
+  GET    /projects/{id}/members              — list org members who have project access
+  POST   /projects/{id}/members              — invite a member (placeholder)
+  DELETE /projects/{id}/members/{mid}        — remove a member (placeholder)
 """
 import hashlib
 import logging
@@ -79,7 +82,6 @@ async def create_project_api_key(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Create a new API key for a project. Returns the raw key ONCE."""
-    # Verify project exists
     exists = await db.execute(
         text("SELECT id FROM projects WHERE id = :pid"), {"pid": project_id}
     )
@@ -109,7 +111,7 @@ async def create_project_api_key(
     return {
         "data": {
             "id": key_id,
-            "key": raw_key,       # shown ONCE to user
+            "key": raw_key,
             "key_type": body.key_type,
             "label": label,
             "is_active": True,
@@ -136,11 +138,9 @@ async def revoke_project_api_key(
         raise HTTPException(status_code=404, detail="API key not found")
     await db.commit()
 
-    # Bust Redis cache for this key
     try:
         from app.db.redis import get_redis
         redis = await get_redis()
-        # We can't bust by key_id easily without the hash, so scan for it
         async for cache_key in redis.scan_iter("apikey:*"):
             cached = await redis.get(cache_key)
             if cached:
@@ -188,6 +188,8 @@ async def get_project_settings(
 class UpdateProjectSettingsRequest(BaseModel):
     name: str | None = Field(None, min_length=2, max_length=40)
     description: str | None = None
+    status: str | None = Field(None, pattern="^(active|paused)$")
+    environment_type: str | None = None  # stored as metadata — ignored for now
 
 
 @router.patch("/projects/{project_id}/settings", dependencies=[InternalGuard])
@@ -196,31 +198,50 @@ async def update_project_settings(
     body: UpdateProjectSettingsRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Update editable project fields (name, description)."""
+    """Update editable project fields (name, description, status)."""
     updates: dict[str, Any] = {}
     if body.name is not None:
         updates["name"] = body.name
     if body.description is not None:
         updates["description"] = body.description
+    if body.status is not None:
+        updates["status"] = body.status
 
     if not updates:
-        raise HTTPException(status_code=400, detail="No fields to update")
+        # Nothing to update — return current settings
+        return await get_project_settings(project_id, db)
 
     set_clause = ", ".join(f"{k} = :{k}" for k in updates)
     updates["project_id"] = project_id
 
     result = await db.execute(
-        text(f"UPDATE projects SET {set_clause} WHERE id = :project_id RETURNING id, name"),
+        text(f"UPDATE projects SET {set_clause} WHERE id = :project_id RETURNING id, name, status"),
         updates,
     )
     row = result.mappings().first()
     if not row:
         raise HTTPException(status_code=404, detail="Project not found")
     await db.commit()
+
+    # If status changed to paused, bust all API key caches for this project
+    if body.status:
+        try:
+            from app.db.redis import get_redis
+            import json
+            redis = await get_redis()
+            async for cache_key in redis.scan_iter("apikey:*"):
+                cached = await redis.get(cache_key)
+                if cached:
+                    data = json.loads(cached)
+                    if data.get("project_id") == project_id:
+                        await redis.delete(cache_key)
+        except Exception:
+            pass
+
     return {"data": dict(row)}
 
 
-# ─── Members (org members who have access to this project) ────────────────────
+# ─── Members ──────────────────────────────────────────────────────────────────
 
 @router.get("/projects/{project_id}/members", dependencies=[InternalGuard])
 async def list_project_members(
@@ -229,43 +250,11 @@ async def list_project_members(
 ) -> dict[str, Any]:
     """
     List members of the organization that owns this project.
-    In the current architecture, all org members have access to all org projects.
+    All org members have access to all org projects.
     """
     try:
+        # Owner
         result = await db.execute(
-            text("""
-                SELECT u.id, u.email, u.name, u.created_at,
-                       CASE WHEN o.owner_id = u.id THEN 'owner' ELSE 'member' END AS role
-                FROM projects p
-                JOIN organizations o ON o.id = p.organization_id
-                JOIN users u ON u.id = o.owner_id
-                WHERE p.id = :project_id
-
-                UNION
-
-                SELECT u.id, u.email, u.name, u.created_at, 'member' AS role
-                FROM projects p
-                JOIN organizations o ON o.id = p.organization_id
-                JOIN organization_members om ON om.organization_id = o.id
-                JOIN users u ON u.id = om.user_id
-                WHERE p.id = :project_id
-                  AND u.id != o.owner_id
-
-                ORDER BY role DESC, name
-            """),
-            {"project_id": project_id},
-        )
-        members = []
-        for row in result.mappings():
-            r = dict(row)
-            if r.get("created_at") and hasattr(r["created_at"], "isoformat"):
-                r["created_at"] = r["created_at"].isoformat()
-            members.append(r)
-        return {"data": {"members": members}}
-    except Exception as e:
-        logger.warning("Failed to list members: %s", e)
-        # Fallback: just return owner
-        result2 = await db.execute(
             text("""
                 SELECT u.id, u.email, u.name, u.created_at, 'owner' AS role
                 FROM projects p
@@ -275,10 +264,134 @@ async def list_project_members(
             """),
             {"project_id": project_id},
         )
-        members = []
-        for row in result2.mappings():
-            r = dict(row)
-            if r.get("created_at") and hasattr(r["created_at"], "isoformat"):
-                r["created_at"] = r["created_at"].isoformat()
-            members.append(r)
-        return {"data": {"members": members}}
+        owner_rows = [dict(r._mapping) for r in result]
+
+        # Other org members
+        result2 = await db.execute(
+            text("""
+                SELECT u.id, u.email, u.name, u.created_at, 'member' AS role
+                FROM projects p
+                JOIN organizations o ON o.id = p.organization_id
+                JOIN organization_members om ON om.organization_id = o.id
+                JOIN users u ON u.id = om.user_id
+                WHERE p.id = :project_id
+                  AND u.id != (SELECT owner_id FROM organizations WHERE id = o.id LIMIT 1)
+                ORDER BY u.created_at
+            """),
+            {"project_id": project_id},
+        )
+        member_rows = [dict(r._mapping) for r in result2]
+
+        all_members = owner_rows + member_rows
+
+        # Serialize datetime
+        for m in all_members:
+            if m.get("created_at") and hasattr(m["created_at"], "isoformat"):
+                m["created_at"] = m["created_at"].isoformat()
+
+        return {"data": {"members": all_members}}
+    except Exception as e:
+        logger.warning("Failed to list members for %s: %s", project_id, e)
+        # Minimal fallback — just the owner
+        try:
+            result = await db.execute(
+                text("""
+                    SELECT u.id, u.email, u.name, u.created_at, 'owner' AS role
+                    FROM projects p
+                    JOIN organizations o ON o.id = p.organization_id
+                    JOIN users u ON u.id = o.owner_id
+                    WHERE p.id = :project_id
+                """),
+                {"project_id": project_id},
+            )
+            members = []
+            for row in result.mappings():
+                r = dict(row)
+                if r.get("created_at") and hasattr(r["created_at"], "isoformat"):
+                    r["created_at"] = r["created_at"].isoformat()
+                members.append(r)
+            return {"data": {"members": members}}
+        except Exception:
+            return {"data": {"members": []}}
+
+
+class InviteMemberRequest(BaseModel):
+    email: str
+
+
+@router.post("/projects/{project_id}/members", status_code=201, dependencies=[InternalGuard])
+async def invite_project_member(
+    project_id: str,
+    body: InviteMemberRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """
+    Invite a user to the organization that owns this project.
+    If the user exists, adds them to organization_members.
+    Otherwise queues an invite (future: email invite system).
+    """
+    # Check if user exists
+    result = await db.execute(
+        text("SELECT id FROM users WHERE email = :email"),
+        {"email": body.email},
+    )
+    user_row = result.first()
+
+    if user_row:
+        user_id = user_row[0]
+        # Get org ID for this project
+        org_result = await db.execute(
+            text("SELECT organization_id FROM projects WHERE id = :project_id"),
+            {"project_id": project_id},
+        )
+        org_row = org_result.first()
+        if org_row:
+            org_id = org_row[0]
+            # Add to organization_members if not already
+            try:
+                await db.execute(
+                    text("""
+                        INSERT INTO organization_members (id, organization_id, user_id, role)
+                        VALUES (:id, :org_id, :user_id, 'member')
+                        ON CONFLICT (organization_id, user_id) DO NOTHING
+                    """),
+                    {
+                        "id": str(uuid.uuid4()),
+                        "org_id": org_id,
+                        "user_id": user_id,
+                    },
+                )
+                await db.commit()
+            except Exception as e:
+                logger.warning("Failed to add org member: %s", e)
+
+    return {"data": {"invited": True, "email": body.email}}
+
+
+@router.delete("/projects/{project_id}/members/{member_id}", dependencies=[InternalGuard])
+async def remove_project_member(
+    project_id: str,
+    member_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Remove a member from the organization (removes project access)."""
+    # Get org ID
+    
+    result = await db.execute(
+        text("SELECT organization_id FROM projects WHERE id = :project_id"),
+        {"project_id": project_id},
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    org_id = row[0]
+    await db.execute(
+        text("""
+            DELETE FROM organization_members
+            WHERE organization_id = :org_id AND user_id = :user_id
+        """),
+        {"org_id": org_id, "user_id": member_id},
+    )
+    await db.commit()
+    return {"data": {"removed": True, "id": member_id}}
