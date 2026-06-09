@@ -42,7 +42,7 @@ export function TopNav({
       <div className="flex items-center gap-1">
         {/* Docs */}
         <Link
-          href="https://docs.yourbaas.com"
+          href="/docs"
           target="_blank"
           rel="noopener noreferrer"
           title="Documentation"
