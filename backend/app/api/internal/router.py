@@ -16,11 +16,14 @@ from .realtime_browse import router as realtime_browser
 from .functions_browse import router as function_browser
 from .storage_browse import router as storage_browser
 from .settings_browse import router as settings_browser
+from .billing_browse import router as billing_browser
 from .auth_settings import router as auth_settings_router
 from .realtime_data import router as realtime_data_router
 from app.config import settings
 from app.db.postgres import get_db
 from .notifications import router as notification_router
+from .billing import router as billing_router
+
 
 from app.provisioner.sql_provisioner import (
     add_column,
@@ -51,6 +54,8 @@ router.include_router(storage_browser)
 router.include_router(function_browser)
 router.include_router(settings_browser)
 router.include_router(notification_router)
+router.include_router(billing_router)
+router.include_router(billing_browser)
 # ─── Auth guard ───────────────────────────────────────────────────────────────
 
 async def require_internal(x_internal_secret: str = Header(...)) -> None:

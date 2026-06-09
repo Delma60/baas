@@ -60,7 +60,7 @@ function mapBackendProject(project: BackendProject): Project {
   };
 }
 
-async function internalFetch<T>(
+export async function internalFetch<T>(
   path: string,
   init: RequestInit = {}
 ): Promise<T> {

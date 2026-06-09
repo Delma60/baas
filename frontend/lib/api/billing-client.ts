@@ -1,19 +1,108 @@
 // frontend/lib/api/billing-client.ts
 /**
- * Billing data client.
- *
- * In production this will call /admin-api/* endpoints (the standalone admin
- * platform).  While that platform is being built the helpers below return
- * hardcoded stub data so the UI can be developed end-to-end.
- *
- * When the admin platform is ready, replace each helper with a real fetch
- * to ADMIN_API_BASE_URL using a service-role API key + X-Admin-Integration-Secret.
+ * Billing data client — calls FastAPI /internal/billing/* endpoints.
+ * All data is real; no stubs.
  */
+
+const FASTAPI_BASE_URL = process.env.FASTAPI_BASE_URL ?? "http://localhost:8000";
+const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET ?? "";
+
+export class BillingApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
+async function internalFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const url = `${FASTAPI_BASE_URL}/internal${path}`;
+  const res = await fetch(url, {
+    ...init,
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      "x-internal-secret": INTERNAL_SECRET,
+      ...(init.headers ?? {}),
+    },
+  });
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try {
+      const b = await res.json();
+      msg = b?.detail ?? b?.error?.message ?? msg;
+    } catch {}
+    throw new BillingApiError(res.status, msg);
+  }
+  const json = await res.json();
+  return (json.data ?? json) as T;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type PlanName = "free" | "starter" | "pro";
 export type InvoiceStatus = "paid" | "pending" | "failed";
+
+export interface PlanLimits {
+  plan: PlanName;
+  sql_rows: number | null;
+  nosql_docs: number | null;
+  storage_bytes: number | null;
+  function_calls: number | null;
+  ai_requests: number | null;
+  api_calls_per_min: number;
+  team_members: number;
+  price_ngn: number;
+  price_usd: number;
+}
+
+export interface Subscription {
+  id?: string;
+  plan: PlanName;
+  status: "active" | "canceled" | "past_due";
+  flw_tx_ref?: string | null;
+  current_period_start?: string | null;
+  current_period_end?: string | null;
+  cancel_at_period_end: boolean;
+  amount_ngn: number;
+  amount_usd: number;
+  currency: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Invoice {
+  id: string;
+  amount_ngn: number;
+  amount_usd: number;
+  status: InvoiceStatus;
+  payment_ref: string | null;
+  period_start: string;
+  period_end: string;
+  created_at: string;
+}
+
+export interface UsageSummary {
+  db_reads: number;
+  db_writes: number;
+  nosql_reads: number;
+  nosql_writes: number;
+  storage_bytes: number;
+  function_calls: number;
+  ai_requests: number;
+}
+
+export interface BillingOverview {
+  plan: PlanName;
+  subscription: Subscription;
+  invoices: Invoice[];
+  usage: UsageSummary;
+}
+
+export interface ProjectUsage {
+  usage: Record<string, number>;
+  limits: Partial<PlanLimits>;
+}
+
+// ─── Plan display catalogue (static — mirrors plan_limits table) ──────────────
 
 export interface BillingPlan {
   name: PlanName;
@@ -21,158 +110,88 @@ export interface BillingPlan {
   priceNgn: number;
   priceUsd: number;
   features: string[];
-  sqlRows: string;
-  nosqlDocs: string;
   storageGb: number;
-  functionCalls: string;
   teamMembers: number;
-  support: string;
 }
 
-export interface Invoice {
-  id: string;
-  period: string;          // "May 2026"
-  amount_ngn: number;
-  amount_usd: number;
-  status: InvoiceStatus;
-  payment_ref: string | null;
-  created_at: string;
-  period_start: string;
-  period_end: string;
-}
-
-export interface BillingOverview {
-  currentPlan: PlanName;
-  nextBillingDate: string | null;
-  nextAmount_ngn: number;
-  nextAmount_usd: number;
-  /** ISO string of when the plan was activated */
-  planSince: string;
-  paymentMethod: "paystack" | "stripe" | "none";
-  /** last 4 digits of card on file, or null */
-  cardLast4: string | null;
-  cardBrand: string | null;
-}
-
-export interface UsageSummary {
-  dbReads: number;
-  dbWrites: number;
-  nosqlReads: number;
-  nosqlWrites: number;
-  storageBytes: number;
-  functionCalls: number;
-  aiRequests: number;
-}
-
-// ─── Plans catalogue (source of truth — mirrors backend/config/plans.ts) ─────
-
-export const PLANS: Record<PlanName, BillingPlan> = {
+export const PLAN_DISPLAY: Record<PlanName, BillingPlan> = {
   free: {
     name: "free",
     displayName: "Free",
     priceNgn: 0,
     priceUsd: 0,
-    sqlRows: "50,000",
-    nosqlDocs: "50,000",
     storageGb: 1,
-    functionCalls: "100,000 / mo",
     teamMembers: 1,
-    support: "Community",
-    features: [
-      "50K SQL rows",
-      "50K NoSQL documents",
-      "1 GB storage",
-      "100K function calls/mo",
-      "1 team member",
-      "Community support",
-    ],
+    features: ["50K SQL rows", "50K NoSQL docs", "1 GB storage", "100K fn calls/mo", "1 team member", "Community support"],
   },
   starter: {
     name: "starter",
     displayName: "Starter",
-    priceNgn: 15_000,
+    priceNgn: 15000,
     priceUsd: 10,
-    sqlRows: "500,000",
-    nosqlDocs: "500,000",
     storageGb: 10,
-    functionCalls: "1M / mo",
     teamMembers: 3,
-    support: "Email",
-    features: [
-      "500K SQL rows",
-      "500K NoSQL documents",
-      "10 GB storage",
-      "1M function calls/mo",
-      "3 team members",
-      "Email support",
-    ],
+    features: ["500K SQL rows", "500K NoSQL docs", "10 GB storage", "1M fn calls/mo", "3 team members", "Email support"],
   },
   pro: {
     name: "pro",
     displayName: "Pro",
-    priceNgn: 45_000,
+    priceNgn: 45000,
     priceUsd: 30,
-    sqlRows: "Unlimited",
-    nosqlDocs: "Unlimited",
     storageGb: 100,
-    functionCalls: "Unlimited",
     teamMembers: 10,
-    support: "Priority",
-    features: [
-      "Unlimited SQL rows",
-      "Unlimited NoSQL documents",
-      "100 GB storage",
-      "Unlimited function calls",
-      "10 team members",
-      "Priority support",
-    ],
+    features: ["Unlimited SQL rows", "Unlimited NoSQL docs", "100 GB storage", "Unlimited fn calls", "10 team members", "Priority support"],
   },
 };
 
-// ─── Hardcoded stubs (replace with admin-api calls when ready) ───────────────
+// ─── Fetchers ─────────────────────────────────────────────────────────────────
 
-/**
- * TODO: replace with:
- *   fetch(`${ADMIN_API_BASE_URL}/billing/overview?org_id=${orgId}`, {
- *     headers: {
- *       Authorization: `Bearer ${SERVICE_KEY}`,
- *       "x-admin-integration-secret": ADMIN_INTEGRATION_SECRET,
- *     },
- *   })
- */
-export async function getBillingOverview(_userId: string): Promise<BillingOverview> {
-  // Stub — free plan, no payment method
-  return {
-    currentPlan: "free",
-    nextBillingDate: null,
-    nextAmount_ngn: 0,
-    nextAmount_usd: 0,
-    planSince: new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString(),
-    paymentMethod: "none",
-    cardLast4: null,
-    cardBrand: null,
-  };
+export async function getBillingOverview(orgId: string): Promise<BillingOverview> {
+  return internalFetch<BillingOverview>(`/billing/${orgId}/overview`);
 }
 
-/**
- * TODO: replace with admin-api /billing/invoices?org_id=
- */
-export async function getInvoices(_userId: string): Promise<Invoice[]> {
-  // Stub — empty history for free plan
-  return [];
+export async function getProjectUsageWithLimits(projectId: string): Promise<ProjectUsage> {
+  return internalFetch<ProjectUsage>(`/billing/usage/${projectId}`);
 }
 
-/**
- * TODO: replace with internal usage endpoint aggregated per org
- */
-export async function getUsageSummary(_userId: string): Promise<UsageSummary> {
-  return {
-    dbReads: 3_420,
-    dbWrites: 891,
-    nosqlReads: 1_205,
-    nosqlWrites: 330,
-    storageBytes: 48_000_000, // ~48 MB
-    functionCalls: 2_800,
-    aiRequests: 45,
-  };
+export async function getPlanLimits(): Promise<PlanLimits[]> {
+  return internalFetch<PlanLimits[]>("/billing/plans");
+}
+
+export async function initiateCheckout(params: {
+  orgId: string;
+  plan: "starter" | "pro";
+  userEmail: string;
+  userName: string;
+  currency: "NGN" | "USD";
+  redirectUrl: string;
+}): Promise<{ checkout_url: string; tx_ref: string }> {
+  return internalFetch(`/billing/${params.orgId}/checkout/initiate`, {
+    method: "POST",
+    body: JSON.stringify({
+      plan: params.plan,
+      user_email: params.userEmail,
+      user_name: params.userName,
+      currency: params.currency,
+      redirect_url: params.redirectUrl,
+    }),
+  });
+}
+
+export async function verifyCheckout(params: {
+  orgId: string;
+  txRef: string;
+  transactionId: string;
+}): Promise<{ verified: boolean; plan: PlanName; invoice_id: string }> {
+  return internalFetch(`/billing/${params.orgId}/checkout/verify`, {
+    method: "POST",
+    body: JSON.stringify({
+      tx_ref: params.txRef,
+      transaction_id: params.transactionId,
+    }),
+  });
+}
+
+export async function cancelSubscription(orgId: string): Promise<{ cancel_at_period_end: boolean }> {
+  return internalFetch(`/billing/${orgId}/cancel`, { method: "POST" });
 }

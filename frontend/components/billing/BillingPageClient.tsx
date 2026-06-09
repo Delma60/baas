@@ -4,146 +4,81 @@
 import * as React from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
-  CreditCard,
-  Receipt,
-  BarChart3,
-  Layers,
-  CheckCircle2,
-  AlertTriangle,
-  ArrowUpRight,
-  Calendar,
-  Zap,
-  Database,
-  HardDrive,
-  ShieldCheck,
-  Sparkles,
-  ChevronRight,
-  ExternalLink,
-  Download,
-  Clock,
-  RefreshCw,
-  Info,
+  CreditCard, Receipt, BarChart3, Layers, CheckCircle2,
+  AlertTriangle, ArrowUpRight, Calendar, Zap, Database,
+  HardDrive, ShieldCheck, Sparkles, ChevronRight, ExternalLink,
+  Download, Clock, RefreshCw, Info, CheckCheck, XCircle, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
-  BillingOverview,
-  BillingPlan,
-  Invoice,
-  InvoiceStatus,
-  PlanName,
-  UsageSummary,
+  BillingOverview, BillingPlan, Invoice, InvoiceStatus,
+  PlanLimits, PlanName, Subscription, UsageSummary,
 } from "@/lib/api/billing-client";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
+  if (!bytes) return "0 B";
   const k = 1024;
   const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
-function formatNumber(n: number): string {
-  return new Intl.NumberFormat("en-US").format(n);
+function fmtNum(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
 }
 
-function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(iso));
+function fmtDate(iso: string): string {
+  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(iso));
 }
 
-function formatNgn(amount: number): string {
-  return new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-    minimumFractionDigits: 0,
-  }).format(amount);
+function fmtNgn(n: number): string {
+  return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 0 }).format(n);
 }
 
-function usagePercent(used: number, limit: number | null): number {
-  if (!limit) return 0;
-  return Math.min(100, Math.round((used / limit) * 100));
-}
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Plan badge ───────────────────────────────────────────────────────────────
 
 function PlanBadge({ plan }: { plan: PlanName }) {
-  const styles: Record<PlanName, string> = {
+  const s: Record<PlanName, string> = {
     free: "bg-surface text-text-muted border-border2",
-    starter:
-      "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800",
+    starter: "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800",
     pro: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800",
   };
-  const label: Record<PlanName, string> = {
-    free: "Free",
-    starter: "Starter",
-    pro: "Pro",
-  };
   return (
-    <span
-      className={cn(
-        "rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide",
-        styles[plan],
-      )}
-    >
-      {label[plan]}
+    <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide", s[plan])}>
+      {plan}
     </span>
   );
 }
 
 function StatusBadge({ status }: { status: InvoiceStatus }) {
-  const styles: Record<InvoiceStatus, string> = {
+  const s: Record<InvoiceStatus, string> = {
     paid: "bg-success-bg text-success-text",
     pending: "bg-warn-bg text-warn-text",
     failed: "bg-danger-bg text-danger-text",
   };
   return (
-    <span
-      className={cn(
-        "rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize",
-        styles[status],
-      )}
-    >
+    <span className={cn("rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize", s[status])}>
       {status}
     </span>
   );
 }
 
-function UsageBar({
-  label,
-  icon: Icon,
-  used,
-  limit,
-  unit,
-}: {
-  label: string;
-  icon: React.ElementType;
-  used: number;
-  limit: number | null;
-  unit?: string;
-}) {
-  const pct = usagePercent(used, limit ?? 0);
-  const barColor =
-    pct >= 90
-      ? "bg-danger"
-      : pct >= 70
-        ? "bg-warning"
-        : "bg-brand";
+// ─── Usage bar ────────────────────────────────────────────────────────────────
 
-  const displayUsed =
-    unit === "bytes" ? formatBytes(used) : formatNumber(used);
-  const displayLimit =
-    limit === null
-      ? "∞"
-      : unit === "bytes"
-        ? formatBytes(limit)
-        : formatNumber(limit);
+function UsageBar({ label, icon: Icon, used, limit, unit }: {
+  label: string; icon: React.ElementType;
+  used: number; limit: number | null; unit?: "bytes";
+}) {
+  const pct = limit ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  const bar = pct >= 90 ? "bg-danger" : pct >= 70 ? "bg-warning" : "bg-brand";
+  const displayUsed = unit === "bytes" ? formatBytes(used) : fmtNum(used);
+  const displayLimit = limit === null ? "∞" : unit === "bytes" ? formatBytes(limit) : fmtNum(limit);
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -154,42 +89,91 @@ function UsageBar({
         </div>
         <span className="text-[12px] font-medium text-text-primary">
           {displayUsed}
-          {limit !== null && (
-            <span className="text-text-muted font-normal"> / {displayLimit}</span>
-          )}
+          {limit !== null && <span className="text-text-muted font-normal"> / {displayLimit}</span>}
         </span>
       </div>
       {limit !== null && (
         <div className="h-1.5 w-full rounded-full bg-border overflow-hidden">
-          <div
-            className={cn("h-full rounded-full transition-all", barColor)}
-            style={{ width: `${pct}%` }}
-          />
+          <div className={cn("h-full rounded-full transition-all", bar)} style={{ width: `${pct}%` }} />
         </div>
       )}
     </div>
   );
 }
 
-// ─── Tab: Overview ────────────────────────────────────────────────────────────
+// ─── Checkout button ──────────────────────────────────────────────────────────
 
-function OverviewTab({
-  overview,
-  currentPlan,
-  usage,
-  userId,
-  onTabChange,
+function CheckoutButton({
+  orgId, plan, userEmail, userName, children, className,
 }: {
-  overview: BillingOverview;
-  currentPlan: BillingPlan;
-  usage: UsageSummary | null;
-  userId: string;
-  onTabChange: (tab: string) => void;
+  orgId: string; plan: "starter" | "pro";
+  userEmail: string; userName: string;
+  children: React.ReactNode; className?: string;
 }) {
-  const SQL_LIMIT = currentPlan.name === "free" ? 50_000 : currentPlan.name === "starter" ? 500_000 : null;
-  const NOSQL_LIMIT = SQL_LIMIT;
-  const STORAGE_LIMIT = currentPlan.storageGb * 1024 * 1024 * 1024;
-  const FN_LIMIT = currentPlan.name === "free" ? 100_000 : currentPlan.name === "starter" ? 1_000_000 : null;
+  const [loading, setLoading] = React.useState(false);
+  const router = useRouter();
+
+  async function handleClick() {
+    setLoading(true);
+    try {
+      const appUrl = window.location.origin;
+      const redirectUrl = `${appUrl}/billing?tab=overview&_verify=1`;
+
+      const res = await fetch("/api/internal/billing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "initiate",
+          orgId,
+          plan,
+          user_email: userEmail,
+          user_name: userName,
+          currency: "NGN",
+          redirect_url: redirectUrl,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.detail ?? json?.error ?? "Checkout failed");
+      const checkoutUrl = json.data?.checkout_url ?? json.checkout_url;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+      }
+    } catch (e: any) {
+      alert(e.message ?? "Could not initiate checkout. Please try again.");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button onClick={handleClick} disabled={loading} className={cn("flex items-center justify-center gap-1.5", className)}>
+      {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : children}
+    </button>
+  );
+}
+
+// ─── Overview tab ─────────────────────────────────────────────────────────────
+
+function OverviewTab({ overview, planDisplay, orgId, userEmail, userName, onTabChange }: {
+  overview: BillingOverview;
+  planDisplay: Record<PlanName, BillingPlan>;
+  orgId: string;
+  userEmail: string;
+  userName: string;
+  onTabChange: (t: string) => void;
+}) {
+  const plan = overview.plan;
+  const sub = overview.subscription;
+  const usage = overview.usage;
+  const pd = planDisplay[plan];
+
+  // Find plan limits for progress bars (rough inline calculation)
+  const limits: Record<string, number | null> = {
+    db_reads:      plan === "free" ? 50000 : plan === "starter" ? 500000 : null,
+    nosql_reads:   plan === "free" ? 50000 : plan === "starter" ? 500000 : null,
+    storage_bytes: plan === "free" ? 1073741824 : plan === "starter" ? 10737418240 : 107374182400,
+    function_calls:plan === "free" ? 100000 : plan === "starter" ? 1000000 : null,
+    ai_requests:   plan === "free" ? 500 : plan === "starter" ? 5000 : null,
+  };
 
   return (
     <div className="space-y-6">
@@ -202,212 +186,120 @@ function OverviewTab({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <p className="text-base font-semibold text-text-primary">
-                  {currentPlan.displayName} Plan
-                </p>
-                <PlanBadge plan={currentPlan.name} />
+                <p className="text-base font-semibold text-text-primary">{pd.displayName} Plan</p>
+                <PlanBadge plan={plan} />
               </div>
-              <p className="text-sm text-text-muted mt-0.5">
-                Active since {formatDate(overview.planSince)}
-              </p>
+              {sub.current_period_end && (
+                <p className="text-sm text-text-muted mt-0.5">
+                  Renews {fmtDate(sub.current_period_end)}
+                </p>
+              )}
+              {sub.cancel_at_period_end && (
+                <p className="text-xs text-danger-text mt-0.5">Cancels at end of period</p>
+              )}
             </div>
           </div>
-
-          <div className="flex items-center gap-3">
-            {currentPlan.name !== "pro" && (
-              <button
-                onClick={() => onTabChange("plans")}
-                className="flex items-center gap-1.5 h-9 rounded-lg bg-brand px-4 text-[13px] font-semibold text-white hover:bg-brand-hover transition-colors"
-              >
-                Upgrade plan
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
+          {plan !== "pro" && (
+            <CheckoutButton
+              orgId={orgId} plan={plan === "free" ? "starter" : "pro"}
+              userEmail={userEmail} userName={userName}
+              className="h-9 rounded-lg bg-brand px-4 text-[13px] font-semibold text-white hover:bg-brand-hover transition-colors disabled:opacity-60"
+            >
+              Upgrade to {plan === "free" ? "Starter" : "Pro"}
+              <ChevronRight className="h-3.5 w-3.5" />
+            </CheckoutButton>
+          )}
         </div>
 
-        {/* Plan stats grid */}
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: "SQL rows", value: currentPlan.sqlRows },
-            { label: "NoSQL docs", value: currentPlan.nosqlDocs },
-            { label: "Storage", value: `${currentPlan.storageGb} GB` },
-            { label: "Team members", value: String(currentPlan.teamMembers) },
+            { label: "Price/mo", value: plan === "free" ? "Free" : `₦${(pd.priceNgn / 1000).toFixed(0)}k` },
+            { label: "Storage", value: `${pd.storageGb} GB` },
+            { label: "Team members", value: String(pd.teamMembers) },
+            { label: "Status", value: sub.status === "active" ? "Active" : sub.status },
           ].map((s) => (
-            <div
-              key={s.label}
-              className="rounded-xl bg-surface px-3 py-3"
-            >
+            <div key={s.label} className="rounded-xl bg-surface px-3 py-3">
               <p className="text-lg font-bold text-text-primary">{s.value}</p>
-              <p className="text-[11px] text-text-muted mt-0.5 uppercase tracking-wide">
-                {s.label}
-              </p>
+              <p className="text-[11px] text-text-muted mt-0.5 uppercase tracking-wide">{s.label}</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Billing info */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-border bg-background p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-3">
-            Next billing
-          </p>
-          {overview.nextBillingDate ? (
+      {/* Billing dates */}
+      {sub.current_period_start && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="rounded-2xl border border-border bg-background p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-3">Current period</p>
             <div className="flex items-center gap-3">
               <Calendar className="h-5 w-5 text-text-secondary shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-text-primary">
-                  {formatDate(overview.nextBillingDate)}
+                  {fmtDate(sub.current_period_start)} – {sub.current_period_end ? fmtDate(sub.current_period_end) : "–"}
                 </p>
-                <p className="text-[12px] text-text-muted">
-                  {formatNgn(overview.nextAmount_ngn)} /{" "}
-                  ${overview.nextAmount_usd} USD
-                </p>
+                <p className="text-[12px] text-text-muted">{fmtNgn(sub.amount_ngn)} / {sub.currency}</p>
               </div>
             </div>
-          ) : (
+          </div>
+          <div className="rounded-2xl border border-border bg-background p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-3">Payment</p>
             <div className="flex items-center gap-3">
               <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
-              <p className="text-sm text-text-secondary">
-                You&apos;re on the free plan — no billing
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-border bg-background p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-3">
-            Payment method
-          </p>
-          {overview.paymentMethod === "none" ? (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-text-secondary">No card on file</p>
-              <button
-                onClick={() => onTabChange("payment")}
-                className="text-[13px] font-medium text-brand hover:underline"
-              >
-                Add card
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <CreditCard className="h-5 w-5 text-text-secondary shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-text-primary capitalize">
-                  {overview.cardBrand} ···· {overview.cardLast4}
-                </p>
-                <p className="text-[12px] text-text-muted">
-                  via{" "}
-                  {overview.paymentMethod === "paystack" ? "Paystack" : "Stripe"}
-                </p>
+              <div>
+                <p className="text-sm font-semibold text-text-primary">Paid via Flutterwave</p>
+                {sub.flw_tx_ref && <p className="text-[12px] text-text-muted font-mono truncate">{sub.flw_tx_ref}</p>}
               </div>
-              <button
-                onClick={() => onTabChange("payment")}
-                className="text-[12px] text-text-muted hover:text-brand transition-colors"
-              >
-                Update
-              </button>
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Usage this month */}
-      {usage && (
-        <div className="rounded-2xl border border-border bg-background p-5 sm:p-6">
-          <div className="flex items-center justify-between mb-5">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-              Usage this month
-            </p>
-            <button
-              onClick={() => onTabChange("usage")}
-              className="text-[12px] font-medium text-brand hover:underline flex items-center gap-1"
-            >
-              Details <ArrowUpRight className="h-3 w-3" />
-            </button>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <UsageBar
-              label="SQL reads + writes"
-              icon={Database}
-              used={usage.dbReads + usage.dbWrites}
-              limit={SQL_LIMIT}
-            />
-            <UsageBar
-              label="NoSQL reads + writes"
-              icon={Layers}
-              used={usage.nosqlReads + usage.nosqlWrites}
-              limit={NOSQL_LIMIT}
-            />
-            <UsageBar
-              label="Storage used"
-              icon={HardDrive}
-              used={usage.storageBytes}
-              limit={STORAGE_LIMIT}
-              unit="bytes"
-            />
-            <UsageBar
-              label="Function calls"
-              icon={Zap}
-              used={usage.functionCalls}
-              limit={FN_LIMIT}
-            />
           </div>
         </div>
       )}
+
+      {/* Usage */}
+      <div className="rounded-2xl border border-border bg-background p-5 sm:p-6">
+        <div className="flex items-center justify-between mb-5">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Usage this period</p>
+          <button onClick={() => onTabChange("usage")} className="text-[12px] font-medium text-brand hover:underline flex items-center gap-1">
+            Details <ArrowUpRight className="h-3 w-3" />
+          </button>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <UsageBar label="SQL reads" icon={Database} used={usage.db_reads} limit={limits.db_reads} />
+          <UsageBar label="NoSQL reads" icon={Layers} used={usage.nosql_reads} limit={limits.nosql_reads} />
+          <UsageBar label="Storage" icon={HardDrive} used={usage.storage_bytes} limit={limits.storage_bytes} unit="bytes" />
+          <UsageBar label="Function calls" icon={Zap} used={usage.function_calls} limit={limits.function_calls} />
+        </div>
+      </div>
     </div>
   );
 }
 
-// ─── Tab: Plans ───────────────────────────────────────────────────────────────
+// ─── Plans tab ────────────────────────────────────────────────────────────────
 
-function PlansTab({
-  currentPlan,
-  allPlans,
-}: {
-  currentPlan: BillingPlan;
-  allPlans: Record<PlanName, BillingPlan>;
+function PlansTab({ currentPlan, planDisplay, planLimits, orgId, userEmail, userName }: {
+  currentPlan: PlanName;
+  planDisplay: Record<PlanName, BillingPlan>;
+  planLimits: PlanLimits[];
+  orgId: string;
+  userEmail: string;
+  userName: string;
 }) {
-  const plans = Object.values(allPlans);
+  const plans = Object.values(planDisplay) as BillingPlan[];
 
   return (
     <div className="space-y-6">
-      <Alert className="border-info-bg bg-info-bg/40">
-        <Info className="h-4 w-4 text-info-text" />
-        <AlertDescription className="text-[13px] text-info-text">
-          Plan upgrades are currently handled manually.{" "}
-          <a
-            href="mailto:billing@yourbaas.com"
-            className="font-semibold underline hover:no-underline"
-          >
-            Contact billing
-          </a>{" "}
-          to upgrade or we&apos;ll add Paystack/Stripe checkout here soon.
-        </AlertDescription>
-      </Alert>
-
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {plans.map((plan) => {
-          const isCurrent = plan.name === currentPlan.name;
-          const isUpgrade =
-            plan.name === "pro"
-              ? currentPlan.name !== "pro"
-              : plan.name === "starter" && currentPlan.name === "free";
+          const isCurrent = plan.name === currentPlan;
+          const canUpgrade = plan.name !== currentPlan && plan.priceNgn > (planDisplay[currentPlan]?.priceNgn ?? 0);
 
           return (
-            <div
-              key={plan.name}
-              className={cn(
-                "relative rounded-2xl border p-5 flex flex-col",
-                isCurrent
-                  ? "border-brand bg-brand/[0.03]"
-                  : "border-border bg-background",
-                plan.name === "pro" && !isCurrent && "border-amber-200 dark:border-amber-800",
-              )}
-            >
+            <div key={plan.name} className={cn(
+              "relative rounded-2xl border p-5 flex flex-col",
+              isCurrent ? "border-brand bg-brand/[0.03]" : "border-border bg-background",
+              plan.name === "pro" && !isCurrent && "border-amber-200 dark:border-amber-800",
+            )}>
               {plan.name === "pro" && (
-                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm whitespace-nowrap">
                   Most popular
                 </span>
               )}
@@ -418,22 +310,14 @@ function PlansTab({
               )}
 
               <div className="mb-4">
-                <p className="text-base font-bold text-text-primary">
-                  {plan.displayName}
-                </p>
+                <p className="text-base font-bold text-text-primary">{plan.displayName}</p>
                 <div className="mt-1 flex items-baseline gap-1">
                   {plan.priceNgn === 0 ? (
-                    <span className="text-2xl font-black text-text-primary">
-                      Free
-                    </span>
+                    <span className="text-2xl font-black text-text-primary">Free</span>
                   ) : (
                     <>
-                      <span className="text-2xl font-black text-text-primary">
-                        ₦{(plan.priceNgn / 1000).toFixed(0)}k
-                      </span>
-                      <span className="text-[12px] text-text-muted">
-                        / mo · ${plan.priceUsd} USD
-                      </span>
+                      <span className="text-2xl font-black text-text-primary">₦{(plan.priceNgn / 1000).toFixed(0)}k</span>
+                      <span className="text-[12px] text-text-muted">/ mo · ${plan.priceUsd} USD</span>
                     </>
                   )}
                 </div>
@@ -452,14 +336,17 @@ function PlansTab({
                 <div className="flex items-center justify-center h-9 rounded-lg border border-brand/30 bg-brand/5 text-[13px] font-medium text-brand">
                   Current plan
                 </div>
-              ) : isUpgrade ? (
-                <a
-                  href="mailto:billing@yourbaas.com?subject=Upgrade request"
-                  className="flex items-center justify-center gap-1.5 h-9 rounded-lg bg-brand text-[13px] font-semibold text-white hover:bg-brand-hover transition-colors"
+              ) : canUpgrade ? (
+                <CheckoutButton
+                  orgId={orgId}
+                  plan={plan.name as "starter" | "pro"}
+                  userEmail={userEmail}
+                  userName={userName}
+                  className="h-9 rounded-lg bg-brand text-[13px] font-semibold text-white hover:bg-brand-hover transition-colors disabled:opacity-60 w-full"
                 >
                   Upgrade to {plan.displayName}
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </CheckoutButton>
               ) : (
                 <div className="h-9" />
               )}
@@ -467,11 +354,54 @@ function PlansTab({
           );
         })}
       </div>
+
+      {/* Limits comparison table */}
+      {planLimits.length > 0 && (
+        <div className="rounded-2xl border border-border bg-background overflow-hidden">
+          <div className="px-5 py-3 border-b border-border bg-surface">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Full plan comparison</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left px-5 py-3 text-[12px] font-medium text-text-secondary">Feature</th>
+                  {planLimits.map((p) => (
+                    <th key={p.plan} className="px-5 py-3 text-center text-[12px] font-medium text-text-secondary capitalize">
+                      {p.plan}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {[
+                  { label: "SQL rows", key: "sql_rows" as keyof PlanLimits, fmt: (v: any) => v === null ? "Unlimited" : fmtNum(v) },
+                  { label: "NoSQL docs", key: "nosql_docs" as keyof PlanLimits, fmt: (v: any) => v === null ? "Unlimited" : fmtNum(v) },
+                  { label: "Storage", key: "storage_bytes" as keyof PlanLimits, fmt: (v: any) => v === null ? "Unlimited" : formatBytes(v) },
+                  { label: "Function calls", key: "function_calls" as keyof PlanLimits, fmt: (v: any) => v === null ? "Unlimited" : fmtNum(v) },
+                  { label: "API calls/min", key: "api_calls_per_min" as keyof PlanLimits, fmt: (v: any) => String(v) },
+                  { label: "Team members", key: "team_members" as keyof PlanLimits, fmt: (v: any) => String(v) },
+                  { label: "Price/mo (NGN)", key: "price_ngn" as keyof PlanLimits, fmt: (v: any) => v === 0 ? "Free" : fmtNgn(v) },
+                ].map((row) => (
+                  <tr key={row.label} className="hover:bg-surface/50">
+                    <td className="px-5 py-3 text-[13px] text-text-secondary">{row.label}</td>
+                    {planLimits.map((p) => (
+                      <td key={p.plan} className={cn("px-5 py-3 text-center text-[13px]", p.plan === currentPlan ? "text-brand font-semibold" : "text-text-primary")}>
+                        {row.fmt(p[row.key])}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Tab: Invoices ────────────────────────────────────────────────────────────
+// ─── Invoices tab ─────────────────────────────────────────────────────────────
 
 function InvoicesTab({ invoices }: { invoices: Invoice[] }) {
   if (invoices.length === 0) {
@@ -482,9 +412,7 @@ function InvoicesTab({ invoices }: { invoices: Invoice[] }) {
         </div>
         <div>
           <p className="text-sm font-medium text-text-primary">No invoices yet</p>
-          <p className="text-[13px] text-text-muted mt-1">
-            Invoices are generated on the 1st of each month for paid plans.
-          </p>
+          <p className="text-[13px] text-text-muted mt-1">Invoices are generated when you upgrade your plan.</p>
         </div>
       </div>
     );
@@ -492,42 +420,25 @@ function InvoicesTab({ invoices }: { invoices: Invoice[] }) {
 
   return (
     <div className="rounded-2xl border border-border bg-background overflow-hidden">
-      <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-3 border-b border-border bg-surface">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-          Period
-        </span>
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-          Amount
-        </span>
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-          Status
-        </span>
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-          &nbsp;
-        </span>
+      <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-3 border-b border-border bg-surface">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Period</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Amount</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Status</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">&nbsp;</span>
       </div>
       <div className="divide-y divide-border">
         {invoices.map((inv) => (
-          <div
-            key={inv.id}
-            className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 px-5 py-4 hover:bg-surface/50 transition-colors"
-          >
+          <div key={inv.id} className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 px-5 py-4 hover:bg-surface/50 transition-colors">
             <div>
-              <p className="text-[14px] font-medium text-text-primary">
-                {inv.period}
-              </p>
-              <p className="text-[12px] text-text-muted mt-0.5">
-                {formatDate(inv.period_start)} – {formatDate(inv.period_end)}
-              </p>
+              <p className="text-[14px] font-medium text-text-primary">{fmtDate(inv.period_start)}</p>
+              <p className="text-[12px] text-text-muted mt-0.5">{fmtDate(inv.period_start)} – {fmtDate(inv.period_end)}</p>
             </div>
             <div className="text-right">
-              <p className="text-[14px] font-semibold text-text-primary">
-                {formatNgn(inv.amount_ngn)}
-              </p>
-              <p className="text-[11px] text-text-muted">${inv.amount_usd}</p>
+              <p className="text-[14px] font-semibold text-text-primary">{fmtNgn(inv.amount_ngn)}</p>
+              {inv.amount_usd > 0 && <p className="text-[11px] text-text-muted">${inv.amount_usd}</p>}
             </div>
             <StatusBadge status={inv.status} />
-            <button className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-surface transition-colors">
+            <button className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-surface transition-colors" title="Download">
               <Download className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -537,112 +448,68 @@ function InvoicesTab({ invoices }: { invoices: Invoice[] }) {
   );
 }
 
-// ─── Tab: Usage detail ────────────────────────────────────────────────────────
+// ─── Usage detail tab ─────────────────────────────────────────────────────────
 
-function UsageTab({
-  usage,
-  currentPlan,
-}: {
-  usage: UsageSummary | null;
-  currentPlan: BillingPlan;
-}) {
-  if (!usage) {
-    return (
-      <p className="text-sm text-text-muted p-4">Usage data unavailable.</p>
-    );
-  }
-
-  const SQL_LIMIT =
-    currentPlan.name === "free"
-      ? 50_000
-      : currentPlan.name === "starter"
-        ? 500_000
-        : null;
-  const NOSQL_LIMIT = SQL_LIMIT;
-  const STORAGE_LIMIT = currentPlan.storageGb * 1024 * 1024 * 1024;
-  const FN_LIMIT =
-    currentPlan.name === "free"
-      ? 100_000
-      : currentPlan.name === "starter"
-        ? 1_000_000
-        : null;
+function UsageTab({ usage, plan }: { usage: UsageSummary; plan: PlanName }) {
+  const limits: Record<string, { limit: number | null; unit?: "bytes" }> = {
+    db_reads:      { limit: plan === "free" ? 50000 : plan === "starter" ? 500000 : null },
+    db_writes:     { limit: plan === "free" ? 50000 : plan === "starter" ? 500000 : null },
+    nosql_reads:   { limit: plan === "free" ? 50000 : plan === "starter" ? 500000 : null },
+    nosql_writes:  { limit: plan === "free" ? 50000 : plan === "starter" ? 500000 : null },
+    storage_bytes: { limit: plan === "free" ? 1073741824 : plan === "starter" ? 10737418240 : 107374182400, unit: "bytes" },
+    function_calls:{ limit: plan === "free" ? 100000 : plan === "starter" ? 1000000 : null },
+    ai_requests:   { limit: plan === "free" ? 500 : plan === "starter" ? 5000 : null },
+  };
 
   const rows = [
-    { label: "SQL reads", icon: Database, used: usage.dbReads, limit: SQL_LIMIT },
-    { label: "SQL writes", icon: Database, used: usage.dbWrites, limit: SQL_LIMIT },
-    { label: "NoSQL reads", icon: Layers, used: usage.nosqlReads, limit: NOSQL_LIMIT },
-    { label: "NoSQL writes", icon: Layers, used: usage.nosqlWrites, limit: NOSQL_LIMIT },
-    { label: "Storage used", icon: HardDrive, used: usage.storageBytes, limit: STORAGE_LIMIT, unit: "bytes" as const },
-    { label: "Function calls", icon: Zap, used: usage.functionCalls, limit: FN_LIMIT },
-    { label: "AI requests", icon: Sparkles, used: usage.aiRequests, limit: null },
+    { key: "db_reads", label: "SQL reads", icon: Database },
+    { key: "db_writes", label: "SQL writes", icon: Database },
+    { key: "nosql_reads", label: "NoSQL reads", icon: Layers },
+    { key: "nosql_writes", label: "NoSQL writes", icon: Layers },
+    { key: "storage_bytes", label: "Storage", icon: HardDrive },
+    { key: "function_calls", label: "Function calls", icon: Zap },
+    { key: "ai_requests", label: "AI requests", icon: Sparkles },
   ];
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-text-muted">
-          Rolling 30-day window · resets daily
-        </p>
+        <p className="text-[13px] text-text-muted">Rolling 30-day window</p>
         <div className="flex items-center gap-1.5 text-[12px] text-text-muted">
           <Clock className="h-3 w-3" />
-          Updated every 5 min
+          Updated hourly
         </div>
       </div>
-
       <div className="rounded-2xl border border-border bg-background divide-y divide-border overflow-hidden">
         {rows.map((row) => {
-          const pct = row.limit ? usagePercent(row.used, row.limit) : 0;
-          const displayUsed =
-            row.unit === "bytes"
-              ? formatBytes(row.used)
-              : formatNumber(row.used);
-          const displayLimit =
-            row.limit === null
-              ? "∞"
-              : row.unit === "bytes"
-                ? formatBytes(row.limit)
-                : formatNumber(row.limit);
+          const used = (usage as any)[row.key] ?? 0;
+          const { limit, unit } = limits[row.key];
+          const pct = limit ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+          const bar = pct >= 90 ? "bg-danger" : pct >= 70 ? "bg-warning" : "bg-brand";
+          const displayUsed = unit === "bytes" ? formatBytes(used) : fmtNum(used);
+          const displayLimit = limit === null ? "∞" : unit === "bytes" ? formatBytes(limit) : fmtNum(limit);
           const Icon = row.icon;
-          const barColor =
-            pct >= 90 ? "bg-danger" : pct >= 70 ? "bg-warning" : "bg-brand";
 
           return (
-            <div
-              key={row.label}
-              className="flex items-center gap-4 px-5 py-4"
-            >
+            <div key={row.key} className="flex items-center gap-4 px-5 py-4">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface">
                 <Icon className="h-4 w-4 text-text-muted" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[13px] font-medium text-text-primary">
-                    {row.label}
-                  </span>
+                  <span className="text-[13px] font-medium text-text-primary">{row.label}</span>
                   <span className="text-[13px] font-semibold text-text-primary">
                     {displayUsed}
-                    {row.limit !== null && (
-                      <span className="text-text-muted font-normal">
-                        {" "}/ {displayLimit}
-                      </span>
-                    )}
+                    {limit !== null && <span className="text-text-muted font-normal"> / {displayLimit}</span>}
                   </span>
                 </div>
-                {row.limit !== null && (
+                {limit !== null && (
                   <div className="h-1.5 w-full rounded-full bg-surface overflow-hidden">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all",
-                        barColor,
-                      )}
-                      style={{ width: `${pct}%` }}
-                    />
+                    <div className={cn("h-full rounded-full transition-all", bar)} style={{ width: `${pct}%` }} />
                   </div>
                 )}
               </div>
-              {pct >= 80 && row.limit !== null && (
-                <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
-              )}
+              {pct >= 80 && limit !== null && <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />}
             </div>
           );
         })}
@@ -651,107 +518,68 @@ function UsageTab({
   );
 }
 
-// ─── Tab: Payment method ──────────────────────────────────────────────────────
+// ─── Return banner (after Flutterwave redirect) ───────────────────────────────
 
-function PaymentTab({ overview }: { overview: BillingOverview }) {
+function ReturnBanner({ txRef, txId, status, orgId, onDismiss }: {
+  txRef?: string; txId?: string; status?: string;
+  orgId: string; onDismiss: () => void;
+}) {
+  const [verifying, setVerifying] = React.useState(false);
+  const [result, setResult] = React.useState<null | { success: boolean; message: string }>(null);
+  const router = useRouter();
+
+  React.useEffect(() => {
+    if (!txRef || !txId || status !== "successful") {
+      if (status && status !== "successful") {
+        setResult({ success: false, message: "Payment was not completed. Please try again." });
+      }
+      return;
+    }
+    setVerifying(true);
+    fetch("/api/internal/billing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "verify", orgId, tx_ref: txRef, transaction_id: txId }),
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.data?.verified) {
+          setResult({ success: true, message: `Plan upgraded to ${json.data.plan}. Welcome to ${json.data.plan}!` });
+          // Refresh the page data
+          router.refresh();
+        } else {
+          setResult({ success: false, message: json?.detail ?? "Verification failed. Contact support." });
+        }
+      })
+      .catch(() => setResult({ success: false, message: "Verification failed. Contact support." }))
+      .finally(() => setVerifying(false));
+  }, []);
+
+  if (!txRef && !txId) return null;
+
   return (
-    <div className="space-y-6 max-w-lg">
-      <Alert className="border-warn-bg bg-warn-bg/40">
-        <AlertTriangle className="h-4 w-4 text-warn-text" />
-        <AlertDescription className="text-[13px] text-warn-text">
-          Payment integration (Paystack / Stripe) is coming soon. To set up
-          billing now,{" "}
-          <a
-            href="mailto:billing@yourbaas.com"
-            className="font-semibold underline hover:no-underline"
-          >
-            contact our team
-          </a>
-          .
-        </AlertDescription>
-      </Alert>
-
-      <div className="rounded-2xl border border-border bg-background p-6">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-4">
-          Current payment method
+    <div className={cn(
+      "mb-6 rounded-2xl border px-5 py-4 flex items-start gap-3",
+      result?.success ? "border-success-bg bg-success-bg/40" : result?.success === false ? "border-danger-bg bg-danger-bg/40" : "border-info-bg bg-info-bg/40"
+    )}>
+      {verifying ? (
+        <Loader2 className="h-5 w-5 text-info-text animate-spin shrink-0 mt-0.5" />
+      ) : result?.success ? (
+        <CheckCheck className="h-5 w-5 text-success-text shrink-0 mt-0.5" />
+      ) : (
+        <XCircle className="h-5 w-5 text-danger-text shrink-0 mt-0.5" />
+      )}
+      <div className="flex-1">
+        <p className="text-[14px] font-semibold text-text-primary">
+          {verifying ? "Verifying your payment…" : result?.success ? "Payment confirmed!" : "Payment issue"}
         </p>
-
-        {overview.paymentMethod === "none" ? (
-          <div className="flex flex-col items-center gap-4 py-6 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-surface">
-              <CreditCard className="h-6 w-6 text-text-muted" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-text-primary">
-                No payment method on file
-              </p>
-              <p className="text-[13px] text-text-muted mt-1">
-                Add a card to upgrade to a paid plan.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-4 rounded-xl border border-border p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface">
-              <CreditCard className="h-4.5 w-4.5 text-text-secondary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-text-primary capitalize">
-                {overview.cardBrand} ending in {overview.cardLast4}
-              </p>
-              <p className="text-[12px] text-text-muted">
-                Billed via{" "}
-                {overview.paymentMethod === "paystack" ? "Paystack" : "Stripe"}
-              </p>
-            </div>
-            <button className="text-[12px] font-medium text-danger-text hover:underline">
-              Remove
-            </button>
-          </div>
-        )}
-
-        <div className="mt-5 flex flex-col gap-3">
-          <button
-            disabled
-            className="flex items-center justify-center gap-2 h-10 rounded-lg bg-brand px-4 text-[13px] font-semibold text-white opacity-50 cursor-not-allowed"
-          >
-            <CreditCard className="h-4 w-4" />
-            Add card via Paystack
-          </button>
-          <button
-            disabled
-            className="flex items-center justify-center gap-2 h-10 rounded-lg border border-border px-4 text-[13px] font-medium text-text-secondary opacity-50 cursor-not-allowed"
-          >
-            Add card via Stripe
-          </button>
-        </div>
+        {result && <p className="text-[13px] text-text-secondary mt-0.5">{result.message}</p>}
       </div>
-
-      {/* FAQ */}
-      <div className="rounded-2xl border border-border bg-background p-5 space-y-4">
-        <p className="text-[13px] font-semibold text-text-primary">
-          Billing FAQ
-        </p>
-        {[
-          {
-            q: "When am I charged?",
-            a: "Invoices are generated on the 1st of each month for the prior period.",
-          },
-          {
-            q: "What currency do you charge in?",
-            a: "Nigerian Naira (₦) via Paystack for NGN accounts, and USD via Stripe for international customers.",
-          },
-          {
-            q: "Can I downgrade?",
-            a: "Yes — contact billing@yourbaas.com and your plan will be downgraded at the end of the current billing period.",
-          },
-        ].map((item) => (
-          <div key={item.q}>
-            <p className="text-[13px] font-medium text-text-primary">{item.q}</p>
-            <p className="text-[12px] text-text-muted mt-0.5">{item.a}</p>
-          </div>
-        ))}
-      </div>
+      {!verifying && (
+        <button onClick={onDismiss} className="text-text-muted hover:text-text-primary transition-colors">
+          <XCircle className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 }
@@ -763,58 +591,57 @@ const TABS = [
   { id: "plans", label: "Plans", icon: Layers },
   { id: "invoices", label: "Invoices", icon: Receipt },
   { id: "usage", label: "Usage", icon: Database },
-  { id: "payment", label: "Payment", icon: CreditCard },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
 
-interface BillingPageClientProps {
+interface Props {
   userId: string;
+  orgId: string;
+  userEmail: string;
+  userName: string;
   overview: BillingOverview;
-  currentPlan: BillingPlan;
-  invoices: Invoice[];
-  usage: UsageSummary | null;
-  allPlans: Record<PlanName, BillingPlan>;
+  planLimits: PlanLimits[];
+  planDisplay: Record<PlanName, BillingPlan>;
   initialTab: string;
+  returnTxRef?: string;
+  returnTxId?: string;
+  returnStatus?: string;
+  flutterwavePublicKey: string;
 }
 
 export function BillingPageClient({
-  userId,
-  overview,
-  currentPlan,
-  invoices,
-  usage,
-  allPlans,
-  initialTab,
-}: BillingPageClientProps) {
+  userId, orgId, userEmail, userName,
+  overview, planLimits, planDisplay,
+  initialTab, returnTxRef, returnTxId, returnStatus,
+}: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = React.useState<TabId>(
-    (initialTab as TabId) || "overview",
-  );
+  const [activeTab, setActiveTab] = React.useState<TabId>((initialTab as TabId) || "overview");
+  const [showReturnBanner, setShowReturnBanner] = React.useState(!!(returnTxRef || returnStatus));
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as TabId);
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", tab);
+    // Remove return params
+    params.delete("tx_ref"); params.delete("transaction_id"); params.delete("status"); params.delete("_verify");
     router.replace(`${pathname}?${params.toString()}`);
   };
 
   return (
     <div className="flex flex-col h-full">
-      {/* Page header */}
+      {/* Header */}
       <div className="flex items-center gap-3 border-b border-border bg-background px-4 sm:px-6 py-4 sm:py-5 shrink-0">
         <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand/10">
           <CreditCard className="h-4 w-4 text-brand" />
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="text-base font-medium text-text-primary">Billing</h1>
-          <p className="text-sm text-text-secondary mt-0.5 hidden sm:block">
-            Manage your plan, invoices, and payment method
-          </p>
+          <p className="text-sm text-text-secondary mt-0.5 hidden sm:block">Manage your plan, invoices, and usage</p>
         </div>
-        <PlanBadge plan={overview.currentPlan} />
+        <PlanBadge plan={overview.plan} />
       </div>
 
       {/* Tab bar */}
@@ -829,9 +656,7 @@ export function BillingPageClient({
                 onClick={() => handleTabChange(tab.id)}
                 className={cn(
                   "flex items-center gap-1.5 h-11 px-3 sm:px-4 text-[13px] font-medium border-b-2 transition-colors shrink-0 whitespace-nowrap",
-                  isActive
-                    ? "border-brand text-brand"
-                    : "border-transparent text-text-secondary hover:text-text-primary hover:border-border2",
+                  isActive ? "border-brand text-brand" : "border-transparent text-text-secondary hover:text-text-primary hover:border-border2",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -842,26 +667,42 @@ export function BillingPageClient({
         </nav>
       </div>
 
-      {/* Tab content */}
+      {/* Content */}
       <div className="flex-1 overflow-y-auto bg-surface">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          {/* Return banner after Flutterwave redirect */}
+          {showReturnBanner && (
+            <ReturnBanner
+              txRef={returnTxRef}
+              txId={returnTxId}
+              status={returnStatus}
+              orgId={orgId}
+              onDismiss={() => setShowReturnBanner(false)}
+            />
+          )}
+
           {activeTab === "overview" && (
             <OverviewTab
               overview={overview}
-              currentPlan={currentPlan}
-              usage={usage}
-              userId={userId}
+              planDisplay={planDisplay}
+              orgId={orgId}
+              userEmail={userEmail}
+              userName={userName}
               onTabChange={handleTabChange}
             />
           )}
           {activeTab === "plans" && (
-            <PlansTab currentPlan={currentPlan} allPlans={allPlans} />
+            <PlansTab
+              currentPlan={overview.plan}
+              planDisplay={planDisplay}
+              planLimits={planLimits}
+              orgId={orgId}
+              userEmail={userEmail}
+              userName={userName}
+            />
           )}
-          {activeTab === "invoices" && <InvoicesTab invoices={invoices} />}
-          {activeTab === "usage" && (
-            <UsageTab usage={usage} currentPlan={currentPlan} />
-          )}
-          {activeTab === "payment" && <PaymentTab overview={overview} />}
+          {activeTab === "invoices" && <InvoicesTab invoices={overview.invoices} />}
+          {activeTab === "usage" && <UsageTab usage={overview.usage} plan={overview.plan} />}
         </div>
       </div>
     </div>
