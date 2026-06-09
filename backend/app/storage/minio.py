@@ -22,6 +22,8 @@ def get_s3_client():  # type: ignore[no-untyped-def]
                 s3={"addressing_style": "path"},
             ),
         )
+        # For Backblaze B2, ensure `settings.region` is the B2 region
+        # (for example: us-west-002) so signature generation matches.
     return _s3_client
 
 

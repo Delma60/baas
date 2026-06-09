@@ -251,6 +251,7 @@ function UploadZone({
       const { uploadUrl, key } = await presignRes.json();
 
       // 2. Upload directly to MinIO via presigned URL
+      console.log(`Uploading ${file.name} to ${uploadUrl}`); // Debug log
       const uploadRes = await fetch(uploadUrl, {
         method: "PUT",
         body: file,

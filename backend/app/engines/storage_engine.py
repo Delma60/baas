@@ -101,13 +101,14 @@ async def get_presigned_upload_url(
             ExpiresIn=expires_in,
         )
 
-        # Replace internal Docker hostname with the public-facing endpoint
-        if settings.minio_endpoint in upload_url:
-            public_endpoint = settings.minio_public_endpoint.rstrip("/")
-            internal = f"http://{settings.minio_endpoint}"
-            upload_url = upload_url.replace(internal, public_endpoint)
+        # Replace internal endpoint host with the public-facing endpoint if needed.
+        # Use the configured protocol so HTTPS endpoints are handled correctly.
+        public_endpoint = settings.minio_public_endpoint.rstrip("/")
+        internal = f"{'https' if settings.minio_use_ssl else 'http'}://{settings.minio_endpoint.rstrip('/') }"
+        if upload_url.startswith(internal):
+            upload_url = upload_url.replace(internal, public_endpoint, 1)
 
-        file_url = f"{settings.minio_public_endpoint.rstrip('/')}/{full_bucket}/{key}"
+        file_url = f"{public_endpoint}/{full_bucket}/{key}"
 
         return {
             "upload_url": upload_url,
@@ -156,10 +157,10 @@ async def get_presigned_download_url(
             Params={"Bucket": full_bucket, "Key": file_key},
             ExpiresIn=expires_in,
         )
-        if settings.minio_endpoint in url:
-            public_endpoint = settings.minio_public_endpoint.rstrip("/")
-            internal = f"http://{settings.minio_endpoint}"
-            url = url.replace(internal, public_endpoint)
+        public_endpoint = settings.minio_public_endpoint.rstrip("/")
+        internal = f"{'https' if settings.minio_use_ssl else 'http'}://{settings.minio_endpoint.rstrip('/') }"
+        if url.startswith(internal):
+            url = url.replace(internal, public_endpoint, 1)
         return url
 
     return await asyncio.to_thread(_generate)

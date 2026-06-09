@@ -130,6 +130,7 @@ async def presign_upload(
 ) -> dict[str, Any]:
     """Generate a presigned upload URL for the dashboard."""
     from app.engines.storage_engine import get_presigned_upload_url
+    print(body)
     try:
         result = await get_presigned_upload_url(
             project_id=project_id,
