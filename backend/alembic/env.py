@@ -1,5 +1,6 @@
 # backend/alembic/env.py
 import asyncio
+import ssl
 from logging.config import fileConfig
 
 from alembic import context
@@ -11,12 +12,33 @@ from app.config import settings
 from app.db.postgres import Base
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+
+
+def _clean_url(url: str) -> tuple[str, dict]:
+    """Strip sslmode from URL and return cleaned URL + connect_args."""
+    connect_args = {}
+    for param in ("sslmode=require", "sslmode=verify-full", "sslmode=verify-ca"):
+        if param in url:
+            url = url.replace(f"?{param}", "").replace(f"&{param}", "")
+            connect_args["ssl"] = ssl.create_default_context()
+            break
+    for param in ("sslmode=disable",):
+        if param in url:
+            url = url.replace(f"?{param}", "").replace(f"&{param}", "")
+            break
+    # Ensure asyncpg driver
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url, connect_args
+
+
+_db_url, _connect_args = _clean_url(settings.database_url)
+config.set_main_option("sqlalchemy.url", _db_url)
 
 
 def run_migrations_offline() -> None:
@@ -38,10 +60,14 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
+    cfg = config.get_section(config.config_ini_section, {})
+    cfg["sqlalchemy.url"] = _db_url
+
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        cfg,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=_connect_args,
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
