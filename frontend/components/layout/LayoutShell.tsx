@@ -1,6 +1,9 @@
 // frontend/components/layout/LayoutShell.tsx
-"use client";
-
+/**
+ * Server component — fetches initial notifications so the bell renders
+ * with the correct badge count on first paint, then the client component
+ * handles all subsequent interactions.
+ */
 import { User } from "next-auth";
 import React from "react";
 import { Sidebar } from "./Sidebar";
@@ -9,10 +12,10 @@ import { Project } from "@/types/baas";
 import {
   SidebarProvider,
   SidebarInset,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { getNotifications, getUnreadCount } from "@/lib/api/notifications-client";
 
-export const LayoutShell = ({
+export const LayoutShell = async ({
   children,
   user,
   currentProject,
@@ -23,6 +26,23 @@ export const LayoutShell = ({
   currentProject?: Project;
   projects?: Project[];
 }) => {
+  // Pre-fetch notifications for the initial render so there's no badge flicker
+  let initialNotifications: Awaited<ReturnType<typeof getNotifications>>["notifications"] = [];
+  let initialUnreadCount = 0;
+
+  if (user?.id) {
+    try {
+      const [notifResult, unread] = await Promise.all([
+        getNotifications(user.id, { limit: 20 }),
+        getUnreadCount(user.id),
+      ]);
+      initialNotifications = notifResult.notifications;
+      initialUnreadCount = unread;
+    } catch {
+      // Non-fatal — the client will refetch on popover open
+    }
+  }
+
   return (
     <SidebarProvider
       style={
@@ -43,8 +63,9 @@ export const LayoutShell = ({
         <TopNav
           user={user}
           projectName={currentProject?.name}
-          // Pass the SidebarTrigger slot — TopNav renders it inside the header
           sidebarTrigger
+          initialNotifications={initialNotifications}
+          initialUnreadCount={initialUnreadCount}
         />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </SidebarInset>

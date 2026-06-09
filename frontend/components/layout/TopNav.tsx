@@ -1,28 +1,33 @@
 // frontend/components/layout/TopNav.tsx
 import Link from "next/link";
-import { BookOpen, Bell } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { AvatarComp } from "@/components/shared/AvatarComp";
+import { NotificationBell } from "@/components/shared/NotificationBell";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import type { User } from "next-auth";
+import type { Notification } from "@/lib/api/notifications-client";
 
 interface TopNavProps {
   user: User;
   projectName?: string;
-  /** When true, renders the shadcn SidebarTrigger (hamburger/toggle) */
   sidebarTrigger?: boolean;
-  /** @deprecated — use sidebarTrigger prop instead */
-  onMenuClick?: () => void;
+  /** Pre-fetched by the server layout */
+  initialNotifications?: Notification[];
+  initialUnreadCount?: number;
 }
 
-export function TopNav({ user, projectName, sidebarTrigger }: TopNavProps) {
+export function TopNav({
+  user,
+  projectName,
+  initialNotifications = [],
+  initialUnreadCount = 0,
+}: TopNavProps) {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-3 md:px-4">
       {/* Left: sidebar trigger + breadcrumb */}
       <div className="flex items-center gap-2 min-w-0">
-        {/* shadcn SidebarTrigger handles both mobile sheet and desktop collapse */}
         <SidebarTrigger className="-ml-1 text-text-muted hover:text-text-primary hover:bg-surface" />
-
         {projectName && (
           <>
             <Separator orientation="vertical" className="h-4 mx-1" />
@@ -46,13 +51,11 @@ export function TopNav({ user, projectName, sidebarTrigger }: TopNavProps) {
           <BookOpen className="h-4 w-4" />
         </Link>
 
-        {/* Notifications */}
-        <button
-          title="Notifications"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface hover:text-text-primary"
-        >
-          <Bell className="h-4 w-4" />
-        </button>
+        {/* Notification bell — client component with SSR initial state */}
+        <NotificationBell
+          initialNotifications={initialNotifications}
+          initialUnreadCount={initialUnreadCount}
+        />
 
         {/* Divider */}
         <div className="mx-1 h-5 w-px bg-border" />

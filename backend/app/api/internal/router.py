@@ -20,6 +20,7 @@ from .auth_settings import router as auth_settings_router
 from .realtime_data import router as realtime_data_router
 from app.config import settings
 from app.db.postgres import get_db
+from .notifications import router as notification_router
 
 from app.provisioner.sql_provisioner import (
     add_column,
@@ -49,7 +50,7 @@ router.include_router(realtime_data_router)
 router.include_router(storage_browser)
 router.include_router(function_browser)
 router.include_router(settings_browser)
-
+router.include_router(notification_router)
 # ─── Auth guard ───────────────────────────────────────────────────────────────
 
 async def require_internal(x_internal_secret: str = Header(...)) -> None:
