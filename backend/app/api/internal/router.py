@@ -304,6 +304,45 @@ async def platform_signin(
     }
 
 
+@router.get("/users/{user_id}/org", dependencies=[InternalGuard])
+async def get_user_org(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """
+    Get the personal organization for a platform user.
+    Creates one automatically if none exists (idempotent).
+    Used by the billing page to resolve orgId from userId.
+    """
+    result = await db.execute(
+        text("""
+            SELECT o.id, o.name, o.plan, o.created_at
+            FROM organizations o
+            WHERE o.owner_id = :user_id
+            LIMIT 1
+        """),
+        {"user_id": user_id},
+    )
+    row = result.mappings().first()
+    if row:
+        r = dict(row)
+        if r.get("created_at") and hasattr(r["created_at"], "isoformat"):
+            r["created_at"] = r["created_at"].isoformat()
+        return {"data": {"org_id": r["id"], "name": r["name"], "plan": r["plan"]}}
+
+    # No org found — create personal org and return it
+    user_result = await db.execute(
+        text("SELECT name FROM users WHERE id = :user_id"),
+        {"user_id": user_id},
+    )
+    user_row = user_result.mappings().first()
+    if not user_row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    org_id = await _get_or_create_personal_org(db, user_id, user_row["name"])
+    await db.commit()
+    return {"data": {"org_id": org_id, "plan": "free"}}
+
 # ─── Projects ─────────────────────────────────────────────────────────────────
 
 class CreateProjectRequest(BaseModel):

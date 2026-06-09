@@ -76,7 +76,7 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     flutterwave_secret_key: str = ""
     flutterwave_public_key: str = ""
-    flutterwave_webhook_secret: str = ""
+    flutterwave_webhook_hash: str = ""
 
     # AI
     openai_api_key: str = ""
