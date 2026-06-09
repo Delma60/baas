@@ -198,5 +198,19 @@ export async function createProject(params: {
 export async function getProjectUsage(
   projectId: string
 ): Promise<ProjectUsage> {
-  return internalFetch<ProjectUsage>(`/usage/${projectId}`);
+  const raw = await internalFetch<Record<string, number>>(`/usage/${projectId}`);
+  return {
+    projectId,
+    dbReads:       raw.db_reads       ?? 0,
+    dbWrites:      raw.db_writes      ?? 0,
+    nosqlReads:    raw.nosql_reads    ?? 0,
+    nosqlWrites:   raw.nosql_writes   ?? 0,
+    storageBytes:  raw.storage_bytes  ?? 0,
+    functionCalls: raw.function_calls ?? 0,
+    aiRequests:    raw.ai_requests    ?? 0,
+    apiCalls:      raw.apiCalls       ?? 0,
+    authUsers:     raw.authUsers      ?? 0,
+    sqlRows:       raw.sqlRows        ?? 0,
+    storageUsedMb: raw.storageUsedMb  ?? 0,
+  };
 }

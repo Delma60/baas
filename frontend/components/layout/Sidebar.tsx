@@ -201,7 +201,7 @@ function ProjectSwitcher({
 
 // ─── Subscription card ────────────────────────────────────────────────────────
 
-function SubscriptionCard({ userId }: { userId: string }) {
+function SubscriptionCard({ userId, projectId }: { userId: string, projectId:string }) {
   // TODO: pull real plan from org/project context
   const plan: "free" | "starter" | "pro" = "free";
 
@@ -210,7 +210,7 @@ function SubscriptionCard({ userId }: { userId: string }) {
       label: "Free Plan",
       desc: "50K rows · 1 GB storage",
       cta: "Upgrade to Starter",
-      href: `/u/${userId}/billing`,
+      href: `/u/${userId}/projects/${projectId}/billing`,
       progress: 12,
     },
     starter: {
@@ -479,7 +479,7 @@ function AppSidebar({
       <SidebarFooter className="p-2.5 border-t border-sidebar-border gap-2">
         {/* Subscription card — hidden when icon-collapsed */}
         <div className="group-data-[collapsible=icon]:hidden">
-          <SubscriptionCard userId={userId} />
+          <SubscriptionCard userId={userId} projectId={projectId} />
         </div>
 
         <SidebarMenu>

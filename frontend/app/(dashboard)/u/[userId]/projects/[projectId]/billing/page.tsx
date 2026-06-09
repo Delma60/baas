@@ -4,11 +4,12 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getBillingOverview, getPlanLimits, PLAN_DISPLAY } from "@/lib/api/billing-client";
 import { BillingPageClient } from "@/components/billing/BillingPageClient";
+import { getProjectUsage } from "@/lib/api/client";
 
 export const metadata: Metadata = { title: "Billing · YourBaaS" };
 
 interface Props {
-  params: Promise<{ userId: string }>;
+  params: Promise<{ userId: string, projectId:string }>;
   searchParams: Promise<{ tab?: string; tx_ref?: string; transaction_id?: string; status?: string }>;
 }
 
@@ -53,12 +54,12 @@ export default async function BillingPage({ params, searchParams }: Props) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const { userId } = await params;
+  const { userId, projectId } = await params;
   const { tab = "overview", tx_ref, transaction_id, status } = await searchParams;
 
   // Fetch the org id for this user
   const orgId = await getOrgId(userId);
-
+  
   if (!orgId) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 p-12">
@@ -69,10 +70,12 @@ export default async function BillingPage({ params, searchParams }: Props) {
     );
   }
 
-  const [overview, planLimits] = await Promise.all([
+  const [overview, planLimits, usage] = await Promise.all([
     getBillingOverview(orgId).catch(() => null),
     getPlanLimits().catch(() => []),
+    getProjectUsage(projectId).catch(() => null),
   ]);
+  console.log({overview, planLimits, usage})
 
   if (!overview) {
     return (
