@@ -1,6 +1,5 @@
-// frontend/app/(dashboard)/u/[userId]/projects/[projectId]/docs/layout.tsx
+// frontend/app/docs/layout.tsx
 import React from "react";
-import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { DocsNav } from "@/components/docs/DocsNav";
@@ -14,15 +13,13 @@ export default async function DocsLayout({ children, params }: Props) {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const { userId, projectId } = await params;
-
   return (
     <div className="flex h-full overflow-hidden">
-      {/* Left Sidebar */}
-      <DocsNav  />
+        
+      <DocsNav />
 
-      {/* Main content */}
-      <main className="flex-1 overflow-y-auto bg-background">
+      {/* Main content — add top padding on mobile for the fixed header */}
+      <main className="flex-1 overflow-y-auto bg-background pt-12 md:pt-0">
         {children}
       </main>
     </div>

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getProjectById } from "@/lib/api/client";
 import { getNoSQLCollections, getKVKeys } from "@/lib/api/nosql-client";
 import { NoSQLPageClient } from "@/components/nosql/NoSQLPageClient";
+import { notFound } from "next/navigation";
 
 interface Props {
   params: Promise<{ userId: string; projectId: string }>;
@@ -15,6 +16,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function NoSQLPage({ params, searchParams }: Props) {
+  const disabled = true
+  if(disabled){
+    return notFound();
+  }
   const { userId, projectId } = await params;
   const { tab = "collections", collection } = await searchParams;
 

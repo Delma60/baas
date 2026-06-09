@@ -58,13 +58,16 @@ const NAV_ITEMS = [
     icon: LayoutDashboard,
     comingSoon: false,
   },
+];
+
+const BUILD_ITEMS = [
   { label: "Database", href: "database", icon: Database, comingSoon: false },
-  { label: "NoSQL", href: "nosql", icon: Layers, comingSoon: false },
+  { label: "NoSQL", href: "nosql", icon: Layers, comingSoon: true },
   { label: "Storage", href: "storage", icon: HardDrive, comingSoon: false },
   { label: "Auth", href: "auth", icon: ShieldCheck, comingSoon: false },
   { label: "Functions", href: "functions", icon: Zap, comingSoon: false },
   { label: "Realtime", href: "realtime", icon: Radio, comingSoon: false },
-  { label: "AI / Vectors", href: "ai", icon: Sparkles, comingSoon: true },
+  { label: "AI / Vectors", href: "ai", icon: Sparkles, comingSoon: true }
 ];
 
 // ─── Plan badge ───────────────────────────────────────────────────────────────
@@ -369,6 +372,70 @@ function AppSidebar({
                         <Badge
                           variant="secondary"
                           className="ml-auto text-[9px] px-1 py-0 h-4 group-data-[collapsible=icon]:hidden"
+                        >
+                          Soon
+                        </Badge>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                }
+
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton isActive={active} tooltip={item.label}>
+                      <Link
+                        href={`${baseUrl}/${item.href}`}
+                        aria-current={active ? "page" : undefined}
+                        className={cn(
+                          "flex items-center gap-2.5 w-full px-2 py-1.5 rounded-md",
+                          active
+                            ? "bg-brand/10 text-brand"
+                            : "text-sidebar-text hover:bg-surface-hover",
+                        )}
+                      >
+                        <Icon
+                          className={cn(
+                            "h-4 w-4",
+                            active ? "text-brand" : "text-sidebar-icon",
+                          )}
+                          aria-hidden="true"
+                        />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">
+            Build
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {BUILD_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.href);
+
+                if (item.comingSoon) {
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        isActive={false}
+                        disabled
+                        tooltip={`${item.label} (coming soon)`}
+                        className="opacity-50 cursor-not-allowed ml-2"
+                      >
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                        <span aria-hidden="true">{item.label}</span>
+                        <span className="sr-only">
+                          {item.label} (coming soon)
+                        </span>
+                        <Badge
+                          variant="secondary"
+                          className="ml-auto text-[9px]  py-0 h-4 group-data-[collapsible=icon]:hidden"
                         >
                           Soon
                         </Badge>
