@@ -83,8 +83,8 @@ async def insert_row(
     project_id: str,
     table: str,
     body: InsertRowRequest,
-    ctx: ProjectCtx = Depends(require_key_type("service")),
-    auth: AuthCtx = Depends(),
+    auth: AuthCtx,
+    ctx: dict[str, Any] = Depends(require_key_type("service")),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     if ctx["project_id"] != project_id:
@@ -114,8 +114,8 @@ async def update_row(
     table: str,
     row_id: str,
     body: UpdateRowRequest,
-    ctx: ProjectCtx = Depends(require_key_type("service")),
-    auth: AuthCtx = Depends(),
+    auth: AuthCtx,
+    ctx: dict[str, Any] = Depends(require_key_type("service")),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     if ctx["project_id"] != project_id:
@@ -134,8 +134,8 @@ async def delete_row(
     project_id: str,
     table: str,
     row_id: str,
-    ctx: ProjectCtx = Depends(require_key_type("service")),
-    auth: AuthCtx = Depends(),
+    auth: AuthCtx,
+    ctx: dict[str, Any] = Depends(require_key_type("service")),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     if ctx["project_id"] != project_id:
@@ -154,8 +154,8 @@ async def call_rpc(
     project_id: str,
     fn_name: str,
     body: RpcCallRequest,
-    ctx: ProjectCtx = Depends(require_key_type("service")),
-    auth: AuthCtx = Depends(),
+    auth: AuthCtx,
+    ctx: dict[str, Any] = Depends(require_key_type("service")),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Call a PostgreSQL function defined in the project schema."""

@@ -36,8 +36,8 @@ class SearchRequest(BaseModel):
 async def create_embedding(
     project_id: str,
     body: EmbedRequest,
-    ctx: ProjectCtx = Depends(require_key_type("service")),
-    auth: AuthCtx = Depends(),
+    auth: AuthCtx,
+    ctx: dict[str, Any] = Depends(require_key_type("service")),
 ) -> dict[str, Any]:
     """Generate an embedding for the given text using OpenAI."""
     if ctx["project_id"] != project_id:
@@ -71,8 +71,8 @@ async def upsert_vector(
     project_id: str,
     table: str,
     body: UpsertEmbeddingRequest,
-    ctx: ProjectCtx = Depends(require_key_type("service")),
-    auth: AuthCtx = Depends(),
+    auth: AuthCtx,
+    ctx: dict[str, Any] = Depends(require_key_type("service")),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Insert or update an embedding record in a pgvector table."""
@@ -96,8 +96,8 @@ async def search_vectors(
     project_id: str,
     table: str,
     body: SearchRequest,
-    ctx: ProjectCtx = Depends(require_key_type("service")),
-    auth: AuthCtx = Depends(),
+    auth: AuthCtx,
+    ctx: dict[str, Any] = Depends(require_key_type("service")),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Cosine similarity search in a pgvector table."""

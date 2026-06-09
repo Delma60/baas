@@ -17,17 +17,15 @@ async def invoke(
     project_id: str,
     function_name: str,
     body: FunctionInvokeRequest,
-    ctx: ProjectCtx = Depends(require_key_type("service")),
-    auth: AuthCtx = Depends(),
+    auth: AuthCtx,
+    ctx: dict[str, Any] = Depends(require_key_type("service")),
 ) -> dict[str, Any]:
-    """Invoke a named edge function for this project."""
     if ctx["project_id"] != project_id:
         raise HTTPException(status_code=403, detail="Project ID mismatch")
 
     if not function_name.isidentifier():
         raise HTTPException(status_code=400, detail="Invalid function name")
 
-    # Merge request headers (forwarding auth context if authenticated)
     extra_headers = dict(body.headers)
     if auth.is_authenticated and auth.uid:
         extra_headers["X-User-Id"] = auth.uid
