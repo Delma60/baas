@@ -1,9 +1,18 @@
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = BACKEND_ROOT.parent
+
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=[".env", "../.env"], extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=[BACKEND_ROOT / ".env", REPO_ROOT / ".env"],
+        extra="ignore",
+    )
 
     # App
     app_name: str = "BaaS Platform"

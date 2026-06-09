@@ -1,6 +1,14 @@
 node_modules/
 .env
 .env.local
+/frontend/.env
+/frontend/.env.local
+/backend/.env
+/backend/.env.local
+/sdk/js/.env
+/sdk/js/.env.local
+/sdk/python/.env
+/sdk/python/.env.local
 __pycache__/
 *.pyc
 .venv/

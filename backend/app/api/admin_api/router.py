@@ -22,6 +22,7 @@ from app.api.admin_api.projects import router as projects_router
 from app.api.admin_api.storage import router as storage_router
 from app.api.admin_api.usage import router as usage_router
 from app.api.admin_api.users import router as users_router
+from app.api.admin_api.billing import router as billing_router
 
 router = APIRouter(tags=["Admin API"])
 
@@ -32,3 +33,4 @@ router.include_router(projects_router)
 router.include_router(usage_router)
 router.include_router(storage_router)
 router.include_router(audit_router)
+router.include_router(billing_router)

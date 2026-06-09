@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from pathlib import Path
 from typing import Any
 
 from baas.modules.auth import AuthModule
@@ -31,7 +32,9 @@ from baas.modules.storage import StorageModule
 from baas.utils.http import HttpClient
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables from sdk/python/.env first, then fallback to cwd.
+PROJECT_ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv(PROJECT_ENV_PATH)
 load_dotenv()
 
 _DEFAULT_BASE_URL = os.getenv("BAAS_BASE_URL", "https://api.yourbaas.com")

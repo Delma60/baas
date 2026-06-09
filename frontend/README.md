@@ -8,6 +8,8 @@ Create a local frontend environment file first:
 cp .env.example .env
 ```
 
+This uses `frontend/.env.example` as the frontend-specific environment definition.
+
 Then run the development server:
 
 ```bash

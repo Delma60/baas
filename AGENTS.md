@@ -714,7 +714,14 @@ animation: {
 
 ## 4. Environment Variables
 
-Single `.env` file shared across all services. Update `FASTAPI_BASE_URL` and database URLs to point to your local services.
+Each service has its own local `.env` file. Create service-specific env files from the examples below:
+
+- `frontend/.env`
+- `backend/.env`
+- `sdk/js/.env`
+- `sdk/python/.env`
+
+The root `.env.example` still contains the full monorepo fallback configuration, but service-specific env files are preferred.
 
 ```env
 # ─── App ──────────────────────────────────────────────────────────────────────
