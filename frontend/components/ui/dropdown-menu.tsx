@@ -18,7 +18,7 @@ function DropdownMenuTrigger({ ...props }: any) {
   return (
     <MenuPrimitive.Trigger
       data-slot="dropdown-menu-trigger"
-      nativeButton={false}
+      // nativeButton={false}
       {...props}
     />
   );

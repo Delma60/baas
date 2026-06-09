@@ -266,7 +266,7 @@ async def platform_signin(
     row = result.mappings().first()
 
     if not row:
-        verify_password("dummy", "$2b$12$invalidhashplaceholderxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+        # verify_password("dummy", "$2b$12$invalidhashplaceholderxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     if not verify_password(body.password, row["hashed_password"]):
