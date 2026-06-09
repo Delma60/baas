@@ -59,6 +59,16 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -1012,6 +1022,14 @@ export function StorageDashboard({
   const [showUpload, setShowUpload] = React.useState(false);
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
   const [deletingKey, setDeletingKey] = React.useState<string | null>(null);
+  const [confirmDeleteKey, setConfirmDeleteKey] = React.useState<string | null>(
+    null,
+  );
+  const [confirmDeleteSelectedOpen, setConfirmDeleteSelectedOpen] =
+    React.useState(false);
+  const [isDeletingSelected, setIsDeletingSelected] = React.useState(false);
+  const [deleteBucketOpen, setDeleteBucketOpen] = React.useState(false);
+  const [deletingBucket, setDeletingBucket] = React.useState(false);
   const [selectedKeys, setSelectedKeys] = React.useState<Set<string>>(
     new Set(),
   );
@@ -1078,8 +1096,6 @@ export function StorageDashboard({
   };
 
   const handleDelete = async (key: string) => {
-    if (!confirm(`Delete "${getFileName(key)}"? This cannot be undone.`))
-      return;
     setDeletingKey(key);
     try {
       const res = await fetch("/api/internal/storage/delete", {
@@ -1107,12 +1123,26 @@ export function StorageDashboard({
     }
   };
 
+  const requestDeleteFile = (key: string) => {
+    setConfirmDeleteKey(key);
+  };
+
   const handleDeleteSelected = async () => {
     if (selectedKeys.size === 0) return;
-    if (!confirm(`Delete ${selectedKeys.size} file(s)? This cannot be undone.`))
-      return;
-    for (const key of selectedKeys) await handleDelete(key);
-    setSelectedKeys(new Set());
+    setConfirmDeleteSelectedOpen(true);
+  };
+
+  const performDeleteSelected = async () => {
+    setIsDeletingSelected(true);
+    try {
+      for (const key of Array.from(selectedKeys)) {
+        await handleDelete(key);
+      }
+      setSelectedKeys(new Set());
+    } finally {
+      setIsDeletingSelected(false);
+      setConfirmDeleteSelectedOpen(false);
+    }
   };
 
   const handleFileUploaded = (file: StorageFile) => {
@@ -1133,6 +1163,29 @@ export function StorageDashboard({
   const handleBucketCreated = (name: string) => {
     setBuckets((prev) => [...prev, { name, file_count: 0, total_size: 0 }]);
     router.push(`${baseUrl}?bucket=${name}`);
+  };
+
+  const performDeleteBucket = async () => {
+    if (!activeBucket) return;
+    setDeletingBucket(true);
+    try {
+      const res = await fetch("/api/internal/storage/buckets", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, bucket: activeBucket }),
+      });
+      if (res.ok) {
+        const nextBucket = buckets.find((b) => b.name !== activeBucket)?.name;
+        const nextUrl = nextBucket
+          ? `${baseUrl}?bucket=${nextBucket}`
+          : baseUrl;
+        setBuckets((prev) => prev.filter((b) => b.name !== activeBucket));
+        router.push(nextUrl);
+      }
+    } finally {
+      setDeletingBucket(false);
+      setDeleteBucketOpen(false);
+    }
   };
 
   const currentBucketInfo = buckets.find((b) => b.name === activeBucket);
@@ -1205,7 +1258,7 @@ export function StorageDashboard({
                 <Button
                   size="sm"
                   className="h-7 text-xs gap-1.5 bg-danger-bg text-danger-text border border-danger-text/20 hover:bg-danger-text/10"
-                  onClick={handleDeleteSelected}
+                  onClick={() => setConfirmDeleteSelectedOpen(true)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   <span>Delete {selectedKeys.size}</span>
@@ -1313,6 +1366,48 @@ export function StorageDashboard({
               <Upload className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Upload</span>
             </Button>
+
+            <AlertDialog
+              open={deleteBucketOpen}
+              onOpenChange={setDeleteBucketOpen}
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 text-xs text-danger border-danger hover:bg-danger/5 shrink-0"
+                disabled={!activeBucket}
+                onClick={() => setDeleteBucketOpen(true)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Delete bucket</span>
+              </Button>
+              <AlertDialogContent className="max-w-sm">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete bucket</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Delete the bucket{" "}
+                    <span className="font-mono">{activeBucket}</span> and all
+                    files stored inside. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="destructive"
+                    size="sm"
+                    className="h-8"
+                    onClick={performDeleteBucket}
+                    disabled={!activeBucket || deletingBucket}
+                  >
+                    {deletingBucket ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      "Delete bucket"
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
 
           {/* Mobile search */}
@@ -1383,7 +1478,7 @@ export function StorageDashboard({
                     }
                     onCopyUrl={handleCopyUrl}
                     onDownload={handleDownload}
-                    onDelete={handleDelete}
+                    onDelete={requestDeleteFile}
                     copiedKey={copiedKey}
                     deletingKey={deletingKey}
                   />
@@ -1405,7 +1500,7 @@ export function StorageDashboard({
                     }
                     onCopyUrl={handleCopyUrl}
                     onDownload={handleDownload}
-                    onDelete={handleDelete}
+                    onDelete={requestDeleteFile}
                     copiedKey={copiedKey}
                     deletingKey={deletingKey}
                   />
@@ -1434,6 +1529,71 @@ export function StorageDashboard({
             </div>
           )}
         </main>
+
+        <AlertDialog
+          open={Boolean(confirmDeleteKey)}
+          onOpenChange={(open) => {
+            if (!open) setConfirmDeleteKey(null);
+          }}
+        >
+          <AlertDialogContent className="max-w-sm">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete file</AlertDialogTitle>
+              <AlertDialogDescription>
+                {`Are you sure you want to delete "${getFileName(
+                  confirmDeleteKey ?? "",
+                )}"? This action cannot be undone.`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                size="sm"
+                className="h-8"
+                onClick={() => {
+                  if (confirmDeleteKey) {
+                    handleDelete(confirmDeleteKey);
+                    setConfirmDeleteKey(null);
+                  }
+                }}
+                disabled={!confirmDeleteKey}
+              >
+                Delete file
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog
+          open={confirmDeleteSelectedOpen}
+          onOpenChange={setConfirmDeleteSelectedOpen}
+        >
+          <AlertDialogContent className="max-w-sm">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete selected files</AlertDialogTitle>
+              <AlertDialogDescription>
+                {`Delete ${selectedKeys.size} selected file(s)? This cannot be undone.`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                size="sm"
+                className="h-8"
+                onClick={performDeleteSelected}
+                disabled={isDeletingSelected}
+              >
+                {isDeletingSelected ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  "Delete files"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </TooltipProvider>
   );

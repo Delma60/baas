@@ -38,6 +38,38 @@ export async function GET(req: NextRequest) {
   }
 }
 
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { projectId, bucket } = await req.json();
+
+  if (!projectId || !bucket) {
+    return NextResponse.json({ error: "Missing projectId or bucket" }, { status: 400 });
+  }
+
+  try {
+    const res = await fetch(
+      `${FASTAPI_BASE_URL}/internal/storage/${projectId}/buckets/${encodeURIComponent(bucket)}`,
+      {
+        method: "DELETE",
+        headers: { "x-internal-secret": INTERNAL_SECRET },
+      }
+    );
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return NextResponse.json({ error: data?.detail ?? "Failed" }, { status: res.status });
+    }
+
+    return NextResponse.json(data);
+  } catch {
+    return NextResponse.json({ error: "Backend unreachable" }, { status: 503 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) {

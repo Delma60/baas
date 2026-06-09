@@ -1,9 +1,12 @@
+import logging
+
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
 _s3_client = None
 
 
@@ -23,7 +26,21 @@ def put_bucket_cors(bucket_name: str) -> None:
             "MaxAgeSeconds": 300,
         }
     ]
-    s3.put_bucket_cors(Bucket=bucket_name, CORSConfiguration={"CORSRules": cors_rules})
+
+    try:
+        s3.put_bucket_cors(Bucket=bucket_name, CORSConfiguration={"CORSRules": cors_rules})
+    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "")
+        error_message = e.response.get("Error", {}).get("Message", "")
+
+        if error_code == "InvalidRequest" and "B2 Native CORS rules" in error_message:
+            logger.warning(
+                "Bucket %s contains Backblaze B2 native CORS rules; skipping S3 PutBucketCors.",
+                bucket_name,
+            )
+            return
+
+        raise
 
 
 def get_s3_client():  # type: ignore[no-untyped-def]

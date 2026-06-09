@@ -88,6 +88,20 @@ async def create_bucket(
         raise HTTPException(status_code=500, detail=f"Could not create bucket: {e}")
 
 
+@router.delete("/storage/{project_id}/buckets/{bucket}", dependencies=[InternalGuard])
+async def delete_bucket(
+    project_id: str,
+    bucket: str,
+) -> dict[str, Any]:
+    """Delete a storage bucket for the project."""
+    from app.engines.storage_engine import delete_bucket
+
+    deleted = await delete_bucket(project_id=project_id, bucket=bucket)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Bucket not found or could not be deleted")
+    return {"data": {"deleted": True, "bucket": bucket}}
+
+
 @router.get("/storage/{project_id}/{bucket}/files", dependencies=[InternalGuard])
 async def list_storage_files(
     project_id: str,

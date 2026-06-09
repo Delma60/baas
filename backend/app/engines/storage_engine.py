@@ -230,6 +230,37 @@ async def delete_file(
     return await asyncio.to_thread(_delete)
 
 
+async def delete_bucket(project_id: str, bucket: str) -> bool:
+    """Delete a project's storage bucket, removing all objects first."""
+    safe_bucket = get_bucket_name(project_id, bucket)
+    s3 = get_s3_client()
+
+    def _delete() -> bool:
+        try:
+            paginator = s3.get_paginator("list_objects_v2")
+            keys: list[dict[str, str]] = []
+            for page in paginator.paginate(Bucket=safe_bucket):
+                for item in page.get("Contents", []):
+                    keys.append({"Key": item["Key"]})
+
+            for i in range(0, len(keys), 1000):
+                s3.delete_objects(
+                    Bucket=safe_bucket,
+                    Delete={"Objects": keys[i : i + 1000]},
+                )
+
+            s3.delete_bucket(Bucket=safe_bucket)
+            return True
+        except ClientError as e:
+            error_code = e.response["Error"].get("Code", "")
+            if error_code in ("NoSuchBucket", "404"):
+                return False
+            logger.error("Failed to delete bucket %s: %s", safe_bucket, e)
+            return False
+
+    return await asyncio.to_thread(_delete)
+
+
 # ─── Bucket stats ─────────────────────────────────────────────────────────────
 
 async def get_bucket_stats(project_id: str, bucket: str) -> dict[str, Any]:
