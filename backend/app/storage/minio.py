@@ -1,10 +1,10 @@
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from app.config import settings
 
 _s3_client = None
-
 
 
 def get_s3_client():  # type: ignore[no-untyped-def]
@@ -17,6 +17,10 @@ def get_s3_client():  # type: ignore[no-untyped-def]
             aws_access_key_id=settings.minio_access_key,
             aws_secret_access_key=settings.minio_secret_key,
             region_name="us-east-1",
+            config=Config(
+                signature_version="s3v4",
+                s3={"addressing_style": "path"},
+            ),
         )
     return _s3_client
 
@@ -26,8 +30,8 @@ def ensure_bucket_exists(bucket_name: str) -> None:
     try:
         s3.head_bucket(Bucket=bucket_name)
     except ClientError as e:
-        error_code = int(e.response["Error"]["Code"])
-        if error_code == 404:
+        error_code = e.response["Error"]["Code"]
+        if error_code in ("404", "NoSuchBucket", "403", "AccessDenied"):
             s3.create_bucket(Bucket=bucket_name)
         else:
             raise

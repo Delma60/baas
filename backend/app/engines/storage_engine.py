@@ -29,8 +29,8 @@ async def ensure_bucket(full_bucket: str) -> None:
         try:
             s3.head_bucket(Bucket=full_bucket)
         except ClientError as e:
-            code = int(e.response["Error"]["Code"])
-            if code == 404:
+            error_code = e.response["Error"]["Code"]
+            if error_code in ("404", "NoSuchBucket", "403", "AccessDenied"):
                 s3.create_bucket(Bucket=full_bucket)
             else:
                 raise
@@ -54,7 +54,8 @@ async def get_upload_url(
         try:
             s3.head_bucket(Bucket=safe_bucket)
         except ClientError as e:
-            if int(e.response["Error"]["Code"]) == 404:
+            error_code = e.response["Error"]["Code"]
+            if error_code in ("404", "NoSuchBucket", "403", "AccessDenied"):
                 s3.create_bucket(Bucket=safe_bucket)
             else:
                 raise
@@ -84,7 +85,8 @@ async def get_presigned_upload_url(
         try:
             s3.head_bucket(Bucket=full_bucket)
         except ClientError as e:
-            if int(e.response["Error"]["Code"]) == 404:
+            error_code = e.response["Error"]["Code"]
+            if error_code in ("404", "NoSuchBucket", "403", "AccessDenied"):
                 s3.create_bucket(Bucket=full_bucket)
             else:
                 raise

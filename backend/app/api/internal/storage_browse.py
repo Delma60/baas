@@ -86,8 +86,8 @@ async def create_bucket(
         try:
             s3.head_bucket(Bucket=full_name)
         except ClientError as e:
-            code = int(e.response["Error"]["Code"])
-            if code == 404:
+            error_code = e.response["Error"]["Code"]
+            if error_code in ("404", "NoSuchBucket", "403", "AccessDenied"):
                 s3.create_bucket(Bucket=full_name)
             else:
                 raise
