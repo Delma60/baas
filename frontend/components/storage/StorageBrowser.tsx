@@ -225,65 +225,117 @@ function UploadZone({
     newItems.forEach((_, i) => uploadFile(uploads.length + i, fileList[i]));
   };
 
-  const uploadFile = async (idx: number, file: File) => {
-    // Update status to uploading
-    setUploads((prev) =>
-      prev.map((u, i) => (i === idx ? { ...u, status: "uploading" } : u)),
-    );
-
-    try {
-      // 1. Get presigned upload URL from our Next.js API route
-      const presignRes = await fetch(`/api/internal/storage/presign`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId,
-          bucket,
-          filename: file.name,
-          contentType: file.type || "application/octet-stream",
-        }),
-      });
-
-      if (!presignRes.ok) {
-        throw new Error("Failed to get upload URL");
-      }
-
-      const { uploadUrl, key } = await presignRes.json();
-
-      // 2. Upload directly to MinIO via presigned URL
-      console.log(`Uploading ${file.name} to ${uploadUrl}`); // Debug log
-      const uploadRes = await fetch(uploadUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-      });
-
-      if (!uploadRes.ok) {
-        throw new Error("Upload failed");
-      }
-
+  const uploadFile = React.useCallback(
+    async (item: UploadItem) => {
       setUploads((prev) =>
-        prev.map((u, i) =>
-          i === idx
-            ? { ...u, status: "done", progress: 100, uploadedKey: key }
-            : u,
-        ),
+        prev.map((u) => (u.id === item.id ? { ...u, status: "uploading" } : u)),
       );
-      onUploaded(key);
-    } catch (err) {
-      setUploads((prev) =>
-        prev.map((u, i) =>
-          i === idx
-            ? {
-                ...u,
-                status: "error",
-                error: err instanceof Error ? err.message : "Upload failed",
-              }
-            : u,
-        ),
-      );
-    }
-  };
+      try {
+        const form = new FormData();
+        form.append("file", item.file);
+        form.append("projectId", projectId);
+        form.append("bucket", bucket);
+
+        const res = await fetch("/api/internal/storage/upload", {
+          method: "POST",
+          body: form,
+        });
+
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          throw new Error(d?.error ?? `Upload failed (${res.status})`);
+        }
+
+        const { key } = await res.json();
+        setUploads((prev) =>
+          prev.map((u) =>
+            u.id === item.id
+              ? { ...u, status: "done", progress: 100, uploadedKey: key }
+              : u,
+          ),
+        );
+        onUploaded({
+          key,
+          size: item.file.size,
+          last_modified: new Date().toISOString(),
+          etag: "",
+        });
+      } catch (err) {
+        setUploads((prev) =>
+          prev.map((u) =>
+            u.id === item.id
+              ? {
+                  ...u,
+                  status: "error",
+                  error: err instanceof Error ? err.message : "Upload failed",
+                }
+              : u,
+          ),
+        );
+      }
+    },
+    [projectId, bucket, onUploaded],
+  );
+
+  // const uploadFile = async (idx: number, file: File) => {
+  //   // Update status to uploading
+  //   setUploads((prev) =>
+  //     prev.map((u, i) => (i === idx ? { ...u, status: "uploading" } : u)),
+  //   );
+
+  //   try {
+  //     // 1. Get presigned upload URL from our Next.js API route
+  //     const presignRes = await fetch(`/api/internal/storage/presign`, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         projectId,
+  //         bucket,
+  //         filename: file.name,
+  //         contentType: file.type || "application/octet-stream",
+  //       }),
+  //     });
+
+  //     if (!presignRes.ok) {
+  //       throw new Error("Failed to get upload URL");
+  //     }
+
+  //     const { uploadUrl, key } = await presignRes.json();
+
+  //     // 2. Upload directly to MinIO via presigned URL
+  //     console.log(`Uploading ${file.name} to ${uploadUrl}`); // Debug log
+  //     const uploadRes = await fetch(uploadUrl, {
+  //       method: "PUT",
+  //       body: file,
+  //       headers: { "Content-Type": file.type || "application/octet-stream" },
+  //     });
+
+  //     if (!uploadRes.ok) {
+  //       throw new Error("Upload failed");
+  //     }
+
+  //     setUploads((prev) =>
+  //       prev.map((u, i) =>
+  //         i === idx
+  //           ? { ...u, status: "done", progress: 100, uploadedKey: key }
+  //           : u,
+  //       ),
+  //     );
+  //     onUploaded(key);
+  //   } catch (err) {
+  //     setUploads((prev) =>
+  //       prev.map((u, i) =>
+  //         i === idx
+  //           ? {
+  //               ...u,
+  //               status: "error",
+  //               error: err instanceof Error ? err.message : "Upload failed",
+  //             }
+  //           : u,
+  //       ),
+  //     );
+  //   }
+  // };
 
   const allDone =
     uploads.length > 0 &&

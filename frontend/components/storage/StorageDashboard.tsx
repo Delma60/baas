@@ -490,25 +490,22 @@ function UploadZone({
         prev.map((u) => (u.id === item.id ? { ...u, status: "uploading" } : u)),
       );
       try {
-        const presignRes = await fetch("/api/internal/storage/presign", {
+        const form = new FormData();
+        form.append("file", item.file);
+        form.append("projectId", projectId);
+        form.append("bucket", bucket);
+
+        const res = await fetch("/api/internal/storage/upload", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            projectId,
-            bucket,
-            filename: item.file.name,
-            contentType: item.file.type || "application/octet-stream",
-          }),
+          body: form,
         });
-        if (!presignRes.ok) throw new Error("Failed to get upload URL");
-        const { uploadUrl, key } = await presignRes.json();
-        await fetch(uploadUrl, {
-          method: "PUT",
-          body: item.file,
-          headers: {
-            "Content-Type": item.file.type || "application/octet-stream",
-          },
-        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body?.error ?? `Upload failed (${res.status})`);
+        }
+
+        const { key } = await res.json();
         setUploads((prev) =>
           prev.map((u) =>
             u.id === item.id
@@ -589,7 +586,7 @@ function UploadZone({
             </span>
           </p>
           <p className="text-xs text-text-muted mt-1">
-            Files are uploaded securely via direct transfer
+            Files are uploaded securely through the dashboard server
           </p>
         </div>
         <input

@@ -76,24 +76,12 @@ async def create_bucket(
 ) -> dict[str, Any]:
     """Create a new storage bucket for the project."""
     import asyncio
-    from app.storage.minio import get_bucket_name, get_s3_client
-    from botocore.exceptions import ClientError
+    from app.storage.minio import ensure_bucket_exists, get_bucket_name
 
     full_name = get_bucket_name(project_id, bucket)
-    s3 = get_s3_client()
-
-    def _create():
-        try:
-            s3.head_bucket(Bucket=full_name)
-        except ClientError as e:
-            error_code = e.response["Error"]["Code"]
-            if error_code in ("404", "NoSuchBucket", "403", "AccessDenied"):
-                s3.create_bucket(Bucket=full_name)
-            else:
-                raise
 
     try:
-        await asyncio.to_thread(_create)
+        await asyncio.to_thread(ensure_bucket_exists, full_name)
         return {"data": {"bucket": bucket, "full_name": full_name, "created": True}}
     except Exception as e:
         logger.error("Failed to create bucket %s: %s", full_name, e)

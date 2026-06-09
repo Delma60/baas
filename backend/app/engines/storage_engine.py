@@ -5,15 +5,29 @@ import asyncio
 from typing import Any
 
 from botocore.exceptions import ClientError
-
+from botocore.client import Config
+import boto3
 from app.config import settings
-from app.storage.minio import get_bucket_name, get_s3_client
+from app.storage.minio import ensure_bucket_exists, get_bucket_name, get_s3_client
 
 logger = logging.getLogger(__name__)
 
 PRESIGNED_URL_EXPIRES_IN = 3600
 
-
+def _get_public_s3_client():
+    """
+    Creates an S3 client configured with the public endpoint.
+    This ensures the generated presigned URL signature signs the correct Host header.
+    """
+    return boto3.client(
+        "s3",
+        endpoint_url=settings.minio_public_endpoint,
+        aws_access_key_id=settings.minio_access_key,
+        aws_secret_access_key=settings.minio_secret_key,
+        region_name=settings.region,
+        config=Config(signature_version="s3v4")
+    )
+    
 def _verify_bucket_ownership(project_id: str, bucket: str) -> str:
     """Construct and verify the full bucket name belongs to the project."""
     return get_bucket_name(project_id, bucket)
@@ -22,20 +36,8 @@ def _verify_bucket_ownership(project_id: str, bucket: str) -> str:
 # ─── Bucket helpers ───────────────────────────────────────────────────────────
 
 async def ensure_bucket(full_bucket: str) -> None:
-    """Create bucket if it does not exist. Runs boto3 in a thread."""
-    s3 = get_s3_client()
-
-    def _ensure() -> None:
-        try:
-            s3.head_bucket(Bucket=full_bucket)
-        except ClientError as e:
-            error_code = e.response["Error"]["Code"]
-            if error_code in ("404", "NoSuchBucket", "403", "AccessDenied"):
-                s3.create_bucket(Bucket=full_bucket)
-            else:
-                raise
-
-    await asyncio.to_thread(_ensure)
+    """Create bucket if it does not exist and ensure CORS is configured."""
+    await asyncio.to_thread(ensure_bucket_exists, full_bucket)
 
 
 # ─── Upload URL ───────────────────────────────────────────────────────────────
@@ -51,14 +53,7 @@ async def get_upload_url(
     s3 = get_s3_client()
 
     def _generate() -> str:
-        try:
-            s3.head_bucket(Bucket=safe_bucket)
-        except ClientError as e:
-            error_code = e.response["Error"]["Code"]
-            if error_code in ("404", "NoSuchBucket", "403", "AccessDenied"):
-                s3.create_bucket(Bucket=safe_bucket)
-            else:
-                raise
+        ensure_bucket_exists(safe_bucket)
         return s3.generate_presigned_url(
             "put_object",
             Params={"Bucket": safe_bucket, "Key": filename, "ContentType": content_type},
@@ -81,17 +76,10 @@ async def get_presigned_upload_url(
     key = f"{uuid.uuid4().hex}/{filename}"
 
     def _generate() -> dict[str, str]:
-        # Ensure bucket exists
-        try:
-            s3.head_bucket(Bucket=full_bucket)
-        except ClientError as e:
-            error_code = e.response["Error"]["Code"]
-            if error_code in ("404", "NoSuchBucket", "403", "AccessDenied"):
-                s3.create_bucket(Bucket=full_bucket)
-            else:
-                raise
-
-        upload_url = s3.generate_presigned_url(
+        # Ensure bucket exists and CORS is configured for browser uploads.
+        ensure_bucket_exists(full_bucket)
+        s3_public = _get_public_s3_client()
+        upload_url = s3_public.generate_presigned_url(
             "put_object",
             Params={
                 "Bucket": full_bucket,
@@ -149,19 +137,27 @@ async def get_presigned_download_url(
 ) -> str:
     """Generate a presigned GET URL with public endpoint correction."""
     full_bucket = _verify_bucket_ownership(project_id, bucket)
-    s3 = get_s3_client()
-
+    # s3 = get_s3_client()
+    
     def _generate() -> str:
-        url = s3.generate_presigned_url(
+        s3_public = _get_public_s3_client()
+        return s3_public.generate_presigned_url(
             "get_object",
             Params={"Bucket": full_bucket, "Key": file_key},
             ExpiresIn=expires_in,
         )
-        public_endpoint = settings.minio_public_endpoint.rstrip("/")
-        internal = f"{'https' if settings.minio_use_ssl else 'http'}://{settings.minio_endpoint.rstrip('/') }"
-        if url.startswith(internal):
-            url = url.replace(internal, public_endpoint, 1)
-        return url
+
+    # def _generate() -> str:
+    #     url = s3.generate_presigned_url(
+    #         "get_object",
+    #         Params={"Bucket": full_bucket, "Key": file_key},
+    #         ExpiresIn=expires_in,
+    #     )
+    #     public_endpoint = settings.minio_public_endpoint.rstrip("/")
+    #     internal = f"{'https' if settings.minio_use_ssl else 'http'}://{settings.minio_endpoint.rstrip('/') }"
+    #     if url.startswith(internal):
+    #         url = url.replace(internal, public_endpoint, 1)
+    #     return url
 
     return await asyncio.to_thread(_generate)
 

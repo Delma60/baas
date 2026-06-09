@@ -7,6 +7,25 @@ from app.config import settings
 _s3_client = None
 
 
+def get_storage_cors_origins() -> list[str]:
+    origins = [origin.strip() for origin in settings.storage_cors_allowed_origins.split(",") if origin.strip()]
+    return origins or ["*"]
+
+
+def put_bucket_cors(bucket_name: str) -> None:
+    s3 = get_s3_client()
+    cors_rules = [
+        {
+            "AllowedOrigins": get_storage_cors_origins(),
+            "AllowedMethods": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+            "AllowedHeaders": ["*"],
+            "ExposeHeaders": ["ETag"],
+            "MaxAgeSeconds": 300,
+        }
+    ]
+    s3.put_bucket_cors(Bucket=bucket_name, CORSConfiguration={"CORSRules": cors_rules})
+
+
 def get_s3_client():  # type: ignore[no-untyped-def]
     global _s3_client
     if _s3_client is None:
@@ -37,6 +56,7 @@ def ensure_bucket_exists(bucket_name: str) -> None:
             s3.create_bucket(Bucket=bucket_name)
         else:
             raise
+    put_bucket_cors(bucket_name)
 
 
 def get_bucket_name(project_id: str, user_bucket: str) -> str:
