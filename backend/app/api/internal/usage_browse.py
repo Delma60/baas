@@ -3,13 +3,14 @@
 Internal usage endpoint — returns current 30-day rolling usage for a project.
 
 Usage is assembled from two sources and summed so the dashboard always shows
-near-real-time numbers rather than values that can be up to one hour stale:
+near-real-time numbers:
 
   A. Postgres usage_records  — hourly flushes from Celery flush_redis_counters
   B. Live Redis counters     — usage:{project_id}:{metric}, incremented per-request
+     (works without Celery — incremented directly via increment_usage())
 
-The response also includes the plan limits fetched from plan_limits so the
-frontend can render progress bars without hardcoding any numbers.
+The response also includes plan limits from plan_limits so the frontend can
+render progress bars without hardcoding any numbers.
 """
 import logging
 from typing import Any
@@ -44,7 +45,11 @@ InternalGuard = Depends(require_internal)
 
 
 async def _get_live_redis_counters(project_id: str) -> dict[str, int]:
-    """Read the live (not-yet-flushed) Redis counters for a project."""
+    """
+    Read the live (not-yet-flushed) Redis counters for a project.
+    These are incremented directly by increment_usage() on every CRUD operation,
+    so they always reflect the current state even without Celery running.
+    """
     try:
         from app.db.redis import get_redis
         redis = await get_redis()
@@ -52,13 +57,37 @@ async def _get_live_redis_counters(project_id: str) -> dict[str, int]:
         for metric in TRACKED_METRICS:
             pipe.get(f"usage:{project_id}:{metric}")
         values = await pipe.execute()
-        return {
-            metric: int(v) if v else 0
-            for metric, v in zip(TRACKED_METRICS, values)
-        }
+        result = {}
+        for metric, v in zip(TRACKED_METRICS, values):
+            result[metric] = int(v) if v else 0
+        return result
     except Exception as exc:
         logger.warning("Could not read live Redis counters for %s: %s", project_id, exc)
         return {m: 0 for m in TRACKED_METRICS}
+
+
+async def _get_postgres_usage(project_id: str, db: AsyncSession) -> dict[str, int]:
+    """
+    Read the 30-day aggregated usage from Postgres usage_records.
+    These are written by the hourly Celery flush task.
+    Note: after a flush, the live Redis counters are reset to 0, so the
+    Postgres values represent the bulk of historical usage.
+    """
+    try:
+        pg_result = await db.execute(
+            text("""
+                SELECT metric, SUM(value)::bigint AS total
+                FROM usage_records
+                WHERE project_id  = :project_id
+                  AND period_start >= NOW() - INTERVAL '30 days'
+                GROUP BY metric
+            """),
+            {"project_id": project_id},
+        )
+        return {r["metric"]: int(r["total"]) for r in pg_result.mappings()}
+    except Exception as exc:
+        logger.warning("Could not read Postgres usage for %s: %s", project_id, exc)
+        return {}
 
 
 @router.get("/usage/{project_id}", dependencies=[InternalGuard])
@@ -70,30 +99,22 @@ async def get_project_usage(
     30-day rolling usage + plan limits + derived display stats.
 
     Usage = Postgres aggregation (flushed hourly) + live Redis counters (current hour).
-    Plan limits are returned so the frontend never needs to hardcode them.
+    Both are always fetched and summed — this ensures the dashboard reflects
+    operations even when Celery workers are not running.
     """
-    # ── A. Postgres aggregation (flushed records) ──────────────────────────
-    pg_result = await db.execute(
-        text("""
-            SELECT metric, SUM(value)::bigint AS total
-            FROM usage_records
-            WHERE project_id  = :project_id
-              AND period_start >= NOW() - INTERVAL '30 days'
-            GROUP BY metric
-        """),
-        {"project_id": project_id},
+    # Fetch both sources in parallel
+    import asyncio
+    pg_totals, live_totals = await asyncio.gather(
+        _get_postgres_usage(project_id, db),
+        _get_live_redis_counters(project_id),
     )
-    pg_totals: dict[str, int] = {r["metric"]: int(r["total"]) for r in pg_result.mappings()}
 
-    # ── B. Live Redis counters (current flush window) ──────────────────────
-    live_totals = await _get_live_redis_counters(project_id)
-
-    # ── Merge: sum both sources ────────────────────────────────────────────
+    # Merge: sum Postgres flushed + live Redis
     merged: dict[str, int] = {}
     for metric in TRACKED_METRICS:
         merged[metric] = pg_totals.get(metric, 0) + live_totals.get(metric, 0)
 
-    # ── Plan limits ────────────────────────────────────────────────────────
+    # Plan limits
     limits_result = await db.execute(
         text("""
             SELECT pl.sql_rows, pl.nosql_docs, pl.storage_bytes,
@@ -109,25 +130,24 @@ async def get_project_usage(
     )
     limits_row = limits_result.mappings().first()
 
-    # Map plan_limits columns to per-metric limit keys
     plan_limits: dict[str, Any] = {}
     if limits_row:
         plan_limits = {
-            "db_reads":        limits_row["sql_rows"],
-            "db_writes":       limits_row["sql_rows"],
-            "nosql_reads":     limits_row["nosql_docs"],
-            "nosql_writes":    limits_row["nosql_docs"],
-            "storage_bytes":   limits_row["storage_bytes"],
-            "function_calls":  limits_row["function_calls"],
-            "ai_requests":     limits_row["ai_requests"],
+            "db_reads":          limits_row["sql_rows"],
+            "db_writes":         limits_row["sql_rows"],
+            "nosql_reads":       limits_row["nosql_docs"],
+            "nosql_writes":      limits_row["nosql_docs"],
+            "storage_bytes":     limits_row["storage_bytes"],
+            "function_calls":    limits_row["function_calls"],
+            "ai_requests":       limits_row["ai_requests"],
             "api_calls_per_min": limits_row["api_calls_per_min"],
-            "team_members":    limits_row["team_members"],
-            "price_ngn":       float(limits_row["price_ngn"]),
-            "price_usd":       float(limits_row["price_usd"]),
-            "plan":            limits_row["plan"],
+            "team_members":      limits_row["team_members"],
+            "price_ngn":         float(limits_row["price_ngn"]),
+            "price_usd":         float(limits_row["price_usd"]),
+            "plan":              limits_row["plan"],
         }
 
-    # ── Auth user count (from tenant schema) ──────────────────────────────
+    # Auth user count (from tenant schema)
     auth_users = 0
     db_schema: str | None = None
     try:
@@ -145,7 +165,7 @@ async def get_project_usage(
     except Exception as exc:
         logger.debug("Could not count auth users for %s: %s", project_id, exc)
 
-    # ── SQL row count (pg_stat fast estimate) ─────────────────────────────
+    # SQL row count (pg_stat fast estimate)
     sql_rows = 0
     if db_schema:
         try:
@@ -163,6 +183,12 @@ async def get_project_usage(
 
     storage_bytes = merged.get("storage_bytes", 0)
 
+    # Log what we found for debugging
+    logger.debug(
+        "Usage for %s — PG: %s | Live: %s | Merged: %s",
+        project_id, pg_totals, live_totals, merged,
+    )
+
     return {
         "data": {
             # Per-metric usage (Postgres flushed + live Redis combined)
@@ -173,14 +199,14 @@ async def get_project_usage(
             "storage_bytes":  storage_bytes,
             "function_calls": merged.get("function_calls", 0),
             "ai_requests":    merged.get("ai_requests", 0),
-            # Derived display aliases
-            "apiCalls":       (
+            # Derived display aliases (used by overview page)
+            "apiCalls": (
                 merged.get("db_reads", 0)    + merged.get("db_writes", 0) +
                 merged.get("nosql_reads", 0) + merged.get("nosql_writes", 0)
             ),
-            "authUsers":      auth_users,
-            "sqlRows":        sql_rows,
-            "storageUsedMb":  round(storage_bytes / (1024 * 1024), 2),
+            "authUsers":     auth_users,
+            "sqlRows":       sql_rows,
+            "storageUsedMb": round(storage_bytes / (1024 * 1024), 2),
             # Plan limits from DB — never hardcoded
             "limits": plan_limits,
         }

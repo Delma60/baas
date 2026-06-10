@@ -21,9 +21,16 @@ import {
   ChevronRight,
   Plus,
 } from "lucide-react";
-import type { Project } from "@/types/baas";
+import type { Project, ProjectUsage } from "@/types/baas";
 import React, { useState } from "react";
 
+import {
+  PLAN_DISPLAY,
+  PlanLimits,
+  type BillingOverview,
+  type PlanName,
+  type UsageSummary,
+} from "@/lib/api/billing-client";
 import {
   Sidebar,
   SidebarContent,
@@ -67,7 +74,7 @@ const BUILD_ITEMS = [
   { label: "Auth", href: "auth", icon: ShieldCheck, comingSoon: false },
   { label: "Functions", href: "functions", icon: Zap, comingSoon: false },
   { label: "Realtime", href: "realtime", icon: Radio, comingSoon: false },
-  { label: "AI / Vectors", href: "ai", icon: Sparkles, comingSoon: true }
+  { label: "AI / Vectors", href: "ai", icon: Sparkles, comingSoon: true },
 ];
 
 // ─── Plan badge ───────────────────────────────────────────────────────────────
@@ -199,81 +206,167 @@ function ProjectSwitcher({
   );
 }
 
+const PLAN_USAGE_LIMITS: Record<
+  PlanName,
+  {
+    db_reads: number | null;
+    nosql_reads: number | null;
+    storage_bytes: number | null;
+    function_calls: number | null;
+  }
+> = {
+  free: {
+    db_reads: 50_000,
+    nosql_reads: 50_000,
+    storage_bytes: 1 * 1024 ** 3,
+    function_calls: 100_000,
+  },
+  starter: {
+    db_reads: 500_000,
+    nosql_reads: 500_000,
+    storage_bytes: 10 * 1024 ** 3,
+    function_calls: 1_000_000,
+  },
+  pro: {
+    db_reads: null,
+    nosql_reads: null,
+    storage_bytes: 100 * 1024 ** 3,
+    function_calls: null,
+  },
+};
+
+function getUsageProgress(limits:PlanLimits, usage?: UsageSummary): number | null {
+  if (!usage) return null;
+
+  const ratios = Object.entries(limits).flatMap(([metric, limit]) => {
+    const used = usage[metric as keyof UsageSummary];
+    if (limit == null || used == null) return [];
+    return [limit === 0 ? 0 : Math.min(1, used / limit)];
+  });
+
+  if (ratios.length === 0) return null;
+  return Math.round(Math.max(...ratios) * 100);
+}
+
 // ─── Subscription card ────────────────────────────────────────────────────────
 
-function SubscriptionCard({ userId, projectId }: { userId: string, projectId:string }) {
-  // TODO: pull real plan from org/project context
-  const plan: "free" | "starter" | "pro" = "free";
+function SubscriptionCard({
+  userId,
+  projectId,
+  billingOverview,
+  planLimits
+}: {
+  userId: string;
+  projectId: string;
+  billingOverview: BillingOverview;
+  planLimits: PlanLimits[];
+}) {
+  const { plan="free", subscription, usage } = billingOverview;
+  const limits = planLimits.find((p) => p.plan === plan)
 
-  const planInfo = {
-    free: {
-      label: "Free Plan",
-      desc: "50K rows · 1 GB storage",
-      cta: "Upgrade to Starter",
-      href: `/u/${userId}/projects/${projectId}/billing`,
-      progress: 12,
-    },
-    starter: {
-      label: "Starter Plan",
-      desc: "500K rows · 10 GB storage",
-      cta: "Upgrade to Pro",
-      href: `/u/${userId}/billing`,
-      progress: 45,
-    },
-    pro: {
-      label: "Pro Plan",
-      desc: "Unlimited rows · 100 GB",
-      cta: "Manage billing",
-      href: `/u/${userId}/billing`,
-      progress: 71,
-    },
-  };
+  const periodEnd = subscription?.current_period_end
+    ? new Date(subscription.current_period_end).toLocaleDateString()
+    : null;
 
-  const info = planInfo[plan];
+  const usageProgress = getUsageProgress(limits, usage);
+
+  // const planInfo = {
+  //   free: {
+  //     label: "Free Plan",
+  //     desc: subscription
+  //       ? "Free tier with basic limits"
+  //       : "50K rows · 1 GB storage",
+  //     cta: "Upgrade to Starter",
+  //     href: `/u/${userId}/projects/${projectId}/billing`,
+  //     progress: 12,
+  //   },
+  //   starter: {
+  //     label: "Starter Plan",
+  //     desc: subscription
+  //       ? `Active · renews ${periodEnd ?? "soon"}`
+  //       : "500K rows · 10 GB storage",
+  //     cta: "Upgrade to Pro",
+  //     href: `/u/${userId}/billing`,
+  //     progress: 45,
+  //   },
+  //   pro: {
+  //     label: "Pro Plan",
+  //     desc: subscription
+  //       ? `Active · renews ${periodEnd ?? "soon"}`
+  //       : "Unlimited rows · 100 GB",
+  //     cta: "Manage billing",
+  //     href: `/u/${userId}/billing`,
+  //     progress: 71,
+  //   },
+  // };
+
+  const info = PLAN_DISPLAY[plan];
+  const progress = usageProgress ;
+  const usageNote =
+    usageProgress !== null
+      ? `${usageProgress}% of current plan limits used`
+      : undefined;
 
   return (
     <div className="rounded-xl  bg-sidebar-accent/30 p-3">
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5">
-          <CreditCard className="h-3.5 w-3.5 text-sidebar-foreground/50" />
-          <span className="text-xs font-medium text-sidebar-foreground">
-            {info.label}
-          </span>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-1.5">
+            <CreditCard className="h-3.5 w-3.5 text-sidebar-foreground/50" />
+            <span className="text-xs font-medium text-sidebar-foreground">
+              {info.name}
+            </span>
+          </div>
+          {/* <span className="text-[10px] text-sidebar-foreground/50">
+              {loading
+                ? "Loading…"
+                : error
+                ? "Billing information unavailable"
+                : subscription?.status === "active"
+                ? "Active subscription"
+                : subscription?.status
+                ? subscription.status
+                : "Free tier"}
+            </span> */}
         </div>
         <PlanBadge plan={plan} />
       </div>
 
       <p className="text-[11px] text-sidebar-foreground/50 mb-2.5">
-        {info.desc}
+        {info.description}
       </p>
+      {usageNote ? (
+        <p className="text-[10px] text-sidebar-foreground/50 mb-2.5">
+          {usageNote}
+        </p>
+      ) : null}
 
       {/* Usage bar */}
       <div className="mb-2.5">
         <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] text-sidebar-foreground/50">Usage</span>
           <span className="text-[10px] font-medium text-sidebar-foreground/70">
-            {info.progress}%
+            {progress}%
           </span>
         </div>
         <div className="h-1 w-full rounded-full bg-sidebar-border">
           <div
             className={cn(
               "h-full rounded-full transition-all",
-              info.progress > 80
+              progress > 80
                 ? "bg-danger"
-                : info.progress > 60
+                : progress > 60
                   ? "bg-warning"
                   : "bg-brand",
             )}
-            style={{ width: `${info.progress}%` }}
+            style={{ width: `${progress}%` }}
           />
         </div>
       </div>
 
       <Link
-        href={info.href}
+        href={`/u/${userId}/projects/${projectId}/billing`}
         className="flex w-full items-center justify-center gap-1 rounded-lg bg-brand px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-brand-hover transition-colors"
-        aria-label={info.cta}
       >
         {info.cta}
         <ChevronRight className="h-3 w-3" />
@@ -289,11 +382,15 @@ function AppSidebar({
   projectId,
   currentProject,
   projects,
+  billingOverview,
+  planLimits
 }: {
   userId: string;
   projectId: string;
   currentProject: Project;
   projects: Project[];
+  billingOverview: BillingOverview;
+  planLimits: PlanLimits[];
 }) {
   const pathname = usePathname();
   const baseUrl = `/u/${userId}/projects/${projectId}`;
@@ -479,17 +576,24 @@ function AppSidebar({
       <SidebarFooter className="p-2.5 border-t border-sidebar-border gap-2">
         {/* Subscription card — hidden when icon-collapsed */}
         <div className="group-data-[collapsible=icon]:hidden">
-          <SubscriptionCard userId={userId} projectId={projectId} />
+          <SubscriptionCard
+            userId={userId}
+            projectId={projectId}
+            billingOverview={billingOverview}
+            planLimits={planLimits}
+          />
         </div>
 
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              
               isActive={isActive("settings")}
               tooltip="Settings"
             >
-              <Link href={`${baseUrl}/settings`} className="flex items-center gap-2.5 w-full">
+              <Link
+                href={`${baseUrl}/settings`}
+                className="flex items-center gap-2.5 w-full"
+              >
                 <Settings className="h-4 w-4" />
                 <span>Settings</span>
               </Link>
@@ -510,6 +614,8 @@ export interface SidebarProps {
   projectId: string;
   currentProject: Project;
   projects: Project[];
+  billingOverview: BillingOverview;
+  planLimits: PlanLimits[];
   /** @deprecated — shadcn SidebarProvider handles mobile state internally */
   mobileOpen?: boolean;
   /** @deprecated */
@@ -521,6 +627,8 @@ export function ProjectSidebar({
   projectId,
   currentProject,
   projects,
+  billingOverview,
+  planLimits
 }: SidebarProps) {
   return (
     <AppSidebar
@@ -528,6 +636,8 @@ export function ProjectSidebar({
       projectId={projectId}
       currentProject={currentProject}
       projects={projects}
+      billingOverview={billingOverview}
+      planLimits={planLimits}
     />
   );
 }

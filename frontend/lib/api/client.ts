@@ -77,7 +77,6 @@ export async function internalFetch<T>(
   }
 
   const url = `${FASTAPI_BASE_URL}/internal${path}`;
-  console.log(url)
   let res: Response;
   try {
     res = await fetch(url, {

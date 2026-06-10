@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db.postgres import get_db, engine, set_tenant_connection, set_tenant_session
-from app.tasks.usage_sync import record_usage
+from app.tasks.usage_sync import increment_usage
 
 router = APIRouter(tags=["Internal SQL Browse"])
 logger = logging.getLogger(__name__)
@@ -62,14 +62,12 @@ async def _execute_with_retry(db: AsyncSession, stmt: text, params: dict | None 
     """
     Execute a statement, retrying once if asyncpg invalidates its prepared
     statement cache after a schema change (ADD/DROP COLUMN, etc.).
-    asyncpg automatically clears the cache on this error, so the retry succeeds.
     """
     try:
         return await db.execute(stmt, params or {})
     except Exception as exc:
         if _is_cached_statement_error(exc):
             logger.info("Retrying after cached statement invalidation")
-            # Roll back the failed statement so the session is clean
             await db.rollback()
             return await db.execute(stmt, params or {})
         raise
@@ -83,7 +81,7 @@ async def list_tables(
 ) -> dict[str, Any]:
     _validate_identifier(db_schema, "schema")
     await set_tenant_session(db, db_schema)
-    result = await _execute_with_retry(db, text("""
+    result = await _execute_with_retry(db, text(r"""
             SELECT
                 t.table_name,
                 COALESCE(s.n_live_tup, 0)::bigint AS row_count
@@ -157,7 +155,7 @@ async def list_rows(
 
     rows = [dict(r._mapping) for r in rows_result]
     total = count_result.scalar() or 0
-    record_usage.delay(project_id, "db_reads", 1)
+    await increment_usage(project_id, "db_reads", 1)
     return {"data": {"rows": _serialize_rows(rows), "total": total, "limit": limit, "offset": offset}}
 
 
@@ -174,12 +172,9 @@ async def run_query(
 ) -> dict[str, Any]:
     """
     Execute a read-only SELECT query scoped to the project's schema.
-    Uses a raw asyncpg connection so SET LOCAL search_path persists
-    for the duration of the transaction.
     """
     query = body.query.strip()
 
-    # Strip leading SQL comments before the keyword check
     query_no_comments = re.sub(r"(--[^\n]*\n?|/\*.*?\*/)", "", query, flags=re.DOTALL).strip()
 
     if not query_no_comments.upper().startswith("SELECT"):
@@ -214,7 +209,7 @@ async def run_query(
             logger.warning("Query error for project %s: %s", project_id, exc)
             raise HTTPException(status_code=400, detail=str(exc))
 
-    record_usage.delay(project_id, "db_reads", 1)
+    await increment_usage(project_id, "db_reads", 1)
     return {"data": {"rows": _serialize_rows(rows), "total": len(rows)}}
 
 
@@ -257,7 +252,7 @@ async def insert_row(
     )
     row = result.mappings().first()
     await db.commit()
-    record_usage.delay(project_id, "db_writes", 1)
+    await increment_usage(project_id, "db_writes", 1)
     return {"data": _serialize_rows([dict(row)])[0] if row else {}}
 
 
@@ -291,8 +286,7 @@ async def update_row(
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
     await db.commit()
-    record_usage.delay(project_id, "db_writes", 1)
-    record_usage.delay(project_id, "db_writes", 1)
+    await increment_usage(project_id, "db_writes", 1)
     return {"data": _serialize_rows([dict(row)])[0]}
 
 
@@ -317,7 +311,7 @@ async def delete_row(
     if not result.first():
         raise HTTPException(status_code=404, detail="Row not found")
     await db.commit()
-    record_usage.delay(project_id, "db_writes", 1)
+    await increment_usage(project_id, "db_writes", 1)
     return {"data": {"deleted": True, "id": row_id}}
 
 
@@ -340,7 +334,7 @@ async def truncate_table(
 
     await db.execute(text(f'TRUNCATE TABLE "{db_schema}"."{table}" RESTART IDENTITY'))
     await db.commit()
-    record_usage.delay(project_id, "db_writes", 1)
+    await increment_usage(project_id, "db_writes", 1)
     logger.info("Truncated table: %s.%s (project: %s)", db_schema, table, project_id)
     return {"data": {"table": table, "truncated": True}}
 
@@ -378,9 +372,9 @@ async def drop_column_endpoint(
     logger.info("Dropped column %s from %s.%s (project: %s)", column, db_schema, table, project_id)
     return {"data": {"column": column, "dropped": True}}
 
- 
+
 # ─── Foreign keys ─────────────────────────────────────────────────────────────
- 
+
 @router.get("/projects/{project_id}/sql/relationships", dependencies=[InternalGuard])
 async def list_relationships(
     project_id: str,
@@ -393,4 +387,3 @@ async def list_relationships(
     from app.provisioner.sql_provisioner import get_foreign_keys
     fks = await get_foreign_keys(db, db_schema)
     return {"data": {"relationships": fks}}
- 

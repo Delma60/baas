@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getProjectById, getProjectsByUser } from "@/lib/api/client";
 import { LayoutShell } from "@/components/layout/LayoutShell";
+import { Project, ProjectUsage } from "@/types/baas";
+import { BillingOverview, getBillingOverview, getPlanLimits, getProjectUsageWithLimits } from "@/lib/api/billing-client";
 
 export const metadata: Metadata = {
   title: {
@@ -23,23 +25,43 @@ export default async function ProjectLayout({
   if (!session?.user) redirect("/login");
 
   const { projectId } = await params;
-  let project;
-  let projects;
 
-  // TODO: fetch real project name from DB/API
-  try {
-    project = await getProjectById(projectId);
-    projects = await getProjectsByUser(session?.user?.id || "");
-  } catch (error) {
-    console.log(error);
-    redirect(`/u/${session.user.id}/projects`); // Redirect to projects list if project not found
-  }
+  const [projectData, projectsData = [], billingOverview, planLimits] =
+    await Promise.all([
+      getProjectById(projectId).catch((err) => {
+        console.error(
+          `[ProjectLayout] getProjectById failed for projectId ${projectId}:`,
+          err?.message ?? err,
+        );
+        redirect(`/u/${session.user.id}/projects`); // Redirect to projects list if project not found
+      }),
+      getProjectsByUser(session?.user?.id || "").catch((err) => {
+        console.error(
+          `[ProjectLayout] getProjectsByUser failed for userId ${session?.user?.id}:`,
+          err?.message ?? err,
+        );
+        // Don't redirect here since we can still show the layout without the projects list
+        return [];
+      }),
+      getBillingOverview(projectId).catch((err) => {
+        console.error(
+          `[ProjectLayout] getBillingOverview failed for projectId ${projectId}:`,
+          err?.message ?? err,
+        );
+        return;
+      }),
+          getPlanLimits().catch(() => []),
+      
+    ]);
 
   return (
     <LayoutShell
       user={session.user}
-      currentProject={project}
-      projects={projects}
+      currentProject={projectData}
+      projects={projectsData}
+      billingOverview={billingOverview as unknown as BillingOverview}
+      planLimits={planLimits}
+
     >
       {children}
     </LayoutShell>

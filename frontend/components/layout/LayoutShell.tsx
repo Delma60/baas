@@ -8,23 +8,28 @@ import { User } from "next-auth";
 import React from "react";
 import { Sidebar } from "./Sidebar";
 import { TopNav } from "./TopNav";
-import { Project } from "@/types/baas";
+import { Project, ProjectUsage } from "@/types/baas";
 import {
   SidebarProvider,
   SidebarInset,
 } from "@/components/ui/sidebar";
 import { getNotifications, getUnreadCount } from "@/lib/api/notifications-client";
+import { BillingOverview, PlanLimits } from "@/lib/api/billing-client";
 
 export const LayoutShell = async ({
   children,
   user,
   currentProject,
   projects,
+  billingOverview,
+  planLimits
 }: {
   children: React.ReactNode;
   user: User;
   currentProject?: Project;
   projects?: Project[];
+  billingOverview:BillingOverview
+  planLimits:PlanLimits[]
 }) => {
   // Pre-fetch notifications for the initial render so there's no badge flicker
   let initialNotifications: Awaited<ReturnType<typeof getNotifications>>["notifications"] = [];
@@ -57,6 +62,8 @@ export const LayoutShell = async ({
         projectId={currentProject?.id as string}
         currentProject={currentProject as Project}
         projects={projects as Project[]}
+        billingOverview={billingOverview as BillingOverview}
+        planLimits={planLimits}
       />
 
       <SidebarInset className="flex flex-col overflow-hidden min-w-0">

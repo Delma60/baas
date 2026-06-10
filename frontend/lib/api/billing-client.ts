@@ -106,17 +106,21 @@ export interface ProjectUsage {
 
 export interface BillingPlan {
   name: PlanName;
+  description:string;
   displayName: string;
   priceNgn: number;
   priceUsd: number;
   features: string[];
   storageGb: number;
   teamMembers: number;
+  cta:string;
 }
 
 export const PLAN_DISPLAY: Record<PlanName, BillingPlan> = {
   free: {
     name: "free",
+    description:  'Free tier with basic limits',
+    cta: "Upgrade to Starter",
     displayName: "Free",
     priceNgn: 0,
     priceUsd: 0,
@@ -126,6 +130,8 @@ export const PLAN_DISPLAY: Record<PlanName, BillingPlan> = {
   },
   starter: {
     name: "starter",
+    description: 'Starter plan with enhanced features',
+    cta: "Upgrade to Starter",
     displayName: "Starter",
     priceNgn: 15000,
     priceUsd: 10,
@@ -135,6 +141,8 @@ export const PLAN_DISPLAY: Record<PlanName, BillingPlan> = {
   },
   pro: {
     name: "pro",
+    description: 'Pro plan with the most advanced features',
+    cta:"Upgrade to Pro",
     displayName: "Pro",
     priceNgn: 45000,
     priceUsd: 30,

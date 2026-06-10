@@ -144,7 +144,6 @@ async def set_kv_internal(
     db = get_project_db(mongo_database)
     await kv_set(db, key, value, ttl=ttl)
     record_usage.delay(project_id, "nosql_writes", 1)
-    record_usage.delay(project_id, "nosql_writes", 1)
     return {"data": {"key": key, "value": value}}
 
 
