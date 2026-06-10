@@ -19,7 +19,8 @@ for the billing dashboard.
 import asyncio
 import logging
 from datetime import datetime, timezone
-
+import redis as sync_redis
+from app.config import settings
 from app.tasks.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,7 @@ TRACKED_METRICS = [
     "ai_requests",
 ]
 
+_redis_pool = sync_redis.ConnectionPool.from_url(settings.redis_url, decode_responses=True)
 
 def _run_async(coro):  # type: ignore[no-untyped-def]
     """Run an async coroutine from a sync Celery task."""
@@ -172,10 +174,7 @@ def record_usage(project_id: str, metric: str, value: int = 1) -> None:
     Fire-and-forget: increment a usage counter in Redis.
     Called from API routes as a background task — never blocks the request.
     """
-    import redis as sync_redis
-    from app.config import settings
-
-    r = sync_redis.from_url(settings.redis_url, decode_responses=True)
+    r = sync_redis.Redis(connection_pool=_redis_pool)
     try:
         r.incr(f"usage:{project_id}:{metric}", value)
     finally:

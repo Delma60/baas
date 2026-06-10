@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db.postgres import get_db
+from app.db.redis import get_redis
 
 router = APIRouter(tags=["Internal Billing"])
 logger = logging.getLogger(__name__)
@@ -100,6 +101,58 @@ async def _get_or_create_subscription(db: AsyncSession, org_id: str) -> dict:
         "currency": "NGN",
         "current_period_start": None,
         "current_period_end": None,
+    }
+
+
+TRACKED_METRICS = [
+    "db_reads",
+    "db_writes",
+    "nosql_reads",
+    "nosql_writes",
+    "storage_bytes",
+    "function_calls",
+    "ai_requests",
+]
+
+
+async def _get_live_org_usage(org_id: str) -> dict[str, int]:
+    redis = await get_redis()
+    from app.db.postgres import AsyncSessionLocal
+
+    project_ids = []
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            text("SELECT id FROM projects WHERE organization_id = :org_id"),
+            {"org_id": org_id},
+        )
+        project_ids = [row[0] for row in result.all()]
+
+    totals = {metric: 0 for metric in TRACKED_METRICS}
+    if not project_ids:
+        return totals
+
+    pipe = redis.pipeline()
+    for project_id in project_ids:
+        for metric in TRACKED_METRICS:
+            pipe.get(f"usage:{project_id}:{metric}")
+    values = await pipe.execute()
+
+    for idx, raw in enumerate(values):
+        if raw:
+            metric = TRACKED_METRICS[idx % len(TRACKED_METRICS)]
+            totals[metric] += int(raw)
+    return totals
+
+
+async def _get_live_project_usage(project_id: str) -> dict[str, int]:
+    redis = await get_redis()
+    pipe = redis.pipeline()
+    for metric in TRACKED_METRICS:
+        pipe.get(f"usage:{project_id}:{metric}")
+    values = await pipe.execute()
+    return {
+        metric: int(value) if value else 0
+        for metric, value in zip(TRACKED_METRICS, values)
     }
 
 
@@ -209,7 +262,15 @@ async def billing_overview(
         {"org_id": org_id},
     )
     usage_row = usage_result.mappings().first()
-    usage = {k: int(v) for k, v in dict(usage_row).items()} if usage_row else {}
+    usage = {metric: int(usage_row.get(metric) or 0) for metric in TRACKED_METRICS} if usage_row else {metric: 0 for metric in TRACKED_METRICS}
+
+    # Add live Redis counters for the current flush window so the dashboard reflects near-real-time usage.
+    try:
+        live_usage = await _get_live_org_usage(org_id)
+        for metric, value in live_usage.items():
+            usage[metric] = usage.get(metric, 0) + value
+    except Exception:
+        pass
 
     return {
         "data": {
@@ -240,7 +301,15 @@ async def project_usage(
         """),
         {"project_id": project_id},
     )
-    usage = {r["metric"]: int(r["total"]) for r in result.mappings()}
+    usage = {metric: 0 for metric in TRACKED_METRICS}
+    usage.update({r["metric"]: int(r["total"]) for r in result.mappings()})
+
+    try:
+        live_usage = await _get_live_project_usage(project_id)
+        for metric, value in live_usage.items():
+            usage[metric] = usage.get(metric, 0) + value
+    except Exception:
+        pass
 
     # Plan limits from DB (joined through org → plan_limits)
     try:

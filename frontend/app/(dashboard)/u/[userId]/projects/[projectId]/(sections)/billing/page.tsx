@@ -2,8 +2,9 @@
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getBillingOverview, getPlanLimits, PLAN_DISPLAY } from "@/lib/api/billing-client";
+import { getBillingOverview, getPlanLimits, getProjectUsageWithLimits, PLAN_DISPLAY } from "@/lib/api/billing-client";
 import { BillingPageClient } from "@/components/billing/BillingPageClient";
+import { getProjectUsage } from "@/lib/api/client";
 
 export const metadata: Metadata = { title: "Billing · YourBaaS" };
 
@@ -26,13 +27,16 @@ export default async function BillingPage({ params, searchParams }: Props) {
   const { tab = "overview", tx_ref, transaction_id, status } = await searchParams;
 
   // Fetch billing overview and plan limits in parallel; surface errors gracefully
-  const [overview, planLimits] = await Promise.all([
+  const [overview, planLimits, usageWithLimit, usage] = await Promise.all([
     getBillingOverview(projectId).catch((err) => {
       console.error("[BillingPage] getBillingOverview failed:", err?.message ?? err);
       return null;
     }),
     getPlanLimits().catch(() => []),
+    getProjectUsageWithLimits(projectId).catch(() => null),
+    getProjectUsage(projectId).catch(() => null),
   ]);
+  console.log({ overview, planLimits, usageWithLimit, usage });
 
   if (!overview) {
     return (
