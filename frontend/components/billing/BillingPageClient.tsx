@@ -104,9 +104,9 @@ function UsageBar({ label, icon: Icon, used, limit, unit }: {
 // ─── Checkout button ──────────────────────────────────────────────────────────
 
 function CheckoutButton({
-  orgId, plan, userEmail, userName, children, className,
+  projectId, plan, userEmail, userName, children, className,
 }: {
-  orgId: string; plan: "starter" | "pro";
+  projectId: string; plan: "starter" | "pro";
   userEmail: string; userName: string;
   children: React.ReactNode; className?: string;
 }) {
@@ -124,7 +124,7 @@ function CheckoutButton({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "initiate",
-          orgId,
+          projectId,
           plan,
           user_email: userEmail,
           user_name: userName,
@@ -153,10 +153,10 @@ function CheckoutButton({
 
 // ─── Overview tab ─────────────────────────────────────────────────────────────
 
-function OverviewTab({ overview, planDisplay, orgId, userEmail, userName, onTabChange }: {
+function OverviewTab({ overview, planDisplay, projectId, userEmail, userName, onTabChange }: {
   overview: BillingOverview;
   planDisplay: Record<PlanName, BillingPlan>;
-  orgId: string;
+  projectId: string;
   userEmail: string;
   userName: string;
   onTabChange: (t: string) => void;
@@ -201,7 +201,7 @@ function OverviewTab({ overview, planDisplay, orgId, userEmail, userName, onTabC
           </div>
           {plan !== "pro" && (
             <CheckoutButton
-              orgId={orgId} plan={plan === "free" ? "starter" : "pro"}
+              projectId={projectId} plan={plan === "free" ? "starter" : "pro"}
               userEmail={userEmail} userName={userName}
               className="h-9 rounded-lg bg-brand px-4 text-[13px] font-semibold text-white hover:bg-brand-hover transition-colors disabled:opacity-60"
             >
@@ -275,11 +275,11 @@ function OverviewTab({ overview, planDisplay, orgId, userEmail, userName, onTabC
 
 // ─── Plans tab ────────────────────────────────────────────────────────────────
 
-function PlansTab({ currentPlan, planDisplay, planLimits, orgId, userEmail, userName }: {
+function PlansTab({ currentPlan, planDisplay, planLimits, projectId, userEmail, userName }: {
   currentPlan: PlanName;
   planDisplay: Record<PlanName, BillingPlan>;
   planLimits: PlanLimits[];
-  orgId: string;
+  projectId: string;
   userEmail: string;
   userName: string;
 }) {
@@ -338,7 +338,7 @@ function PlansTab({ currentPlan, planDisplay, planLimits, orgId, userEmail, user
                 </div>
               ) : canUpgrade ? (
                 <CheckoutButton
-                  orgId={orgId}
+                  projectId={projectId}
                   plan={plan.name as "starter" | "pro"}
                   userEmail={userEmail}
                   userName={userName}
@@ -520,9 +520,9 @@ function UsageTab({ usage, plan }: { usage: UsageSummary; plan: PlanName }) {
 
 // ─── Return banner (after Flutterwave redirect) ───────────────────────────────
 
-function ReturnBanner({ txRef, txId, status, orgId, onDismiss }: {
+function ReturnBanner({ txRef, txId, status, projectId, onDismiss }: {
   txRef?: string; txId?: string; status?: string;
-  orgId: string; onDismiss: () => void;
+  projectId: string; onDismiss: () => void;
 }) {
   const [verifying, setVerifying] = React.useState(false);
   const [result, setResult] = React.useState<null | { success: boolean; message: string }>(null);
@@ -539,7 +539,7 @@ function ReturnBanner({ txRef, txId, status, orgId, onDismiss }: {
     fetch("/api/internal/billing", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "verify", orgId, tx_ref: txRef, transaction_id: txId }),
+      body: JSON.stringify({ action: "verify", projectId, tx_ref: txRef, transaction_id: txId }),
     })
       .then((r) => r.json())
       .then((json) => {
@@ -597,7 +597,7 @@ type TabId = (typeof TABS)[number]["id"];
 
 interface Props {
   userId: string;
-  orgId: string;
+  projectId: string;
   userEmail: string;
   userName: string;
   overview: BillingOverview;
@@ -611,7 +611,7 @@ interface Props {
 }
 
 export function BillingPageClient({
-  userId, orgId, userEmail, userName,
+  userId, projectId, userEmail, userName,
   overview, planLimits, planDisplay,
   initialTab, returnTxRef, returnTxId, returnStatus,
 }: Props) {
@@ -676,7 +676,7 @@ export function BillingPageClient({
               txRef={returnTxRef}
               txId={returnTxId}
               status={returnStatus}
-              orgId={orgId}
+              projectId={projectId}
               onDismiss={() => setShowReturnBanner(false)}
             />
           )}
@@ -685,7 +685,7 @@ export function BillingPageClient({
             <OverviewTab
               overview={overview}
               planDisplay={planDisplay}
-              orgId={orgId}
+              projectId={projectId}
               userEmail={userEmail}
               userName={userName}
               onTabChange={handleTabChange}
@@ -696,7 +696,7 @@ export function BillingPageClient({
               currentPlan={overview.plan}
               planDisplay={planDisplay}
               planLimits={planLimits}
-              orgId={orgId}
+              projectId={projectId}
               userEmail={userEmail}
               userName={userName}
             />

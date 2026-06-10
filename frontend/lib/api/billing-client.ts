@@ -146,8 +146,8 @@ export const PLAN_DISPLAY: Record<PlanName, BillingPlan> = {
 
 // ─── Fetchers ─────────────────────────────────────────────────────────────────
 
-export async function getBillingOverview(orgId: string): Promise<BillingOverview> {
-  return internalFetch<BillingOverview>(`/billing/${orgId}/overview`);
+export async function getBillingOverview(projectId: string): Promise<BillingOverview> {
+  return internalFetch<BillingOverview>(`/billing/${projectId}/overview`);
 }
 
 export async function getProjectUsageWithLimits(projectId: string): Promise<ProjectUsage> {
@@ -159,14 +159,14 @@ export async function getPlanLimits(): Promise<PlanLimits[]> {
 }
 
 export async function initiateCheckout(params: {
-  orgId: string;
+  projectId: string;
   plan: "starter" | "pro";
   userEmail: string;
   userName: string;
   currency: "NGN" | "USD";
   redirectUrl: string;
 }): Promise<{ checkout_url: string; tx_ref: string }> {
-  return internalFetch(`/billing/${params.orgId}/checkout/initiate`, {
+  return internalFetch(`/billing/${params.projectId}/checkout/initiate`, {
     method: "POST",
     body: JSON.stringify({
       plan: params.plan,
@@ -179,11 +179,11 @@ export async function initiateCheckout(params: {
 }
 
 export async function verifyCheckout(params: {
-  orgId: string;
+  projectId: string;
   txRef: string;
   transactionId: string;
 }): Promise<{ verified: boolean; plan: PlanName; invoice_id: string }> {
-  return internalFetch(`/billing/${params.orgId}/checkout/verify`, {
+  return internalFetch(`/billing/${params.projectId}/checkout/verify`, {
     method: "POST",
     body: JSON.stringify({
       tx_ref: params.txRef,
@@ -192,6 +192,6 @@ export async function verifyCheckout(params: {
   });
 }
 
-export async function cancelSubscription(orgId: string): Promise<{ cancel_at_period_end: boolean }> {
-  return internalFetch(`/billing/${orgId}/cancel`, { method: "POST" });
+export async function cancelSubscription(projectId: string): Promise<{ cancel_at_period_end: boolean }> {
+  return internalFetch(`/billing/${projectId}/cancel`, { method: "POST" });
 }
