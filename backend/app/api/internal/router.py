@@ -23,6 +23,7 @@ from app.config import settings
 from app.db.postgres import get_db
 from .notifications import router as notification_router
 from .billing import router as billing_router
+from .usage_browse import router as usage_browse_router
 
 
 from app.provisioner.sql_provisioner import (
@@ -56,6 +57,7 @@ router.include_router(settings_browser)
 router.include_router(notification_router)
 router.include_router(billing_router)
 router.include_router(billing_browser)
+router.include_router(usage_browse_router)
 # ─── Auth guard ───────────────────────────────────────────────────────────────
 
 async def require_internal(x_internal_secret: str = Header(...)) -> None:
@@ -764,85 +766,7 @@ async def revoke_api_key(
     return {"data": {"id": key_id, "revoked": True}}
 
 
-# ─── Usage ────────────────────────────────────────────────────────────────────
-
-@router.get("/usage/{project_id}", dependencies=[InternalGuard])
-async def get_project_usage(
-    project_id: str,
-    db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
-    """30-day rolling usage + derived stats for the project overview page."""
-    # ── Usage counters from usage_records ──────────────────────────────────
-    result = await db.execute(
-        text("""
-            SELECT metric, SUM(value) as total
-            FROM usage_records
-            WHERE project_id = :project_id
-              AND period_start >= NOW() - INTERVAL '30 days'
-            GROUP BY metric
-        """),
-        {"project_id": project_id},
-    )
-    rows = {r["metric"]: int(r["total"]) for r in result.mappings()}
- 
-    # ── Auth user count (from tenant schema) ───────────────────────────────
-    auth_users = 0
-    db_schema: str | None = None
-    try:
-        schema_result = await db.execute(
-            text("SELECT db_schema FROM projects WHERE id = :project_id"),
-            {"project_id": project_id},
-        )
-        schema_row = schema_result.mappings().first()
-        if schema_row:
-            db_schema = schema_row["db_schema"]
-            count_result = await db.execute(
-                text(f'SELECT COUNT(*) FROM "{db_schema}"."_auth_users"'),
-            )
-            auth_users = int(count_result.scalar() or 0)
-    except Exception as e:
-        logger.debug("Could not count auth users for %s: %s", project_id, e)
- 
-    # ── SQL row count (pg_stat fast estimate) ──────────────────────────────
-    sql_rows = 0
-    if db_schema:
-        try:
-            sql_result = await db.execute(
-                text("""
-                    SELECT COALESCE(SUM(n_live_tup), 0)::bigint AS total_rows
-                    FROM pg_stat_user_tables
-                    WHERE schemaname = :schema
-                """),
-                {"schema": db_schema},
-            )
-            sql_rows = int(sql_result.scalar() or 0)
-        except Exception as e:
-            logger.debug("Could not count SQL rows for %s: %s", project_id, e)
- 
-    storage_bytes = rows.get("storage_bytes", 0)
-    db_reads      = rows.get("db_reads", 0)
-    db_writes     = rows.get("db_writes", 0)
-    nosql_reads   = rows.get("nosql_reads", 0)
-    nosql_writes  = rows.get("nosql_writes", 0)
- 
-    return {
-        "data": {
-            # Raw counters matching usage_records metric names
-            "db_reads":       db_reads,
-            "db_writes":      db_writes,
-            "nosql_reads":    nosql_reads,
-            "nosql_writes":   nosql_writes,
-            "storage_bytes":  storage_bytes,
-            "function_calls": rows.get("function_calls", 0),
-            "ai_requests":    rows.get("ai_requests", 0),
-            # Derived aliases for the project overview page
-            "apiCalls":       db_reads + db_writes + nosql_reads + nosql_writes,
-            "authUsers":      auth_users,
-            "sqlRows":        sql_rows,
-            "storageUsedMb":  round(storage_bytes / (1024 * 1024), 2),
-        }
-    }
-    
+   
 # ─── Permissions ──────────────────────────────────────────────────────────────
 
 class UpsertPermissionRequest(BaseModel):

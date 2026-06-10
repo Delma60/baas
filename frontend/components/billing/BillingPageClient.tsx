@@ -153,9 +153,10 @@ function CheckoutButton({
 
 // ─── Overview tab ─────────────────────────────────────────────────────────────
 
-function OverviewTab({ overview, planDisplay, projectId, userEmail, userName, onTabChange }: {
+function OverviewTab({ overview, planDisplay, planLimits, projectId, userEmail, userName, onTabChange }: {
   overview: BillingOverview;
   planDisplay: Record<PlanName, BillingPlan>;
+  planLimits: PlanLimits[];                   // FIX 3: real limits from DB
   projectId: string;
   userEmail: string;
   userName: string;
@@ -166,13 +167,14 @@ function OverviewTab({ overview, planDisplay, projectId, userEmail, userName, on
   const usage = overview.usage;
   const pd = planDisplay[plan];
 
-  // Find plan limits for progress bars (rough inline calculation)
+  // FIX 3: resolve limits from the DB-sourced planLimits array, not hardcoded values
+  const currentLimits = planLimits.find((p) => p.plan === plan);
   const limits: Record<string, number | null> = {
-    db_reads:      plan === "free" ? 50000 : plan === "starter" ? 500000 : null,
-    nosql_reads:   plan === "free" ? 50000 : plan === "starter" ? 500000 : null,
-    storage_bytes: plan === "free" ? 1073741824 : plan === "starter" ? 10737418240 : 107374182400,
-    function_calls:plan === "free" ? 100000 : plan === "starter" ? 1000000 : null,
-    ai_requests:   plan === "free" ? 500 : plan === "starter" ? 5000 : null,
+    db_reads:       currentLimits?.sql_rows      ?? null,
+    nosql_reads:    currentLimits?.nosql_docs     ?? null,
+    storage_bytes:  currentLimits?.storage_bytes  ?? null,
+    function_calls: currentLimits?.function_calls ?? null,
+    ai_requests:    currentLimits?.ai_requests    ?? null,
   };
 
   return (
@@ -213,9 +215,9 @@ function OverviewTab({ overview, planDisplay, projectId, userEmail, userName, on
 
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: "Price/mo", value: plan === "free" ? "Free" : `₦${(pd.priceNgn / 1000).toFixed(0)}k` },
-            { label: "Storage", value: `${pd.storageGb} GB` },
-            { label: "Team members", value: String(pd.teamMembers) },
+            { label: "Price/mo", value: plan === "free" ? "Free" : `₦${((currentLimits?.price_ngn ?? pd.priceNgn) / 1000).toFixed(0)}k` },
+            { label: "Storage", value: formatBytes(currentLimits?.storage_bytes ?? pd.storageGb * 1024 * 1024 * 1024) },
+            { label: "Team members", value: String(currentLimits?.team_members ?? pd.teamMembers) },
             { label: "Status", value: sub.status === "active" ? "Active" : sub.status },
           ].map((s) => (
             <div key={s.label} className="rounded-xl bg-surface px-3 py-3">
@@ -254,7 +256,7 @@ function OverviewTab({ overview, planDisplay, projectId, userEmail, userName, on
         </div>
       )}
 
-      {/* Usage */}
+      {/* Usage — limits from DB */}
       <div className="rounded-2xl border border-border bg-background p-5 sm:p-6">
         <div className="flex items-center justify-between mb-5">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Usage this period</p>
@@ -263,10 +265,10 @@ function OverviewTab({ overview, planDisplay, projectId, userEmail, userName, on
           </button>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <UsageBar label="SQL reads" icon={Database} used={usage.db_reads} limit={limits.db_reads} />
-          <UsageBar label="NoSQL reads" icon={Layers} used={usage.nosql_reads} limit={limits.nosql_reads} />
-          <UsageBar label="Storage" icon={HardDrive} used={usage.storage_bytes} limit={limits.storage_bytes} unit="bytes" />
-          <UsageBar label="Function calls" icon={Zap} used={usage.function_calls} limit={limits.function_calls} />
+          <UsageBar label="SQL reads"     icon={Database}   used={usage.db_reads}       limit={limits.db_reads} />
+          <UsageBar label="NoSQL reads"   icon={Layers}     used={usage.nosql_reads}    limit={limits.nosql_reads} />
+          <UsageBar label="Storage"       icon={HardDrive}  used={usage.storage_bytes}  limit={limits.storage_bytes} unit="bytes" />
+          <UsageBar label="Function calls" icon={Zap}       used={usage.function_calls} limit={limits.function_calls} />
         </div>
       </div>
     </div>
@@ -291,6 +293,9 @@ function PlansTab({ currentPlan, planDisplay, planLimits, projectId, userEmail, 
         {plans.map((plan) => {
           const isCurrent = plan.name === currentPlan;
           const canUpgrade = plan.name !== currentPlan && plan.priceNgn > (planDisplay[currentPlan]?.priceNgn ?? 0);
+          // FIX 3: use DB price when available
+          const dbLimits = planLimits.find((p) => p.plan === plan.name);
+          const displayPrice = dbLimits ? dbLimits.price_ngn : plan.priceNgn;
 
           return (
             <div key={plan.name} className={cn(
@@ -312,12 +317,12 @@ function PlansTab({ currentPlan, planDisplay, planLimits, projectId, userEmail, 
               <div className="mb-4">
                 <p className="text-base font-bold text-text-primary">{plan.displayName}</p>
                 <div className="mt-1 flex items-baseline gap-1">
-                  {plan.priceNgn === 0 ? (
+                  {displayPrice === 0 ? (
                     <span className="text-2xl font-black text-text-primary">Free</span>
                   ) : (
                     <>
-                      <span className="text-2xl font-black text-text-primary">₦{(plan.priceNgn / 1000).toFixed(0)}k</span>
-                      <span className="text-[12px] text-text-muted">/ mo · ${plan.priceUsd} USD</span>
+                      <span className="text-2xl font-black text-text-primary">₦{(displayPrice / 1000).toFixed(0)}k</span>
+                      <span className="text-[12px] text-text-muted">/ mo · ${dbLimits?.price_usd ?? plan.priceUsd} USD</span>
                     </>
                   )}
                 </div>
@@ -355,7 +360,7 @@ function PlansTab({ currentPlan, planDisplay, planLimits, projectId, userEmail, 
         })}
       </div>
 
-      {/* Limits comparison table */}
+      {/* Limits comparison table — driven from DB */}
       {planLimits.length > 0 && (
         <div className="rounded-2xl border border-border bg-background overflow-hidden">
           <div className="px-5 py-3 border-b border-border bg-surface">
@@ -375,18 +380,22 @@ function PlansTab({ currentPlan, planDisplay, planLimits, projectId, userEmail, 
               </thead>
               <tbody className="divide-y divide-border">
                 {[
-                  { label: "SQL rows", key: "sql_rows" as keyof PlanLimits, fmt: (v: any) => v === null ? "Unlimited" : fmtNum(v) },
-                  { label: "NoSQL docs", key: "nosql_docs" as keyof PlanLimits, fmt: (v: any) => v === null ? "Unlimited" : fmtNum(v) },
-                  { label: "Storage", key: "storage_bytes" as keyof PlanLimits, fmt: (v: any) => v === null ? "Unlimited" : formatBytes(v) },
-                  { label: "Function calls", key: "function_calls" as keyof PlanLimits, fmt: (v: any) => v === null ? "Unlimited" : fmtNum(v) },
-                  { label: "API calls/min", key: "api_calls_per_min" as keyof PlanLimits, fmt: (v: any) => String(v) },
-                  { label: "Team members", key: "team_members" as keyof PlanLimits, fmt: (v: any) => String(v) },
-                  { label: "Price/mo (NGN)", key: "price_ngn" as keyof PlanLimits, fmt: (v: any) => v === 0 ? "Free" : fmtNgn(v) },
+                  { label: "SQL rows",        key: "sql_rows"          as keyof PlanLimits, fmt: (v: any) => v === null ? "Unlimited" : fmtNum(v) },
+                  { label: "NoSQL docs",       key: "nosql_docs"        as keyof PlanLimits, fmt: (v: any) => v === null ? "Unlimited" : fmtNum(v) },
+                  { label: "Storage",          key: "storage_bytes"     as keyof PlanLimits, fmt: (v: any) => v === null ? "Unlimited" : formatBytes(v) },
+                  { label: "Function calls",   key: "function_calls"    as keyof PlanLimits, fmt: (v: any) => v === null ? "Unlimited" : fmtNum(v) },
+                  { label: "AI requests",      key: "ai_requests"       as keyof PlanLimits, fmt: (v: any) => v === null ? "Unlimited" : fmtNum(v) },
+                  { label: "API calls/min",    key: "api_calls_per_min" as keyof PlanLimits, fmt: (v: any) => String(v) },
+                  { label: "Team members",     key: "team_members"      as keyof PlanLimits, fmt: (v: any) => String(v) },
+                  { label: "Price/mo (NGN)",   key: "price_ngn"         as keyof PlanLimits, fmt: (v: any) => v === 0 ? "Free" : fmtNgn(v) },
                 ].map((row) => (
                   <tr key={row.label} className="hover:bg-surface/50">
                     <td className="px-5 py-3 text-[13px] text-text-secondary">{row.label}</td>
                     {planLimits.map((p) => (
-                      <td key={p.plan} className={cn("px-5 py-3 text-center text-[13px]", p.plan === currentPlan ? "text-brand font-semibold" : "text-text-primary")}>
+                      <td key={p.plan} className={cn(
+                        "px-5 py-3 text-center text-[13px]",
+                        p.plan === currentPlan ? "text-brand font-semibold" : "text-text-primary",
+                      )}>
                         {row.fmt(p[row.key])}
                       </td>
                     ))}
@@ -448,42 +457,39 @@ function InvoicesTab({ invoices }: { invoices: Invoice[] }) {
   );
 }
 
-// ─── Usage detail tab ─────────────────────────────────────────────────────────
+// ─── Usage detail tab — limits from DB, not hardcoded ────────────────────────
 
-function UsageTab({ usage, plan }: { usage: UsageSummary; plan: PlanName }) {
-  const limits: Record<string, { limit: number | null; unit?: "bytes" }> = {
-    db_reads:      { limit: plan === "free" ? 50000 : plan === "starter" ? 500000 : null },
-    db_writes:     { limit: plan === "free" ? 50000 : plan === "starter" ? 500000 : null },
-    nosql_reads:   { limit: plan === "free" ? 50000 : plan === "starter" ? 500000 : null },
-    nosql_writes:  { limit: plan === "free" ? 50000 : plan === "starter" ? 500000 : null },
-    storage_bytes: { limit: plan === "free" ? 1073741824 : plan === "starter" ? 10737418240 : 107374182400, unit: "bytes" },
-    function_calls:{ limit: plan === "free" ? 100000 : plan === "starter" ? 1000000 : null },
-    ai_requests:   { limit: plan === "free" ? 500 : plan === "starter" ? 5000 : null },
-  };
+function UsageTab({ usage, planLimits, plan }: {
+  usage: UsageSummary;
+  planLimits: PlanLimits[];  // FIX 3: DB-sourced limits
+  plan: PlanName;
+}) {
+  // FIX 3: resolve limits from DB data, not inline constants
+  const dbLimits = planLimits.find((p) => p.plan === plan);
 
   const rows = [
-    { key: "db_reads", label: "SQL reads", icon: Database },
-    { key: "db_writes", label: "SQL writes", icon: Database },
-    { key: "nosql_reads", label: "NoSQL reads", icon: Layers },
-    { key: "nosql_writes", label: "NoSQL writes", icon: Layers },
-    { key: "storage_bytes", label: "Storage", icon: HardDrive },
-    { key: "function_calls", label: "Function calls", icon: Zap },
-    { key: "ai_requests", label: "AI requests", icon: Sparkles },
+    { key: "db_reads",       label: "SQL reads",      icon: Database,  limit: dbLimits?.sql_rows      ?? null,         unit: undefined },
+    { key: "db_writes",      label: "SQL writes",     icon: Database,  limit: dbLimits?.sql_rows      ?? null,         unit: undefined },
+    { key: "nosql_reads",    label: "NoSQL reads",    icon: Layers,    limit: dbLimits?.nosql_docs    ?? null,         unit: undefined },
+    { key: "nosql_writes",   label: "NoSQL writes",   icon: Layers,    limit: dbLimits?.nosql_docs    ?? null,         unit: undefined },
+    { key: "storage_bytes",  label: "Storage",        icon: HardDrive, limit: dbLimits?.storage_bytes ?? null,         unit: "bytes" as const },
+    { key: "function_calls", label: "Function calls", icon: Zap,       limit: dbLimits?.function_calls ?? null,        unit: undefined },
+    { key: "ai_requests",    label: "AI requests",    icon: Sparkles,  limit: dbLimits?.ai_requests   ?? null,         unit: undefined },
   ];
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-text-muted">Rolling 30-day window</p>
+        <p className="text-[13px] text-text-muted">Rolling 30-day window · includes live counters</p>
         <div className="flex items-center gap-1.5 text-[12px] text-text-muted">
           <Clock className="h-3 w-3" />
-          Updated hourly
+          Near real-time
         </div>
       </div>
       <div className="rounded-2xl border border-border bg-background divide-y divide-border overflow-hidden">
         {rows.map((row) => {
           const used = (usage as any)[row.key] ?? 0;
-          const { limit, unit } = limits[row.key];
+          const { limit, unit } = row;
           const pct = limit ? Math.min(100, Math.round((used / limit) * 100)) : 0;
           const bar = pct >= 90 ? "bg-danger" : pct >= 70 ? "bg-warning" : "bg-brand";
           const displayUsed = unit === "bytes" ? formatBytes(used) : fmtNum(used);
@@ -545,7 +551,6 @@ function ReturnBanner({ txRef, txId, status, projectId, onDismiss }: {
       .then((json) => {
         if (json?.data?.verified) {
           setResult({ success: true, message: `Plan upgraded to ${json.data.plan}. Welcome to ${json.data.plan}!` });
-          // Refresh the page data
           router.refresh();
         } else {
           setResult({ success: false, message: json?.detail ?? "Verification failed. Contact support." });
@@ -587,10 +592,10 @@ function ReturnBanner({ txRef, txId, status, projectId, onDismiss }: {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: "overview", label: "Overview", icon: BarChart3 },
-  { id: "plans", label: "Plans", icon: Layers },
-  { id: "invoices", label: "Invoices", icon: Receipt },
-  { id: "usage", label: "Usage", icon: Database },
+  { id: "overview",  label: "Overview",  icon: BarChart3 },
+  { id: "plans",     label: "Plans",     icon: Layers },
+  { id: "invoices",  label: "Invoices",  icon: Receipt },
+  { id: "usage",     label: "Usage",     icon: Database },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -625,7 +630,6 @@ export function BillingPageClient({
     setActiveTab(tab as TabId);
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", tab);
-    // Remove return params
     params.delete("tx_ref"); params.delete("transaction_id"); params.delete("status"); params.delete("_verify");
     router.replace(`${pathname}?${params.toString()}`);
   };
@@ -685,6 +689,7 @@ export function BillingPageClient({
             <OverviewTab
               overview={overview}
               planDisplay={planDisplay}
+              planLimits={planLimits}      // FIX 3: pass DB limits down
               projectId={projectId}
               userEmail={userEmail}
               userName={userName}
@@ -702,7 +707,13 @@ export function BillingPageClient({
             />
           )}
           {activeTab === "invoices" && <InvoicesTab invoices={overview.invoices} />}
-          {activeTab === "usage" && <UsageTab usage={overview.usage} plan={overview.plan} />}
+          {activeTab === "usage"    && (
+            <UsageTab
+              usage={overview.usage}
+              planLimits={planLimits}      // FIX 3: pass DB limits down
+              plan={overview.plan}
+            />
+          )}
         </div>
       </div>
     </div>
