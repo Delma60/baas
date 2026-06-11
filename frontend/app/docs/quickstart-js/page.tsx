@@ -12,9 +12,10 @@ import {
   DocAlert,
   DocTable,
 } from "@/components/docs/DocPage";
+import { APP_NAME } from "@/lib/utils/constants";
 
 export const metadata: Metadata = {
-  title: "JavaScript / TypeScript Quickstart · Docs · YourBaaS",
+  title: `JavaScript / TypeScript Quickstart · Docs · ${APP_NAME}`,
 };
 
 interface Props {
@@ -46,7 +47,7 @@ export default async function QuickstartJsPage({ params }: Props) {
   return (
     <DocPage
       title="JavaScript / TypeScript Quickstart"
-      description="Get your first YourBaaS query running in under 5 minutes. Works in Node.js, browser, React, Next.js, and any JS runtime."
+      description={`Get your first ${APP_NAME} query running in under 5 minutes. Works in Node.js, browser, React, Next.js, and any JS runtime.`}
       badge="TypeScript"
       badgeColor="bg-blue-500/10 text-blue-600 dark:text-blue-400"
       toc={[

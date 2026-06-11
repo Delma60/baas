@@ -226,7 +226,7 @@ function fillTemplateBody(body: string): string {
     )
     .replace(/\{\{magic_url\}\}/g, "https://yourapp.com/magic?token=abc123")
     .replace(/\{\{new_email\}\}/g, "jane@new.com")
-    .replace(/\{\{app_name\}\}/g, "YourBaaS");
+    .replace(/\{\{app_name\}\}/g, APP_NAME);
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────

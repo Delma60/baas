@@ -15,13 +15,14 @@ import {
   Terminal,
   Code2,
 } from "lucide-react";
+import { APP_NAME } from "@/lib/utils/constants";
 
 interface Props {
   params: Promise<{ userId: string; projectId: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  return { title: "Documentation · YourBaaS" };
+  return { title: `Documentation · ${APP_NAME}` };
 }
 
 const MODULES = [
@@ -119,7 +120,7 @@ export default async function DocsIndexPage({ params }: Props) {
           </span>
         </div>
         <h1 className="text-3xl font-semibold text-text-primary mb-2">
-          YourBaaS Reference
+          {APP_NAME} Reference
         </h1>
         <p className="text-text-secondary text-[15px] max-w-xl leading-relaxed">
           Everything you need to integrate SQL, NoSQL, storage, auth, realtime,

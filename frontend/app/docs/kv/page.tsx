@@ -11,7 +11,7 @@ import {
 } from "@/components/docs/DocPage";
 
 export const metadata: Metadata = {
-  title: "Key-Value Store · Docs · YourBaaS",
+  title: `Key-Value Store · Docs · ${APP_NAME}`,
 };
 
 interface Props {

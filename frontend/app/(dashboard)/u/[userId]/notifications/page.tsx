@@ -5,8 +5,9 @@ import { redirect } from "next/navigation";
 import { Bell } from "lucide-react";
 import { getNotifications } from "@/lib/api/notifications-client";
 import { NotificationsPageClient } from "@/components/shared/NotificationsPageClient";
+import { APP_NAME } from "@/lib/utils/constants";
 
-export const metadata: Metadata = { title: "Notifications · YourBaaS" };
+export const metadata: Metadata = { title: `Notifications · ${APP_NAME}` };
 
 interface Props {
   params: Promise<{ userId: string }>;

@@ -1,6 +1,20 @@
 // frontend/app/(dashboard)/u/[userId]/page.tsx
 import Link from "next/link";
-import { Flame, Plus, ArrowRight, Database, Layers, HardDrive, ShieldCheck, Radio, Zap, Activity, TrendingUp, Users, Server } from "lucide-react";
+import {
+  Flame,
+  Plus,
+  ArrowRight,
+  Database,
+  Layers,
+  HardDrive,
+  ShieldCheck,
+  Radio,
+  Zap,
+  Activity,
+  TrendingUp,
+  Users,
+  Server,
+} from "lucide-react";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getProjectsByUser } from "@/lib/api/client";
@@ -8,6 +22,7 @@ import { AvatarComp } from "@/components/shared/AvatarComp";
 import { User } from "next-auth";
 import type { Project } from "@/types/baas";
 import { ProjectList } from "@/components/dashboard/ProjectList";
+import { APP_NAME } from "@/lib/utils/constants";
 
 interface PageProps {
   params: Promise<{ userId: string }>;
@@ -16,7 +31,8 @@ interface PageProps {
 const MODULES = [
   {
     title: "SQL Database",
-    description: "Relational tables, full-text search, and pgvector embeddings for AI workloads.",
+    description:
+      "Relational tables, full-text search, and pgvector embeddings for AI workloads.",
     icon: Database,
     href: "database",
     color: "text-blue-500",
@@ -24,7 +40,8 @@ const MODULES = [
   },
   {
     title: "NoSQL & Key-Value",
-    description: "Flexible documents with MongoDB, plus Redis-like KV operations for caching.",
+    description:
+      "Flexible documents with MongoDB, plus Redis-like KV operations for caching.",
     icon: Layers,
     href: "nosql",
     color: "text-orange-500",
@@ -32,7 +49,8 @@ const MODULES = [
   },
   {
     title: "Cloud Storage",
-    description: "Upload and serve files with presigned URLs for secure direct access.",
+    description:
+      "Upload and serve files with presigned URLs for secure direct access.",
     icon: HardDrive,
     href: "storage",
     color: "text-purple-500",
@@ -40,7 +58,8 @@ const MODULES = [
   },
   {
     title: "Authentication",
-    description: "Multi-tenant auth with RBAC and row-level security. Zero configuration.",
+    description:
+      "Multi-tenant auth with RBAC and row-level security. Zero configuration.",
     icon: ShieldCheck,
     href: "auth",
     color: "text-emerald-500",
@@ -48,7 +67,8 @@ const MODULES = [
   },
   {
     title: "Realtime Events",
-    description: "Listen to database changes via PostgreSQL LISTEN/NOTIFY. No polling.",
+    description:
+      "Listen to database changes via PostgreSQL LISTEN/NOTIFY. No polling.",
     icon: Radio,
     href: "realtime",
     color: "text-pink-500",
@@ -56,7 +76,8 @@ const MODULES = [
   },
   {
     title: "Edge Functions",
-    description: "Deploy serverless functions triggered by HTTP requests or schedules.",
+    description:
+      "Deploy serverless functions triggered by HTTP requests or schedules.",
     icon: Zap,
     href: "functions",
     color: "text-amber-500",
@@ -66,13 +87,19 @@ const MODULES = [
 
 function ProjectStatusBadge({ status }: { status: Project["status"] }) {
   const styles = {
-    active: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
-    paused: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800",
+    active:
+      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
+    paused:
+      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800",
     deleted: "bg-red-50 text-red-700 border-red-200",
   };
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${styles[status]}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${status === "active" ? "bg-emerald-500" : "bg-amber-500"}`} />
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${styles[status]}`}
+    >
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${status === "active" ? "bg-emerald-500" : "bg-amber-500"}`}
+      />
       {status}
     </span>
   );
@@ -85,9 +112,11 @@ function EmptyProjectsState({ userId }: { userId: string }) {
         <Server className="h-6 w-6 text-brand" />
       </div>
       <div>
-        <p className="text-[15px] font-semibold text-[#202124]">No projects yet</p>
+        <p className="text-[15px] font-semibold text-[#202124]">
+          No projects yet
+        </p>
         <p className="mt-1 text-[13px] text-[#5f6368]">
-          Create your first project to start building with YourBaaS
+          Create your first project to start building with {APP_NAME}
         </p>
       </div>
       <Link
@@ -101,7 +130,13 @@ function EmptyProjectsState({ userId }: { userId: string }) {
   );
 }
 
-function ProjectCard({ project, userId }: { project: Project; userId: string }) {
+function ProjectCard({
+  project,
+  userId,
+}: {
+  project: Project;
+  userId: string;
+}) {
   return (
     <Link href={`/u/${userId}/projects/${project.id}/overview`}>
       <div className="group flex items-center gap-4 rounded-xl border border-[#e8eaed] bg-white p-4 hover:shadow-[0_1px_6px_rgba(32,33,36,0.18)] hover:border-[#dadce0] transition-all cursor-pointer">
@@ -109,8 +144,12 @@ function ProjectCard({ project, userId }: { project: Project; userId: string }) 
           <Flame className="h-5 w-5 text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[14px] font-semibold text-[#202124] truncate">{project.name}</p>
-          <p className="text-[12px] text-[#5f6368] truncate mt-0.5">{project.id}</p>
+          <p className="text-[14px] font-semibold text-[#202124] truncate">
+            {project.name}
+          </p>
+          <p className="text-[12px] text-[#5f6368] truncate mt-0.5">
+            {project.id}
+          </p>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           <ProjectStatusBadge status={project.status} />
@@ -126,7 +165,8 @@ export default async function ProjectsDashboard({ params }: PageProps) {
   if (!session?.user?.id) redirect("/login");
 
   const userId = session.user.id;
-  const userName = session.user.name ?? session.user.email?.split("@")[0] ?? "there";
+  const userName =
+    session.user.name ?? session.user.email?.split("@")[0] ?? "there";
 
   let projects: Project[] = [];
   try {
@@ -145,7 +185,9 @@ export default async function ProjectsDashboard({ params }: PageProps) {
         <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-2">
             <Flame className="h-5 w-5 text-brand" />
-            <span className="text-[15px] font-semibold text-[#202124]">YourBaaS</span>
+            <span className="text-[15px] font-semibold text-[#202124]">
+              {APP_NAME}
+            </span>
           </div>
           <AvatarComp user={session.user as User} />
         </div>
@@ -179,7 +221,9 @@ export default async function ProjectsDashboard({ params }: PageProps) {
                       <Plus className="h-5 w-5 text-brand" />
                     </div>
                     <div>
-                      <p className="text-[13px] font-semibold text-[#202124]">New project</p>
+                      <p className="text-[13px] font-semibold text-[#202124]">
+                        New project
+                      </p>
                       <p className="mt-0.5 text-[12px] text-[#5f6368]">
                         Set up a full backend in seconds
                       </p>
@@ -192,7 +236,9 @@ export default async function ProjectsDashboard({ params }: PageProps) {
                       <Activity className="h-5 w-5 text-info-text" />
                     </div>
                     <div>
-                      <p className="text-[13px] font-semibold text-[#202124]">Documentation</p>
+                      <p className="text-[13px] font-semibold text-[#202124]">
+                        Documentation
+                      </p>
                       <p className="mt-0.5 text-[12px] text-[#5f6368]">
                         SDKs, guides, and API reference
                       </p>
@@ -215,11 +261,15 @@ export default async function ProjectsDashboard({ params }: PageProps) {
                       key={mod.title}
                       className="flex items-start gap-3 rounded-xl border border-[#e8eaed] bg-white p-4"
                     >
-                      <div className={`flex h-9 w-9 items-center justify-center rounded-lg flex-shrink-0 mt-0.5 ${mod.bg}`}>
+                      <div
+                        className={`flex h-9 w-9 items-center justify-center rounded-lg flex-shrink-0 mt-0.5 ${mod.bg}`}
+                      >
                         <Icon className={`h-4.5 w-4.5 ${mod.color}`} />
                       </div>
                       <div>
-                        <p className="text-[13px] font-semibold text-[#202124]">{mod.title}</p>
+                        <p className="text-[13px] font-semibold text-[#202124]">
+                          {mod.title}
+                        </p>
                         <p className="mt-0.5 text-[12px] text-[#5f6368] leading-relaxed">
                           {mod.description}
                         </p>
@@ -254,7 +304,11 @@ export default async function ProjectsDashboard({ params }: PageProps) {
               ) : (
                 <div className="space-y-2">
                   {projects.map((project) => (
-                    <ProjectCard key={project.id} project={project} userId={userId} />
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
+                      userId={userId}
+                    />
                   ))}
                 </div>
               )}

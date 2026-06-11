@@ -13,7 +13,7 @@ import {
   DocTable,
 } from "@/components/docs/DocPage";
 
-export const metadata: Metadata = { title: "NoSQL · Docs · YourBaaS" };
+export const metadata: Metadata = { title: `NoSQL · Docs · ${APP_NAME}` };
 
 interface Props {
   params: Promise<{ userId: string; projectId: string }>;

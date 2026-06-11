@@ -6,11 +6,12 @@ import { getProjectById, getProjectsByUser } from "@/lib/api/client";
 import { LayoutShell } from "@/components/layout/LayoutShell";
 import { Project, ProjectUsage } from "@/types/baas";
 import { BillingOverview, getBillingOverview, getPlanLimits, getProjectUsageWithLimits } from "@/lib/api/billing-client";
+import { APP_NAME } from "@/lib/utils/constants";
 
 export const metadata: Metadata = {
   title: {
-    template: "%s · YourBaaS",
-    default: "Dashboard · YourBaaS",
+    template: `%s · ${APP_NAME}`,
+    default: `Dashboard · ${APP_NAME}`,
   },
 };
 

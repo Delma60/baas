@@ -69,7 +69,7 @@ export async function triggerFlutterwavePayment(
       email: "", // Will be populated by the backend
     },
     customizations: {
-      title: "YourBaaS Invoice Payment",
+      title: `${APP_NAME} Invoice Payment`,
       description: "Pay your invoice now",
       logo: "https://yourbaas.com/logo.png",
     },

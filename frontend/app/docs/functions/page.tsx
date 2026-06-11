@@ -10,8 +10,9 @@ import {
   DocAlert,
   DocTable,
 } from "@/components/docs/DocPage";
+import { APP_NAME } from "@/lib/utils/constants";
 
-export const metadata: Metadata = { title: "Edge Functions · Docs · YourBaaS" };
+export const metadata: Metadata = { title: `Edge Functions · Docs · ${APP_NAME}` };
 
 interface Props {
   params: Promise<{ userId: string; projectId: string }>;
@@ -204,7 +205,7 @@ if (result.status === 200) {
           ]}
         />
         <DocAlert type="info">
-          Functions are invoked on your behalf by the YourBaaS server — the API key
+          Functions are invoked on your behalf by the {APP_NAME} server — the API key
           is never exposed to the function&apos;s endpoint. Use the service key for
           privileged operations inside function code.
         </DocAlert>

@@ -1,6 +1,7 @@
 // frontend/app/(auth)/layout.tsx
 import Link from "next/link";
 import { Database } from "lucide-react";
+import { APP_NAME } from "@/lib/utils/constants";
 
 export default function AuthLayout({
   children,
@@ -37,7 +38,7 @@ export default function AuthLayout({
           <Database className="h-4.5 w-4.5 text-white" />
         </div>
         <span className="text-xl font-bold tracking-tight text-text-primary">
-          YourBaaS
+          {APP_NAME}
         </span>
       </Link>
 
@@ -46,7 +47,7 @@ export default function AuthLayout({
 
       {/* Footer */}
       <p className="relative z-10 mt-10 text-xs text-text-muted">
-        © {new Date().getFullYear()} YourBaaS · Built in Lagos 🇳🇬
+        © {new Date().getFullYear()} {APP_NAME} · Built in Lagos 🇳🇬
       </p>
     </div>
   );

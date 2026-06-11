@@ -5,8 +5,9 @@ import { redirect } from "next/navigation";
 import { getBillingOverview, getPlanLimits, getProjectUsageWithLimits, PLAN_DISPLAY } from "@/lib/api/billing-client";
 import { BillingPageClient } from "@/components/billing/BillingPageClient";
 import { getProjectUsage } from "@/lib/api/client";
+import { APP_NAME } from "@/lib/utils/constants";
 
-export const metadata: Metadata = { title: "Billing · YourBaaS" };
+export const metadata: Metadata = { title: `Billing · ${APP_NAME}` };
 
 interface Props {
   params: Promise<{ userId: string; projectId: string }>;

@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { getProjectById, getProjectUsage } from "@/lib/api/client";
 import { ReadsWritesChart } from "@/components/dashboard/ReadsWritesChart";
 import { redirect } from "next/navigation";
+import { APP_NAME } from "@/lib/utils/constants";
 
 interface Props {
   params: Promise<{ userId: string; projectId: string }>;
@@ -251,7 +252,7 @@ export default async function ProjectOverviewPage({ params }: Props) {
           {/* Add to your app card */}
           <div className="rounded-xl border border-border bg-background overflow-hidden">
             <div className="border-b border-border bg-surface/50 px-5 py-4">
-              <h2 className="text-sm font-semibold text-text-primary">Add YourBaaS to your app</h2>
+              <h2 className="text-sm font-semibold text-text-primary">Add {APP_NAME} to your app</h2>
               <p className="mt-0.5 text-xs text-text-secondary">
                 Choose your platform to get started with the SDK.
               </p>

@@ -4,6 +4,7 @@
 import * as React from "react";
 import { Copy, Check, Pencil, X, Loader2, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { APP_NAME } from "@/lib/utils/constants";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -312,7 +313,7 @@ export function GeneralSettingsClient({ projectId, userId, settings, regionLabel
       <SectionCard title="Quick connect">
         <div className="py-4">
           <p className="text-[12px] text-text-muted mb-3">
-            Initialize the YourBaaS SDK with your project credentials
+            Initialize the {APP_NAME} SDK with your project credentials
           </p>
           <div className="rounded-lg bg-[var(--code-bg)] border border-border p-4 font-mono text-[12px] text-text-secondary leading-relaxed overflow-x-auto whitespace-pre">
             <span className="text-brand">import</span>

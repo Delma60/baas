@@ -55,6 +55,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { APP_NAME } from "@/lib/utils/constants";
 
 // ─── Nav items ────────────────────────────────────────────────────────────────
 
@@ -503,7 +504,7 @@ function AppSidebar({
         >
           <Flame className="h-4 w-4 text-brand shrink-0" aria-hidden="true" />
           <span className="text-xs font-semibold text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
-            YourBaaS
+            {APP_NAME}
           </span>
         </Link>
 

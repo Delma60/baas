@@ -54,7 +54,7 @@ export default function LoginPage() {
       <div className="border-b border-border px-7 py-6">
         <h1 className="text-xl font-bold text-text-primary">Welcome back</h1>
         <p className="mt-1 text-sm text-text-secondary">
-          Sign in to your YourBaaS dashboard
+          Sign in to your {APP_NAME} dashboard
         </p>
       </div>
 

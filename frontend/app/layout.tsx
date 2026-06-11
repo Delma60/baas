@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { APP_NAME } from "@/lib/utils/constants";
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -10,7 +11,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "YourBaaS",
+  title: APP_NAME,
   description: "Developer-first backend infrastructure",
 };
 

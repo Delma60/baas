@@ -11,8 +11,9 @@ import {
   DocAlert,
   DocTable,
 } from "@/components/docs/DocPage";
+import { APP_NAME } from "@/lib/utils/constants";
 
-export const metadata: Metadata = { title: "Authentication · Docs · YourBaaS" };
+export const metadata: Metadata = { title: `Authentication · Docs · ${APP_NAME}` };
 
 interface Props {
   params: Promise<{ userId: string; projectId: string }>;

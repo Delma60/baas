@@ -15,6 +15,7 @@ import {
   BarChart3,
   Lock,
 } from "lucide-react";
+import { APP_NAME } from "@/lib/utils/constants";
 
 const PLANS = [
   {
@@ -159,7 +160,7 @@ export default function MarketingPage() {
               <Database className="h-4 w-4 text-white" />
             </div>
             <span className="text-lg font-bold tracking-tight text-text-primary">
-              YourBaaS
+              {APP_NAME}
             </span>
           </div>
 
@@ -494,7 +495,7 @@ export default function MarketingPage() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand">
                 <Database className="h-3.5 w-3.5 text-white" />
               </div>
-              <span className="font-bold text-text-primary">YourBaaS</span>
+              <span className="font-bold text-text-primary">{APP_NAME}</span>
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-text-muted">
@@ -531,7 +532,7 @@ export default function MarketingPage() {
             </div>
 
             <p className="text-sm text-text-muted">
-              © {new Date().getFullYear()} YourBaaS. Built in Lagos 🇳🇬
+              © {new Date().getFullYear()} {APP_NAME}. Built in Lagos 🇳🇬
             </p>
           </div>
         </div>
