@@ -147,7 +147,7 @@ export class BaasClient {
   readonly functions: FunctionsModule;
 
   constructor(config: BaasClientConfig) {
-    const baseUrl = (config.baseUrl ?? "https://api.yourbaas.com").replace(/\/$/, "");
+    const baseUrl = (config.baseUrl ?? process.env.BAAS_BASE_URL).replace(/\/$/, "");
 
     this._projectId = config.projectId;
 

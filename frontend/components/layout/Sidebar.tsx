@@ -235,17 +235,139 @@ const PLAN_USAGE_LIMITS: Record<
   },
 };
 
-function getUsageProgress(limits:PlanLimits, usage?: UsageSummary): number | null {
-  if (!usage) return null;
+// ─── Utilities for usage progress ──────────────────────────────────────────────
 
-  const ratios = Object.entries(limits).flatMap(([metric, limit]) => {
-    const used = usage[metric as keyof UsageSummary];
-    if (limit == null || used == null) return [];
-    return [limit === 0 ? 0 : Math.min(1, used / limit)];
-  });
+interface UsageMetric {
+  name: string;
+  label: string;
+  icon: React.ReactNode;
+  used: number;
+  limit: number | null;
+  progress: number | null; // percentage, 0-100
+}
 
-  if (ratios.length === 0) return null;
-  return Math.round(Math.max(...ratios) * 100);
+/**
+ * Format large numbers compactly: 1000 → "1K", 1000000 → "1M", etc.
+ */
+function formatNumber(num: number): string {
+  if (num === 0) return "0";
+  if (num < 1000) return num.toString();
+  if (num < 1_000_000) return `${(num / 1000).toFixed(1)}K`;
+  if (num < 1_000_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
+  return `${(num / 1_000_000_000).toFixed(1)}B`;
+}
+
+/**
+ * Format bytes as human-readable storage size
+ */
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+}
+
+/**
+ * Calculate usage progress for a specific metric
+ */
+function calculateMetricProgress(
+  used: number,
+  limit: number | null,
+): number | null {
+  if (limit === null || limit === 0) return null;
+  return Math.min(100, Math.round((used / limit) * 100));
+}
+
+/**
+ * Build detailed usage metrics from usage summary and plan limits
+ */
+function getUsageMetrics(
+  usage: UsageSummary,
+  limits: PlanLimits | undefined,
+): UsageMetric[] {
+  if (!limits) return [];
+
+  return [
+    {
+      name: "sql",
+      label: "SQL Rows",
+      icon: <Database className="h-3 w-3" />,
+      used: usage.db_reads + usage.db_writes,
+      limit: limits.sql_rows,
+      progress: calculateMetricProgress(
+        usage.db_reads + usage.db_writes,
+        limits.sql_rows,
+      ),
+    },
+    {
+      name: "nosql",
+      label: "NoSQL Docs",
+      icon: <Layers className="h-3 w-3" />,
+      used: usage.nosql_reads + usage.nosql_writes,
+      limit: limits.nosql_docs,
+      progress: calculateMetricProgress(
+        usage.nosql_reads + usage.nosql_writes,
+        limits.nosql_docs,
+      ),
+    },
+    {
+      name: "storage",
+      label: "Storage",
+      icon: <HardDrive className="h-3 w-3" />,
+      used: usage.storage_bytes,
+      limit: limits.storage_bytes,
+      progress: calculateMetricProgress(
+        usage.storage_bytes,
+        limits.storage_bytes,
+      ),
+    },
+    {
+      name: "functions",
+      label: "Functions",
+      icon: <Zap className="h-3 w-3" />,
+      used: usage.function_calls,
+      limit: limits.function_calls,
+      progress: calculateMetricProgress(
+        usage.function_calls,
+        limits.function_calls,
+      ),
+    },
+  ];
+}
+
+/**
+ * Get the overall usage progress (highest metric progress)
+ */
+function getOverallProgress(metrics: UsageMetric[]): {
+  progress: number | null;
+  mostConstrainedMetric: UsageMetric | null;
+} {
+  const withProgress = metrics.filter((m) => m.progress !== null);
+
+  if (withProgress.length === 0) {
+    return { progress: null, mostConstrainedMetric: null };
+  }
+
+  const mostConstrained = withProgress.reduce((prev, current) =>
+    (current.progress ?? 0) > (prev.progress ?? 0) ? current : prev,
+  );
+
+  const maxProgress = Math.max(...withProgress.map((m) => m.progress ?? 0));
+
+  return {
+    progress: maxProgress,
+    mostConstrainedMetric: mostConstrained,
+  };
+}
+
+function getUsageProgress(
+  limits: PlanLimits | undefined,
+  usage?: UsageSummary,
+): number | null {
+  if (!usage || !limits) return null;
+  const metrics = getUsageMetrics(usage, limits);
+  return getOverallProgress(metrics).progress;
 }
 
 // ─── Subscription card ────────────────────────────────────────────────────────
@@ -254,116 +376,78 @@ function SubscriptionCard({
   userId,
   projectId,
   billingOverview,
-  planLimits
+  planLimits,
 }: {
   userId: string;
   projectId: string;
   billingOverview: BillingOverview;
   planLimits: PlanLimits[];
 }) {
-  const { plan="free", subscription, usage } = billingOverview;
-  const limits = planLimits.find((p) => p.plan === plan)
+  const { plan = "free", subscription, usage } = billingOverview;
+  const limits = planLimits.find((p) => p.plan === plan);
+
+  const metrics = getUsageMetrics(usage, limits);
+  const { progress } = getOverallProgress(metrics);
 
   const periodEnd = subscription?.current_period_end
     ? new Date(subscription.current_period_end).toLocaleDateString()
     : null;
 
-  const usageProgress = getUsageProgress(limits, usage);
-
-  // const planInfo = {
-  //   free: {
-  //     label: "Free Plan",
-  //     desc: subscription
-  //       ? "Free tier with basic limits"
-  //       : "50K rows · 1 GB storage",
-  //     cta: "Upgrade to Starter",
-  //     href: `/u/${userId}/projects/${projectId}/billing`,
-  //     progress: 12,
-  //   },
-  //   starter: {
-  //     label: "Starter Plan",
-  //     desc: subscription
-  //       ? `Active · renews ${periodEnd ?? "soon"}`
-  //       : "500K rows · 10 GB storage",
-  //     cta: "Upgrade to Pro",
-  //     href: `/u/${userId}/billing`,
-  //     progress: 45,
-  //   },
-  //   pro: {
-  //     label: "Pro Plan",
-  //     desc: subscription
-  //       ? `Active · renews ${periodEnd ?? "soon"}`
-  //       : "Unlimited rows · 100 GB",
-  //     cta: "Manage billing",
-  //     href: `/u/${userId}/billing`,
-  //     progress: 71,
-  //   },
-  // };
+  const usageNote =
+    progress !== null
+      ? `${progress}% of plan limits used`
+      : "Usage tracking available";
 
   const info = PLAN_DISPLAY[plan];
-  const progress = usageProgress ;
-  const usageNote =
-    usageProgress !== null
-      ? `${usageProgress}% of current plan limits used`
-      : undefined;
 
   return (
-    <div className="rounded-xl  bg-sidebar-accent/30 p-3">
-      <div className="flex items-center justify-between mb-2">
+    <div className="rounded-xl bg-sidebar-accent/30 p-3">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2.5">
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-1.5">
             <CreditCard className="h-3.5 w-3.5 text-sidebar-foreground/50" />
             <span className="text-xs font-medium text-sidebar-foreground">
-              {info.name}
+              {info.displayName} Plan
             </span>
           </div>
-          {/* <span className="text-[10px] text-sidebar-foreground/50">
-              {loading
-                ? "Loading…"
-                : error
-                ? "Billing information unavailable"
-                : subscription?.status === "active"
-                ? "Active subscription"
-                : subscription?.status
-                ? subscription.status
-                : "Free tier"}
-            </span> */}
         </div>
         <PlanBadge plan={plan} />
       </div>
 
+      {/* Description */}
       <p className="text-[11px] text-sidebar-foreground/50 mb-2.5">
         {info.description}
       </p>
-      {usageNote ? (
-        <p className="text-[10px] text-sidebar-foreground/50 mb-2.5">
-          {usageNote}
-        </p>
-      ) : null}
 
-      {/* Usage bar */}
-      <div className="mb-2.5">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] text-sidebar-foreground/50">Usage</span>
-          <span className="text-[10px] font-medium text-sidebar-foreground/70">
-            {progress}%
-          </span>
+      {/* Overall usage progress bar */}
+      {progress !== null && (
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] text-sidebar-foreground/50">
+              Usage
+            </span>
+            <span className="text-[10px] font-medium text-sidebar-foreground/70">
+              {progress}%
+            </span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-sidebar-border overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-300",
+                progress > 80
+                  ? "bg-danger"
+                  : progress > 60
+                    ? "bg-warning"
+                    : "bg-brand",
+              )}
+              style={{ width: `${progress}%` }}
+            />
+          </div>
         </div>
-        <div className="h-1 w-full rounded-full bg-sidebar-border">
-          <div
-            className={cn(
-              "h-full rounded-full transition-all",
-              progress > 80
-                ? "bg-danger"
-                : progress > 60
-                  ? "bg-warning"
-                  : "bg-brand",
-            )}
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
+      )}
 
+      {/* CTA Button */}
       <Link
         href={`/u/${userId}/projects/${projectId}/billing`}
         className="flex w-full items-center justify-center gap-1 rounded-lg bg-brand px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-brand-hover transition-colors"
@@ -383,7 +467,7 @@ function AppSidebar({
   currentProject,
   projects,
   billingOverview,
-  planLimits
+  planLimits,
 }: {
   userId: string;
   projectId: string;
@@ -628,7 +712,7 @@ export function ProjectSidebar({
   currentProject,
   projects,
   billingOverview,
-  planLimits
+  planLimits,
 }: SidebarProps) {
   return (
     <AppSidebar

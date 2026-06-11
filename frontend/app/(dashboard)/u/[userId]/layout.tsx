@@ -1,20 +1,25 @@
-import { redirect } from "next/navigation";
-import getServerSession from "next-auth";
-import { authConfig } from "@/lib/auth/config";
+// frontend/app/(dashboard)/u/[userId]/layout.tsx
 import { auth } from "@/lib/auth";
-import { stringify } from "querystring";
+import { redirect } from "next/navigation";
 
-export default async function UserRedirectPage({
+export default async function UserLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params: Promise<{ userId: string }>;
 }) {
   const session = await auth();
-  if (!session || !session.user) {
+  if (!session?.user?.id) {
     redirect("/login");
   }
-  return <>{children} </>;
+
+  const { userId } = await params;
+
+  // Prevent users accessing another user's dashboard
+  if (session.user.id !== userId) {
+    redirect(`/u/${session.user.id}`);
+  }
+
+  return <>{children}</>;
 }
-
-
-// first off i add organisation name to the sign up so i can easily fetch data, but it seems not working
