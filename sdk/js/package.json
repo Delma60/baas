@@ -1,8 +1,29 @@
 {
-  "name": "js",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "@spurs-baas/sdk",
+  "version": "1.0.4",
+  "description": "Spurs DB client SDK for interacting with the BaaS backend, including SQL, NoSQL, storage, auth, and realtime APIs.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "database",
+    "baas",
+    "sdk",
+    "nosql",
+    "realtime",
+    "storage",
+    "auth"
+  ],
+  "author": "Spur Developers",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Delma60/baas-sdk-spurs.git"
+  },
   "directories": {
     "test": "tests"
   },
@@ -11,10 +32,6 @@
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "test": "vitest run"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "socket.io-client": "^4.8.3"
   },

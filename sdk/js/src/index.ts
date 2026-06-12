@@ -2,6 +2,7 @@
 
 // ─── Main entry point ─────────────────────────────────────────────────────────
 export { BaasClient } from "./client";
+export type { WakeUpResult } from "./client";
 
 // ─── Modules (for advanced use / type extension) ──────────────────────────────
 export { AuthModule } from "./modules/auth";

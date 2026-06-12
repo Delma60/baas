@@ -53,7 +53,7 @@ export default async function RealtimePage({ params }: Props) {
       : Promise.resolve({ tree: {}, path: "/", count: 0 }),
   ]);
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   const dbUrl = `${appUrl}/realtime/${projectId}`;
 
   return (

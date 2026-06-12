@@ -23,7 +23,9 @@
     // ─── Interop ────────────────────────────────────────────────────────────
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "ignoreDeprecations": "6.0",
+    "types": ["node"]
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist", "tests"]
