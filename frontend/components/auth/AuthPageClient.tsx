@@ -74,6 +74,7 @@ import type {
   EmailTemplates,
   SmtpConfig,
 } from "@/lib/api/auth-settings-client";
+import { APP_NAME } from "@/lib/utils/constants";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

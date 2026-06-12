@@ -9,6 +9,7 @@ import {
   DocAlert,
   DocTable,
 } from "@/components/docs/DocPage";
+import { APP_NAME } from "@/lib/utils/constants";
 
 export const metadata: Metadata = {
   title: `Key-Value Store · Docs · ${APP_NAME}`,

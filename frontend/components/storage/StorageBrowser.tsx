@@ -67,6 +67,7 @@ type ViewMode = "grid" | "list";
 type UploadStatus = "idle" | "uploading" | "done" | "error";
 
 interface UploadItem {
+  id: string;
   file: File;
   status: UploadStatus;
   progress: number;
@@ -217,12 +218,13 @@ function UploadZone({
   const processFiles = (fileList: FileList | null) => {
     if (!fileList) return;
     const newItems: UploadItem[] = Array.from(fileList).map((file) => ({
+      id: crypto.randomUUID(),
       file,
       status: "idle",
       progress: 0,
     }));
     setUploads((prev) => [...prev, ...newItems]);
-    newItems.forEach((_, i) => uploadFile(uploads.length + i, fileList[i]));
+    newItems.forEach((item) => uploadFile(item));
   };
 
   const uploadFile = React.useCallback(
@@ -254,12 +256,7 @@ function UploadZone({
               : u,
           ),
         );
-        onUploaded({
-          key,
-          size: item.file.size,
-          last_modified: new Date().toISOString(),
-          etag: "",
-        });
+        onUploaded(key);
       } catch (err) {
         setUploads((prev) =>
           prev.map((u) =>
@@ -387,8 +384,8 @@ function UploadZone({
       {/* Upload progress list */}
       {uploads.length > 0 && (
         <div className="border-t border-border divide-y divide-border">
-          {uploads.map((item, i) => (
-            <div key={i} className="flex items-center gap-3 px-4 py-3">
+          {uploads.map((item) => (
+            <div key={item.id} className="flex items-center gap-3 px-4 py-3">
               <FileIcon fileKey={item.file.name} size="sm" />
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-medium text-text-primary truncate">

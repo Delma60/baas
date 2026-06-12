@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowRight, AlertCircle, GitBranch, Globe } from "lucide-react";
+import { APP_NAME } from "@/lib/utils/constants";
 
 function SubmitButton() {
   const { pending } = useFormStatus();

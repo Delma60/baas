@@ -816,7 +816,7 @@ function UsageTab({
                 )}
               </div>
               {pct >= 80 && limit !== null && (
-                <AlertTriangle className="h-4 w-4 shrink-0 text-warning" title="Approaching limit" />
+                <AlertTriangle className="h-4 w-4 shrink-0 text-warning"  />
               )}
             </div>
           );

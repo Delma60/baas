@@ -1,5 +1,6 @@
 // frontend/lib/api/billing-checkout.ts
 import { internalFetch } from "@/lib/api/client";
+import { APP_NAME } from "../utils/constants";
 
 export interface CheckoutResponse {
   authorization_url: string;
